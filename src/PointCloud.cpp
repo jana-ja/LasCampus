@@ -58,6 +58,6 @@ uint32_t PointCloud::getVerticesCount(){
     return (uint32_t)vertices.size();
 }
 
-Vertex *PointCloud::getVertices(){
+Vertex* PointCloud::getVertices(){
     return vertices.data();
 }

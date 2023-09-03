@@ -4,20 +4,19 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include "Vertex.h"
 
 #ifndef MASTI_POINTCLOUD_H
 #define MASTI_POINTCLOUD_H
 
-struct Vertex{
-    float x, y, z;
-};
+
 
 class PointCloud {
 public:
     PointCloud(const std::string &path);
 
     uint32_t getVerticesCount();
-    Vertex *getVertices();
+    Vertex* getVertices();
 
 private:
     std::vector<Vertex> vertices;
