@@ -14,10 +14,13 @@
 
 class Window{
 public:
-    Window();
-    void setVertices(Vertex* vertices);
+    Window(Vertex* vertices, uint32_t vertexCount);
+//    void setVertices(Vertex* vertices);
 private:
     Vertex* vertices;
+
+    void processInput(GLFWwindow *window);
+    static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 };
 
 

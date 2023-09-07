@@ -6,8 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(Masti src/main.cpp
         src/PointCloud.cpp
         src/PointCloud.h
-        src/getDummyData.cpp
-        src/getDummyData.h
+        src/DummyData.cpp
+        src/DummyData.h
         src/Vertex.h
         src/Window.cpp
         src/Window.h

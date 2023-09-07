@@ -1,6 +1,6 @@
 #include <iostream>
 #include "PointCloud.h"
-#include "getDummyData.h"
+#include "DummyData.h"
 #include "loadShader.h"
 #include "Window.h"
 
@@ -17,10 +17,11 @@ int main() {
     //PointCloud(R"(..\las\3dm_32_389_5705_1_nw.las)");
 
     // for now get dummy data
-    Vertex* vertices = getDummyVertices();
+    auto lol = DummyData();
 
-    Window windi = Window();
-    windi.setVertices(vertices);
+
+    Window windi = Window(lol.getVertices(), lol.getVerticesCount());
+    //windi.setVertices(vertices);
 
 
     return 0;
