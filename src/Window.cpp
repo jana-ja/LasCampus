@@ -2,10 +2,13 @@
 // Created by Jana Jansen on 01.09.23.
 //
 
+#include <iostream>
 #include "Window.h"
 #include "loadShader.h"
 
 Window::Window(Vertex* vertices, uint32_t vertexCount) {
+
+    //std::cout << vertexCount << " " << *vertices << std::endl;
 
     Window::vertices = vertices;
 
@@ -49,14 +52,12 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) {
     GLuint programID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
                                    "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
 
+    // enable this -> set point size in vertex shader
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
 
     // DATIS
-    static const GLfloat g_vertex_buffer_data[] = {
-            -0.5f, -0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            0.0f, 0.5f, 0.0f,
-    };
+
 
     GLuint VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -67,7 +68,10 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) {
     glGenBuffers(1, &VBO);
     // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+    auto verticesByteSize = sizeof(std::vector<Vertex>) + (sizeof(Vertex) * vertexCount);
+    //std::cout << "byte size" << verticesByteSize << std::endl;
+    glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
+
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -103,7 +107,7 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) {
 
 //        // Draw the triangle !
 //        // GL_POINTS, GL_TRIANGLES
-        glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+        glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0; 3 vertices total -> 1 triangle
 
 
 
