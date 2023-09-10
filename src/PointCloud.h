@@ -43,8 +43,9 @@ private:
         uint32_t numPointsByReturn[5];
         double scaleX, scaleY, scaleZ;
         double offX, offY, offZ;
-        double minX, minY, minZ;
-        double maxX, maxY, maxZ;
+        double maxX, minX;
+        double maxY, minY;
+        double maxZ, minZ;
     };
 
     // Point Data Record Format 1
