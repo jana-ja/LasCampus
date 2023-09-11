@@ -2,10 +2,10 @@
 // Created by Jana Jansen on 01.09.23.
 //
 
-#include <iostream>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+
+#include <GL/glew.h>
+#include "Vertex.h"
+
 #include <stdexcept>
 #include "Window.h"
 #include "loadShader.h"
@@ -53,15 +53,7 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 //        // Use shader
 //        glUseProgram(shaderPID); // muss das in loop sein??
         // transforms: camera - view space
-        glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, -3.0f);
-        glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-
-        const float radius = 10.0f;
-        float camX = sin(glfwGetTime()) * radius;
-        float camZ = cos(glfwGetTime()) * radius;
-        glm::mat4 view;
-        view = glm::lookAt(glm::vec3(camX, 0.0, camZ), cameraTarget, up);
+        glm::mat4 view  = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp); // initial values are set in header
         // retrieve the matrix uniform locations
         unsigned int viewLoc = glGetUniformLocation(shaderPID, "view");
         unsigned int cameraLoc = glGetUniformLocation(shaderPID, "cameraPos");
@@ -97,6 +89,16 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 void Window::processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    const float cameraSpeed = 0.05f; // adjust accordingly
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
 
 //void Window::setVertices(Vertex* pVertices) {
