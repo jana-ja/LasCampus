@@ -55,9 +55,9 @@ void PointCloud::read(const string &path){
 
             // center pointcloud
             Vertex v = {
-                    (float)(point.x * header.scaleX + header.offX - midX),
                     (float)(point.y * header.scaleY + header.offY - midY),
-                    (float)(point.z * header.scaleZ + header.offZ - midZ)
+                    (float)(point.z * header.scaleZ + header.offZ - midZ),
+                    -(float)(point.x * header.scaleX + header.offX - midX)
                     };
 
             //cout << v.x << ", " << v.y << ", " << v.z << endl;
