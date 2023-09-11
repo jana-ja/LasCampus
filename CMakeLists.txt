@@ -25,6 +25,6 @@ target_link_libraries(Masti GLEW::GLEW)#${GLEW_LIBRARY})#GLEW::GLEW)#${GLEW_LIBR
 find_package(glfw3 3.3 REQUIRED)
 target_link_libraries(Masti glfw)
 
-
-
-# installier den shit, dann hier linken undso, da stand nochmal was zu opengl und extension loader library wtf
+find_package(GLM REQUIRED)
+include_directories(${GLM_INCLUDE_DIRS})
+target_link_libraries(Masti ${GLM_LIBRARY})
