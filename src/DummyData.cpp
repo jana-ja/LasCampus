@@ -9,13 +9,13 @@
 DummyData::DummyData() {
     for (int i = 0; i < 100; ++i) {
         Vertex v = {
-                (float)(rand()) / (float)(RAND_MAX),
-                (float)(rand()) / (float)(RAND_MAX),
-                1.0f
+                (float)(rand()) / (float)(RAND_MAX) * 2 - 1,
+                (float)(rand()) / (float)(RAND_MAX) * 2 - 1,
+                (float)(rand()) / (float)(RAND_MAX)
         };
         vertices.push_back(v);
 
-        std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
+        //std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
     }
 }
 
