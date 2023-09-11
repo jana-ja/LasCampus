@@ -17,9 +17,9 @@ public:
     Window(Vertex* vertices, uint32_t vertexCount);
 //    void setVertices(Vertex* vertices);
 private:
-    int width;
-    int height;
-    std::string title;
+    const int WIDTH;
+    const int HEIGHT;
+    const std::string TITLE;
 
     Vertex* vertices;
     uint32_t vertexCount;

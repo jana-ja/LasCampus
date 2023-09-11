@@ -11,7 +11,7 @@
 #include "loadShader.h"
 
 
-Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768), title("Campus"), vertices(vertices), vertexCount(vertexCount) {
+Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), vertices(vertices), vertexCount(vertexCount) {
 
     // glfw
     initGLFW();
@@ -19,7 +19,7 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768
 
     // glew
     initGlew();
-    GLuint programID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
+    GLuint shaderPID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
                                    "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
 
     // enable this -> set point size in vertex shader
@@ -45,7 +45,29 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Use shader
-        glUseProgram(programID);
+        glUseProgram(shaderPID);
+
+        // create transformations
+        glm::mat4 view          = glm::mat4(1.0f);// make sure to initialize matrix to identity matrix first
+        glm::mat4 projection    = glm::mat4(1.0f);
+        glm::vec3 camera_eye = glm::vec3(0.0f, 0.0f, -3.0f);
+        view  = glm::translate(view, camera_eye);
+        projection = glm::perspective(glm::radians(45.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+        // retrieve the matrix uniform locations
+        unsigned int viewLoc  = glGetUniformLocation(shaderPID, "view");
+        unsigned int projectionLoc  = glGetUniformLocation(shaderPID, "projection");
+        // pass them to the shaders (2 different ways)
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        // note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
+
+        unsigned int cameraLoc  = glGetUniformLocation(shaderPID, "cameraeye");
+        unsigned int pointsize  = glGetUniformLocation(shaderPID, "pointsize");
+        glUniform1f(pointsize, 10.0f);
+        glUniform3f(cameraLoc, camera_eye.x, camera_eye.y, camera_eye.z);
+
+
+
 
 
         // draw point cloud
@@ -65,7 +87,7 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768
     // ------------------------------------------------------------------------
 //    glDeleteVertexArrays(1, &VAO);
 //    glDeleteBuffers(1, &VBO);
-//    glDeleteProgram(programID);
+//    glDeleteProgram(shaderPID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -85,8 +107,8 @@ void Window::processInput(GLFWwindow *window) {
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void Window::framebuffer_size_callback(GLFWwindow *window, int width, int height) {
-    // make sure the viewport matches the new window dimensions; note that width and
-    // height will be significantly larger than specified on retina displays.
+    // make sure the viewport matches the new window dimensions; note that WIDTH and
+    // HEIGHT will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
 
@@ -107,7 +129,7 @@ void Window::initGLFW() {
 
 GLFWwindow* Window::createWindow() {
     // Open a window and create its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, TITLE.c_str(), NULL, NULL);
     if (window == NULL) {
         glfwTerminate();
         throw std::runtime_error("Failed to open GLFW window.");
