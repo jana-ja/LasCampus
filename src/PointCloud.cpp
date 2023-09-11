@@ -31,38 +31,43 @@ void PointCloud::read(const string &path){
         assert(header.headerSize == sizeof(header));
         assert(header.pointDataRecordFormat == 1);
 
-        std::cout << "num of points" << header.numberOfPoints << std::endl;
+        std::cout << "num of points: " << header.numberOfPoints << std::endl;
 
         inf.seekg(header.pointDataOffset); // skip to point data
-        auto maxV = std::max(header.maxX, header.maxY);
-        std::cout << "maxes: x " << header.maxX << " y " << header.maxY << " z " << header.maxZ << std::endl;
-        maxV = std::max(maxV, header.scaleZ);
-        std::cout << "maxV: " << maxV << std::endl;
+
+        // mittelpunkt von x, y, z - to center pointcloud
+        auto midX = (header.maxX + header.minX) / 2.0f;
+        auto midY = (header.maxY + header.minY) / 2.0f;
+        auto midZ = (header.maxZ + header.minZ) / 2.0f;
+
+        //auto maxV = 100.0;//max(header.maxX - midX, max(header.maxY - midY, header.maxZ - midZ));
+
         for(uint32_t i = 0; i < header.numberOfPoints; i++){
-
-
-
             PointDRF1 point;
             inf.read((char *)(&point), sizeof(PointDRF1));
 
             // convert to opengl friendly thing
             // Xcoordinate = (Xrecord * Xscale) + Xoffset
-            // größtes maxV suchen und alle dadurch teilen?
 
             // mein z = deren -x
             // mein x deren y
             // mein y deren z
 
+            // center pointcloud
             Vertex v = {
-                    (float)(point.x * header.scaleX + header.offX),// / (float)header.maxX,
-                    (float)(point.y * header.scaleY + header.offY),// / (float)header.maxX,
-                    (float)(point.z * header.scaleZ + header.offZ)// / (float)header.maxX
+                    (float)(point.x * header.scaleX + header.offX - midX),
+                    (float)(point.y * header.scaleY + header.offY - midY),
+                    (float)(point.z * header.scaleZ + header.offZ - midZ)
                     };
 
             //cout << v.x << ", " << v.y << ", " << v.z << endl;
             vertices.push_back(v);
         }
 
+
+
+
+        
         auto itX = minmax_element(
                 std::begin(vertices),
                 std::end(vertices),
