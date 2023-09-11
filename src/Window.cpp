@@ -3,10 +3,20 @@
 //
 
 #include <iostream>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include "Window.h"
 #include "loadShader.h"
 
+
 Window::Window(Vertex* vertices, uint32_t vertexCount) {
+
+    glm::vec4 vec(1.0f, 0.0f, 0.0f, 1.0f);
+    glm::mat4 trans = glm::mat4(1.0f);
+    trans = glm::translate(trans, glm::vec3(1.0f, 1.0f, 0.0f));
+    vec = trans * vec;
+    std::cout << vec.x << vec.y << vec.z << std::endl;
 
     //std::cout << vertexCount << " " << *vertices << std::endl;
 
@@ -68,7 +78,7 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) {
     glGenBuffers(1, &VBO);
     // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    auto verticesByteSize = sizeof(std::vector<Vertex>) + (sizeof(Vertex) * vertexCount);
+    auto verticesByteSize = /*sizeof(std::vector<Vertex>) +*/ (sizeof(Vertex) * vertexCount); // nur (sizeof(Vertex) * vertexCount) ??
     //std::cout << "byte size" << verticesByteSize << std::endl;
     glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
 
@@ -103,6 +113,15 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) {
         // Draw triangle...
         // Use our shader
         glUseProgram(programID);
+
+//        // update the uniform color
+//        float timeValue = glfwGetTime();
+//        float greenValue = sin(timeValue) / 2.0f + 0.5f;
+//        int vertexColorLocation = glGetUniformLocation(programID, "ourColor");
+//        glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+
+
         glBindVertexArray(VAO);
 
 //        // Draw the triangle !
