@@ -26,9 +26,10 @@ private:
     const float POINT_SIZE;
 
     // camera
-    glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.5f);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    float CAMERA_SPEED = 5.0f;
 
     // delta time for smooth movement, independent of render speed
     float deltaTime = 0.0f;	// Time between current frame and last frame
