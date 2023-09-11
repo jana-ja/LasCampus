@@ -22,14 +22,18 @@ private:
     std::string title;
 
     Vertex* vertices;
+    uint32_t vertexCount;
 
     void processInput(GLFWwindow *window);
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
-    // reference to pointer lol
-    GLFWwindow* createGLFWwindow();
+    void initGLFW();
+    GLFWwindow* createWindow();
 
     void initGlew();
+
+    // pass by ref
+    void dataStuff(GLuint& VBO, GLuint& VAO);
 };
 
 

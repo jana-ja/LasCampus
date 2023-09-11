@@ -7,6 +7,9 @@
 
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path){
 
+    // Create and compile our GLSL program from the shaders
+    // normalerweise macht vertex shader die berechnung von iwelchen koords die man halt so hat zu koords in -1,1 (opengls visible region)
+
     // Create the shaders
     GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
     GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);

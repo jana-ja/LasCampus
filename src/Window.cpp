@@ -11,19 +11,14 @@
 #include "loadShader.h"
 
 
-Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768), title("Campus") {
+Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768), title("Campus"), vertices(vertices), vertexCount(vertexCount) {
 
-    Window::vertices = vertices;
+    // glfw
+    initGLFW();
+    GLFWwindow *window = createWindow();
 
-    // init glfw and window
-    GLFWwindow *window = createGLFWwindow();
-
-    // init glew
+    // glew
     initGlew();
-
-    // SHADERS
-    // Create and compile our GLSL program from the shaders
-    // normalerweise macht vertex shader die berechnung von iwelchen koords die man halt so hat zu koords in -1,1 (opengls visible region)
     GLuint programID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
                                    "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
 
@@ -31,84 +26,46 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : width(1024), height(768
     glEnable(GL_PROGRAM_POINT_SIZE);
 
 
-    // DATIS
-
-
+    // data
     GLuint VBO, VAO;
-    glGenVertexArrays(1, &VAO);
-    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-    glBindVertexArray(VAO);
-
-    // Generate 1 buffer, put the resulting identifier in vbo
-    glGenBuffers(1, &VBO);
-    // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    auto verticesByteSize = /*sizeof(std::vector<Vertex>) +*/ (sizeof(Vertex) *
-                                                               vertexCount); // nur (sizeof(Vertex) * vertexCount) ??
-    //std::cout << "byte size" << verticesByteSize << std::endl;
-    glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
-
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
-    glEnableVertexAttribArray(0);
-
-    // OPTIONAL: unbind
-    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-    glBindVertexArray(0);
+    dataStuff(VBO, VAO);
 
 
     // Ensure we can capture the escape key being pressed below
-    //glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
 
-
-
+    // render loop
     do {
         // input
         processInput(window);
 
-        // Clear the screen. It's not mentioned before Tutorial 02, but it can cause flickering, so it's there nonetheless.
+        // Clear the screen.
         // glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-
-        // Draw triangle...
-        // Use our shader
+        // Use shader
         glUseProgram(programID);
 
-//        // update the uniform color
-//        float timeValue = glfwGetTime();
-//        float greenValue = sin(timeValue) / 2.0f + 0.5f;
-//        int vertexColorLocation = glGetUniformLocation(programID, "ourColor");
-//        glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
 
-
-
+        // draw point cloud
         glBindVertexArray(VAO);
-
-//        // Draw the triangle !
-//        // GL_POINTS, GL_TRIANGLES
-        glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0; 3 vertices total -> 1 triangle
+        glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0
 
 
-
-        // front buffer showa frame, all rendering commands go to back buffer, swap when ready -> no flickering
+        // front buffer shows frame, all rendering commands go to back buffer, swap when ready -> no flickering
         glfwSwapBuffers(window);
         // checks for events that where triggered -> calls functions that where registered via callbacks
         glfwPollEvents();
 
-    } // Check if the ESC key was pressed or the window was closed
+    } // check if window should close (close button or esc key)
     while (!glfwWindowShouldClose(window));
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteProgram(programID);
+//    glDeleteVertexArrays(1, &VAO);
+//    glDeleteBuffers(1, &VBO);
+//    glDeleteProgram(programID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -133,8 +90,7 @@ void Window::framebuffer_size_callback(GLFWwindow *window, int width, int height
     glViewport(0, 0, width, height);
 }
 
-GLFWwindow* Window::createGLFWwindow() {
-    // Initialise GLFW
+void Window::initGLFW() {
     //glewExperimental = true; // Needed for core profile
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");
@@ -147,8 +103,9 @@ GLFWwindow* Window::createGLFWwindow() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
 #endif
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
+}
 
-
+GLFWwindow* Window::createWindow() {
     // Open a window and create its OpenGL context
     GLFWwindow* window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
     if (window == NULL) {
@@ -158,15 +115,40 @@ GLFWwindow* Window::createGLFWwindow() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     return window;
-
 }
 
 void Window::initGlew() {
-    // Initialize GLEW
     //glewExperimental=true; // Needed in core profile
     if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Failed to initialize GLEW\n");
-        return;
+        throw std::runtime_error("Failed to initialize GLEW.");
     }
 }
+
+void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
+
+    glGenVertexArrays(1, &VAO);
+    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    glBindVertexArray(VAO);
+
+    // Generate 1 buffer, put the resulting identifier in vbo
+    glGenBuffers(1, &VBO);
+    // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    auto verticesByteSize = /*sizeof(std::vector<Vertex>) +*/ (sizeof(Vertex) *
+                                                               vertexCount); // nur (sizeof(Vertex) * vertexCount) ??
+    //std::cout << "byte size" << verticesByteSize << std::endl;
+    glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
+
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    // OPTIONAL: unbind
+    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    glBindVertexArray(0);
+}
+
 
