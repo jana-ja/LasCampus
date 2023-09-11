@@ -17,10 +17,17 @@ public:
     Window(Vertex* vertices, uint32_t vertexCount);
 //    void setVertices(Vertex* vertices);
 private:
+    int width;
+    int height;
+    std::string title;
+
     Vertex* vertices;
 
     void processInput(GLFWwindow *window);
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
+    // reference to pointer lol
+    void createGLFWwindow(GLFWwindow*& window);
 };
 
 
