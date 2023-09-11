@@ -9,5 +9,5 @@ uniform vec3 cameraPos;
 
 void main(){
     gl_Position = projection * view * vec4(worldPos, 1.0); //projection * view * model * vec4(worldPos, 1.0);
-    gl_PointSize = pointSize - (distance(cameraPos, worldPos.xyz) * 20 / pointSize);
+    gl_PointSize = pointSize - (distance(cameraPos, worldPos.xyz) / pointSize);
 }
