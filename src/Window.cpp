@@ -3,9 +3,7 @@
 //
 
 
-#include <GL/glew.h>
 #include "Vertex.h"
-
 #include <stdexcept>
 #include "Window.h"
 #include "loadShader.h"
