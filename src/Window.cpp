@@ -11,7 +11,8 @@
 #include "loadShader.h"
 
 
-Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), vertices(vertices), vertexCount(vertexCount) {
+Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f), vertices(vertices),
+                                                         vertexCount(vertexCount) {
 
     // glfw
     initGLFW();
@@ -22,8 +23,12 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
     GLuint shaderPID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
                                    "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
 
-    // enable this -> set point size in vertex shader
-    glEnable(GL_PROGRAM_POINT_SIZE);
+    staticShaderSettings(shaderPID);
+
+
+
+    glEnable(GL_PROGRAM_POINT_SIZE); // enable this -> set point size in vertex shader
+    glEnable(GL_DEPTH_TEST);
 
 
     // data
@@ -44,29 +49,25 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
         // glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Use shader
-        glUseProgram(shaderPID);
 
-        // create transformations
-        glm::mat4 view          = glm::mat4(1.0f);// make sure to initialize matrix to identity matrix first
-        glm::mat4 projection    = glm::mat4(1.0f);
-        glm::vec3 camera_eye = glm::vec3(0.0f, 0.0f, -3.0f);
-        view  = glm::translate(view, camera_eye);
-        projection = glm::perspective(glm::radians(45.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+//        // Use shader
+//        glUseProgram(shaderPID); // muss das in loop sein??
+        // transforms: camera - view space
+        glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, -3.0f);
+        glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+        const float radius = 10.0f;
+        float camX = sin(glfwGetTime()) * radius;
+        float camZ = cos(glfwGetTime()) * radius;
+        glm::mat4 view;
+        view = glm::lookAt(glm::vec3(camX, 0.0, camZ), cameraTarget, up);
         // retrieve the matrix uniform locations
-        unsigned int viewLoc  = glGetUniformLocation(shaderPID, "view");
-        unsigned int projectionLoc  = glGetUniformLocation(shaderPID, "projection");
-        // pass them to the shaders (2 different ways)
+        unsigned int viewLoc = glGetUniformLocation(shaderPID, "view");
+        unsigned int cameraLoc = glGetUniformLocation(shaderPID, "cameraPos");
+        // pass them to the shaders
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-        // note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
-
-        unsigned int cameraLoc  = glGetUniformLocation(shaderPID, "cameraeye");
-        unsigned int pointsize  = glGetUniformLocation(shaderPID, "pointsize");
-        glUniform1f(pointsize, 10.0f);
-        glUniform3f(cameraLoc, camera_eye.x, camera_eye.y, camera_eye.z);
-
-
+        glUniform3f(cameraLoc, cameraPos.x, cameraPos.y, cameraPos.z);
 
 
 
@@ -85,9 +86,9 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-//    glDeleteVertexArrays(1, &VAO);
-//    glDeleteBuffers(1, &VBO);
-//    glDeleteProgram(shaderPID);
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteProgram(shaderPID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -127,9 +128,9 @@ void Window::initGLFW() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
 }
 
-GLFWwindow* Window::createWindow() {
+GLFWwindow *Window::createWindow() {
     // Open a window and create its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, TITLE.c_str(), NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, TITLE.c_str(), NULL, NULL);
     if (window == NULL) {
         glfwTerminate();
         throw std::runtime_error("Failed to open GLFW window.");
@@ -146,7 +147,7 @@ void Window::initGlew() {
     }
 }
 
-void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
+void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
 
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -171,6 +172,17 @@ void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
     // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     glBindVertexArray(0);
+}
+
+void Window::staticShaderSettings(GLuint shaderPID) {
+    // Use shader
+    glUseProgram(shaderPID);
+    glm::mat4 projection = glm::mat4(1.0f);
+    projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 100.0f);
+    unsigned int projectionLoc = glGetUniformLocation(shaderPID, "projection");
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    unsigned int pointSize = glGetUniformLocation(shaderPID, "pointSize");
+    glUniform1f(pointSize, POINT_SIZE);
 }
 
 

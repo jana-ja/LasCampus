@@ -20,6 +20,8 @@ private:
     const int WIDTH;
     const int HEIGHT;
     const std::string TITLE;
+    const float POINT_SIZE;
+
 
     Vertex* vertices;
     uint32_t vertexCount;
@@ -34,6 +36,8 @@ private:
 
     // pass by ref
     void dataStuff(GLuint& VBO, GLuint& VAO);
+
+    void staticShaderSettings(GLuint shaderPID);
 };
 
 
