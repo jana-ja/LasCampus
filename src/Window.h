@@ -27,7 +27,9 @@ private:
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
     // reference to pointer lol
-    void createGLFWwindow(GLFWwindow*& window);
+    GLFWwindow* createGLFWwindow();
+
+    void initGlew();
 };
 
 
