@@ -65,32 +65,14 @@ void PointCloud::read(const string &path){
         }
 
 
+        cout << "\t min\t max" << endl;
+
+        cout << "x:\t" << header.minX - midX << "\t" << header.maxX - midX  << endl;
+        cout << "y:\t" << header.minY - midY << "\t" << header.maxY - midY  << endl;
+        cout << "z:\t" << header.minZ - midZ << "\t" << header.maxZ - midZ  << endl;
 
 
-        
-        auto itX = minmax_element(
-                std::begin(vertices),
-                std::end(vertices),
-                [](const Vertex& a,const Vertex& b) { return a.x < b.x; });
-        auto minX = (*itX.first).x;
-        auto maxX = (*itX.second).x;
-        cout << "min x: " << minX << " min x header: " << header.minX << " max X: " << maxX << " max x header: " << header.maxX  << endl;
 
-        auto ity = minmax_element(
-                std::begin(vertices),
-                std::end(vertices),
-                [](const Vertex& a,const Vertex& b) { return a.y < b.y; });
-        auto miny = (*ity.first).y;
-        auto maxy = (*ity.second).y;
-        cout << "min y: " << miny << " min y header: " << header.minY << " max y: " << maxy << " max y header: " << header.maxY << endl;
-
-        auto itz = minmax_element(
-                std::begin(vertices),
-                std::end(vertices),
-                [](const Vertex& a,const Vertex& b) { return a.z < b.z; });
-        auto minz = (*itz.first).z;
-        auto maxz = (*itz.second).z;
-        cout << "min z: " << minz << " min z header: " << header.minZ << " max z: " << maxz << " max z header: " << header.maxZ << endl;
 
         if(!inf.good())
             throw runtime_error("Reading LAS ran into error");
