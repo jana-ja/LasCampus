@@ -6,8 +6,8 @@
 #include <vector>
 #include "Vertex.h"
 
-#ifndef MASTI_POINTCLOUD_H
-#define MASTI_POINTCLOUD_H
+#ifndef LASCAMPUS_POINTCLOUD_H
+#define LASCAMPUS_POINTCLOUD_H
 
 
 
@@ -66,4 +66,4 @@ private:
 };
 
 
-#endif //MASTI_POINTCLOUD_H
+#endif //LASCAMPUS_POINTCLOUD_H

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-#ifndef MASTI_LOADSHADER_H
-#define MASTI_LOADSHADER_H
+#ifndef LASCAMPUS_LOADSHADER_H
+#define LASCAMPUS_LOADSHADER_H
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path);
-#endif //MASTI_LOADSHADER_H
+#endif //LASCAMPUS_LOADSHADER_H

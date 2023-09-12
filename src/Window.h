@@ -11,8 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#ifndef MASTI_WINDOW_H
-#define MASTI_WINDOW_H
+#ifndef LASCAMPUS_WINDOW_H
+#define LASCAMPUS_WINDOW_H
 
 
 class Window {
@@ -55,4 +55,4 @@ private:
 };
 
 
-#endif //MASTI_WINDOW_H
+#endif //LASCAMPUS_WINDOW_H
