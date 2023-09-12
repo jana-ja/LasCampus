@@ -24,7 +24,6 @@ uint32_t DummyData::getVerticesCount(){
 }
 
 
-// TODO pass by reference ansehen
 Vertex* DummyData::getVertices(){
     return vertices.data();
 }
