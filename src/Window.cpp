@@ -75,6 +75,8 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
         glfwSwapBuffers(window);
         // checks for events that where triggered -> calls functions that where registered via callbacks
         glfwPollEvents();
+        // call this here instead of setting a callback function, because callback function needs to be static/global
+        this->mouse_callback(window);
 
     } // check if window should close (close button or esc key)
     while (!glfwWindowShouldClose(window));
@@ -122,6 +124,42 @@ void Window::framebuffer_size_callback(GLFWwindow *window, int width, int height
     glViewport(0, 0, width, height);
 }
 
+void Window::mouse_callback(GLFWwindow* window)
+{
+    GLdouble xPos, yPos;
+    glfwGetCursorPos(window, &xPos, &yPos);
+
+    if (firstMouse)
+    {
+        lastX = xPos;
+        lastY = yPos;
+        firstMouse = false;
+    }
+
+    float xoffset = xPos - lastX;
+    float yoffset = lastY - yPos;
+    lastX = xPos;
+    lastY = yPos;
+
+    float sensitivity = 0.1f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw   += xoffset;
+    pitch += yoffset;
+
+    if(pitch > 89.0f)
+        pitch = 89.0f;
+    if(pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 direction;
+    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    direction.y = sin(glm::radians(pitch));
+    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(direction);
+}
+
 void Window::initGLFW() {
     //glewExperimental = true; // Needed for core profile
     if (!glfwInit()) {
@@ -146,6 +184,11 @@ GLFWwindow *Window::createWindow() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    //glfwSetCursorPosCallback(window, static_mouse_callback(this));
+
+    // tell GLFW to capture our mouse
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
     return window;
 }
 
