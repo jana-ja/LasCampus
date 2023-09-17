@@ -11,9 +11,8 @@ add_executable(LasCampus src/main.cpp
         src/Vertex.h
         src/Window.cpp
         src/Window.h
-        src/loadShader.cpp
-        src/loadShader.h
         src/Camera.h
+        src/shader.h
 )
 
 find_package(OpenGL REQUIRED)

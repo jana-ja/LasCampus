@@ -6,30 +6,23 @@
 #include "Vertex.h"
 #include <stdexcept>
 #include "Window.h"
-#include "loadShader.h"
 
 
-Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f), vertices(vertices),
+Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f), vertices(vertices),
                                                          vertexCount(vertexCount) {
 
     // glfw
     initGLFW();
     GLFWwindow *window = createWindow();
 
+
     // glew
     initGlew();
-    GLuint shaderPID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
-                                   "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
-
-    staticShaderSettings(shaderPID);
 
 
-
-
-
-
-    glEnable(GL_PROGRAM_POINT_SIZE); // enable this -> set point size in vertex shader
-    glEnable(GL_DEPTH_TEST);
+    // shader
+    Shader shader("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs", "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
+    shaderSettings(shader);
 
 
     // data
@@ -56,16 +49,12 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-//        // Use shader
-//        glUseProgram(shaderPID); // muss das in loop sein??
+        // shader.use(); // muss aktuell nicht in loop sein, da ich keine anderen programme verwende
         // transforms: camera - view space
         glm::mat4 view  = camera.GetViewMatrix();
-        // retrieve the matrix uniform locations
-        unsigned int viewLoc = glGetUniformLocation(shaderPID, "view");
-        unsigned int cameraLoc = glGetUniformLocation(shaderPID, "cameraPos");
-        // pass them to the shaders
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-        glUniform3f(cameraLoc, camera.position.x, camera.position.y, camera.position.z);
+        shader.setMat4("view", view);
+        // update cameraPos in shader for dynamic point size
+        shader.setVec3("cameraPos", camera.position);
 
 
         // draw point cloud
@@ -87,7 +76,7 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
     // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteProgram(shaderPID);
+    glDeleteProgram(shader.ID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -141,11 +130,9 @@ void Window::mouse_callback(GLFWwindow* window)
 
 }
 
-//// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-//// ----------------------------------------------------------------------
-//void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+//void Window::scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
 //{
-//    camera.ProcessMouseScroll(static_cast<float>(yoffset));
+//    camera.ProcessMouseScroll(static_cast<float>(yOffset));
 //}
 
 void Window::initGLFW() {
@@ -173,7 +160,7 @@ GLFWwindow *Window::createWindow() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     //glfwSetCursorPosCallback(window, static_mouse_callback(this));
-//    glfwSetScrollCallback(window, scroll_callback);
+//    glfwSetScrollCallback(window, scrollCallback);
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -186,9 +173,20 @@ void Window::initGlew() {
     if (glewInit() != GLEW_OK) {
         throw std::runtime_error("Failed to initialize GLEW.");
     }
+
+    glEnable(GL_PROGRAM_POINT_SIZE); // enable this -> set point size in vertex shader
+    glEnable(GL_DEPTH_TEST); // 3D graphics
 }
 
-void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
+
+void Window::shaderSettings(Shader& shader) {
+    shader.use();
+    glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+    shader.setMat4("projection", projection);
+    shader.setFloat("pointSize", POINT_SIZE);
+}
+
+void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
 
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -214,16 +212,3 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     glBindVertexArray(0);
 }
-
-void Window::staticShaderSettings(GLuint shaderPID) {
-    // Use shader
-    glUseProgram(shaderPID);
-    glm::mat4 projection = glm::mat4(1.0f);
-    projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 100.0f);
-    unsigned int projectionLoc = glGetUniformLocation(shaderPID, "projection");
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    unsigned int pointSize = glGetUniformLocation(shaderPID, "pointSize");
-    glUniform1f(pointSize, POINT_SIZE);
-}
-
-

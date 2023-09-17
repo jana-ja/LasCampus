@@ -1,7 +1,6 @@
 #include <iostream>
 #include "PointCloud.h"
 #include "DummyData.h"
-#include "loadShader.h"
 #include "Window.h"
 
 
