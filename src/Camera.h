@@ -24,7 +24,7 @@ enum CameraMovement {
 // Default camera values
 const float YAW         = -90.0f; // yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
 const float PITCH       =  0.0f;
-const float SPEED       =  2.5f;
+const float SPEED       =  5.0f;
 const float SENSITIVITY =  0.1f;
 const float ZOOM        =  45.0f;
 
@@ -84,12 +84,15 @@ public:
     void ProcessKeyboard(CameraMovement direction, float deltaTime)
     {
         float velocity = movementSpeed * deltaTime;
+        glm::vec3 horizontalFront;
         switch(direction) {
             case FORWARD:
-                position += front * velocity;
+                horizontalFront = glm::vec3(front.x, 0, front.z);
+                position += horizontalFront * velocity;
                 break;
             case BACKWARD:
-                position -= front * velocity;
+                horizontalFront = glm::vec3(front.x, 0, front.z);
+                position -= horizontalFront * velocity;
                 break;
             case LEFT:
                 position -= right * velocity;
