@@ -25,6 +25,9 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
 
 
+
+
+
     glEnable(GL_PROGRAM_POINT_SIZE); // enable this -> set point size in vertex shader
     glEnable(GL_DEPTH_TEST);
 
@@ -56,14 +59,13 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 //        // Use shader
 //        glUseProgram(shaderPID); // muss das in loop sein??
         // transforms: camera - view space
-        glm::mat4 view  = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp); // initial values are set in header
+        glm::mat4 view  = camera.GetViewMatrix();
         // retrieve the matrix uniform locations
         unsigned int viewLoc = glGetUniformLocation(shaderPID, "view");
         unsigned int cameraLoc = glGetUniformLocation(shaderPID, "cameraPos");
         // pass them to the shaders
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-        glUniform3f(cameraLoc, cameraPos.x, cameraPos.y, cameraPos.z);
-
+        glUniform3f(cameraLoc, camera.position.x, camera.position.y, camera.position.z);
 
 
         // draw point cloud
@@ -95,26 +97,20 @@ void Window::processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    float cameraSpeed = static_cast<float>(CAMERA_SPEED * deltaTime);
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraFront;
+        camera.ProcessKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraFront;
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        camera.ProcessKeyboard(RIGHT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraUp;
+        camera.ProcessKeyboard(UP, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraUp;
+        camera.ProcessKeyboard(DOWN, deltaTime);
 }
 
-//void Window::setVertices(Vertex* pVertices) {
-//
-//    vertices = pVertices;
-//
-//}
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
@@ -141,24 +137,16 @@ void Window::mouse_callback(GLFWwindow* window)
     lastX = xPos;
     lastY = yPos;
 
-    float sensitivity = 0.1f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
+    camera.ProcessMouseMovement(xoffset, yoffset);
 
-    yaw   += xoffset;
-    pitch += yoffset;
-
-    if(pitch > 89.0f)
-        pitch = 89.0f;
-    if(pitch < -89.0f)
-        pitch = -89.0f;
-
-    glm::vec3 direction;
-    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(pitch));
-    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    cameraFront = glm::normalize(direction);
 }
+
+//// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+//// ----------------------------------------------------------------------
+//void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+//{
+//    camera.ProcessMouseScroll(static_cast<float>(yoffset));
+//}
 
 void Window::initGLFW() {
     //glewExperimental = true; // Needed for core profile
@@ -185,6 +173,7 @@ GLFWwindow *Window::createWindow() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     //glfwSetCursorPosCallback(window, static_mouse_callback(this));
+//    glfwSetScrollCallback(window, scroll_callback);
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
