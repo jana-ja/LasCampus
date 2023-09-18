@@ -21,17 +21,21 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
     initGlew();
 
 
+    // point cloud
     // shader
-    Shader shader("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
-                  "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
-    shaderSettings(shader);
-
-
-    // point cloud data
+    Shader pcShader("/Users/Shared/Masti/LasCampus/src/PointCloudVertexShader.vs",
+                    "/Users/Shared/Masti/LasCampus/src/PointCloudFragmentShader.fs");
+    shaderSettings(pcShader);
+    // data
     GLuint pcVBO, pcVAO;
     dataStuff(pcVBO, pcVAO);
 
-    // coord sys data
+    // coordinate system
+    // shader
+    Shader csShader("/Users/Shared/Masti/LasCampus/src/CoordSysVertexShader.vs",
+                    "/Users/Shared/Masti/LasCampus/src/CoordSysFragmentShader.fs");
+    shaderSettings(csShader);
+    // data
     GLuint csVBO, csVAO;
     dataStuff2(csVBO, csVAO);
 
@@ -55,27 +59,32 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        // shader.use(); // muss aktuell nicht in loop sein, da ich keine anderen programme verwende
+        pcShader.use();
         // transforms: camera - view space
         glm::mat4 view = camera.GetViewMatrix();
-        shader.setMat4("view", view);
-        // update cameraPos in shader for dynamic point size
-        shader.setVec3("cameraPos", camera.position);
+        pcShader.setMat4("view", view);
+        // update cameraPos in pcShader for dynamic point size
+        pcShader.setVec3("cameraPos", camera.position);
 
 
         // draw point cloud
         glBindVertexArray(pcVAO);
-        glm::mat4 model = glm::mat4(1.0f);
-        shader.setMat4("model", model);
         glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0
 
 
         if (showIndicators) {
+            csShader.use();
+            // transforms: camera - view space
+            glm::mat4 view = camera.GetViewMatrix();
+            csShader.setMat4("view", view);
+
+
             // draw coordinate sys lines
             glBindVertexArray(csVAO);
             auto pos = glm::vec3(camera.position + camera.front);
+            glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, pos);
-            shader.setMat4("model", model);
+            csShader.setMat4("model", model);
             glDrawArrays(GL_LINES, 0, 6);
         }
 
@@ -96,7 +105,8 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
     glDeleteBuffers(1, &pcVBO);
     glDeleteVertexArrays(1, &csVAO);
     glDeleteBuffers(1, &csVBO);
-    glDeleteProgram(shader.ID);
+    glDeleteProgram(csShader.ID);
+    glDeleteProgram(pcShader.ID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -225,8 +235,13 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
     glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
 
 
+    // position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
+    // color attribute // später richtige farben/texture
+//    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+//    glEnableVertexAttribArray(1);
+
 
     // OPTIONAL: unbind
     // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
@@ -249,18 +264,24 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
 
     float lineLength = 0.2f;
     float coordPoints[] = {
-            0.0f, 0.0f, 0.0f,  // center
-            lineLength, 0.0f, 0.0f,  // x
-            0.0f, 0.0f, 0.0f,  // center
-            0.0f, lineLength, 0.0f,  // y
-            0.0f, 0.0f, 0.0f,  // center
-            0.0f, 0.0f, lineLength,  // z
+            // positions                      // colors
+            0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // center
+            lineLength, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // x
+            0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, // center
+            0.0f, lineLength, 0.0f, 0.0f, 1.0f, 0.0f, // y
+            0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, // center
+            0.0f, 0.0f, lineLength, 0.0f, 0.0f, 1.0f // z
     };
     glBufferData(GL_ARRAY_BUFFER, sizeof(coordPoints), coordPoints, GL_STATIC_DRAW);
 
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+    glEnableVertexAttribArray(1);
+
 
     // OPTIONAL: unbind
     // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
