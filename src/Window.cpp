@@ -72,7 +72,7 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
         glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0
 
 
-        if (showIndicators) {
+        if (showInfo) {
             csShader.use();
             // transforms: camera - view space
             glm::mat4 view = camera.GetViewMatrix();
@@ -117,7 +117,7 @@ void Window::processInput(GLFWwindow *window) {
         glfwSetWindowShouldClose(window, true);
 
     if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
-        showIndicators = true;
+        showInfo = !showInfo;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);

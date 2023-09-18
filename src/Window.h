@@ -43,7 +43,7 @@ private:
     Vertex *vertices;
     uint32_t vertexCount;
 
-    bool showIndicators = false;
+    bool showInfo = false;
 
     void processInput(GLFWwindow *window);
 
