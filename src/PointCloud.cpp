@@ -54,11 +54,20 @@ void PointCloud::read(const string &path) {
             // mein x deren y
             // mein y deren z
 
+            // mein x und z tauschen?
+            // bei x und z minus tauschen
+
+            // also war es eigentlich:
+            // mein x deren x
+            // mein z derer -y
+            // mein y deren z
+
             // center pointcloud
             Vertex v = {
-                    (float) (point.y * header.scaleY + header.offY - midY),
+                    (float) (point.x * header.scaleX + header.offX - midX),
                     (float) (point.z * header.scaleZ + header.offZ - midZ),
-                    -(float) (point.x * header.scaleX + header.offX - midX)
+                    -(float) (point.y * header.scaleY + header.offY - midY)
+
             };
 
             //cout << v.x << ", " << v.y << ", " << v.z << endl;
