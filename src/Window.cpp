@@ -55,7 +55,7 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
         // shader.use(); // muss aktuell nicht in loop sein, da ich keine anderen programme verwende
         // transforms: camera - view space
-        glm::mat4 view  = camera.GetViewMatrix();
+        glm::mat4 view = camera.GetViewMatrix();
         shader.setMat4("view", view);
         // update cameraPos in shader for dynamic point size
         shader.setVec3("cameraPos", camera.position);
@@ -68,12 +68,14 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
         glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0
 
 
-        // draw coordinate sys lines
-        glBindVertexArray(csVAO);
-        auto pos = glm::vec3(camera.position + camera.front);
-        model = glm::translate(model, pos);
-        shader.setMat4("model", model);
-        glDrawArrays(GL_LINES, 0, 6);
+        if (showIndicators) {
+            // draw coordinate sys lines
+            glBindVertexArray(csVAO);
+            auto pos = glm::vec3(camera.position + camera.front);
+            model = glm::translate(model, pos);
+            shader.setMat4("model", model);
+            glDrawArrays(GL_LINES, 0, 6);
+        }
 
 
         // front buffer shows frame, all rendering commands go to back buffer, swap when ready -> no flickering
@@ -101,6 +103,9 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 void Window::processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    if(glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
+        showIndicators = true;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);
