@@ -28,7 +28,7 @@ private:
     const float POINT_SIZE;
 
     // camera
-    Camera camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));
+    Camera camera = Camera(glm::vec3(0.0f, 10.0f, 3.0f));
 
     // mouse input
     bool firstMouse = true;
@@ -60,6 +60,8 @@ private:
 
     // pass by ref
     void dataStuff(GLuint& VBO, GLuint& VAO);
+
+    void dataStuff2(GLuint& VBO, GLuint& VAO);
 
 };
 

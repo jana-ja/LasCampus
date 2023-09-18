@@ -25,9 +25,13 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
     shaderSettings(shader);
 
 
-    // data
-    GLuint VBO, VAO;
-    dataStuff(VBO, VAO);
+    // point cloud data
+    GLuint pcVBO, pcVAO;
+    dataStuff(pcVBO, pcVAO);
+
+    // coord sys data
+    GLuint csVBO, csVAO;
+    dataStuff2(csVBO, csVAO);
 
 
     // Ensure we can capture the escape key being pressed below
@@ -58,8 +62,18 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
 
         // draw point cloud
-        glBindVertexArray(VAO);
+        glBindVertexArray(pcVAO);
+        glm::mat4 model = glm::mat4(1.0f);
+        shader.setMat4("model", model);
         glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0
+
+
+        // draw coordinate sys lines
+        glBindVertexArray(csVAO);
+        auto pos = glm::vec3(camera.position + camera.front);
+        model = glm::translate(model, pos);
+        shader.setMat4("model", model);
+        glDrawArrays(GL_LINES, 0, 6);
 
 
         // front buffer shows frame, all rendering commands go to back buffer, swap when ready -> no flickering
@@ -74,8 +88,10 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &pcVAO);
+    glDeleteBuffers(1, &pcVBO);
+    glDeleteVertexArrays(1, &csVAO);
+    glDeleteBuffers(1, &csVBO);
     glDeleteProgram(shader.ID);
 
     // Terminate GLFW
@@ -176,6 +192,8 @@ void Window::initGlew() {
 
     glEnable(GL_PROGRAM_POINT_SIZE); // enable this -> set point size in vertex shader
     glEnable(GL_DEPTH_TEST); // 3D graphics
+    glEnable(GL_LINE_SMOOTH);
+    glLineWidth(5.0f);
 }
 
 
@@ -200,6 +218,40 @@ void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
                                                                vertexCount); // nur (sizeof(Vertex) * vertexCount) ??
     //std::cout << "byte size" << verticesByteSize << std::endl;
     glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
+
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    // OPTIONAL: unbind
+    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    glBindVertexArray(0);
+}
+
+void Window::dataStuff2(GLuint& VBO, GLuint& VAO) {
+
+    glGenVertexArrays(1, &VAO);
+    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    glBindVertexArray(VAO);
+
+    // Generate 1 buffer, put the resulting identifier in vbo
+    glGenBuffers(1, &VBO);
+    // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    float lineLength = 0.2f;
+    float coordPoints[] = {
+            0.0f,  0.0f, 0.0f,  // center
+            lineLength,  0.0f, 0.0f,  // x
+            0.0f,  0.0f, 0.0f,  // center
+            0.0f,  lineLength, 0.0f,  // y
+            0.0f,  0.0f, 0.0f,  // center
+            0.0f,  0.0f, lineLength,  // z
+    };
+    glBufferData(GL_ARRAY_BUFFER, sizeof(coordPoints), coordPoints, GL_STATIC_DRAW);
 
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
