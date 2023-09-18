@@ -41,26 +41,12 @@ void PointCloud::read(const string &path) {
         auto midY = (header.maxY + header.minY) / 2.0f;
         auto midZ = (header.maxZ + header.minZ) / 2.0f;
 
-        //auto maxV = 100.0;//max(header.maxX - midX, max(header.maxY - midY, header.maxZ - midZ));
-
         for (uint32_t i = 0; i < header.numberOfPoints; i++) {
             PointDRF1 point;
             inf.read((char *) (&point), sizeof(PointDRF1));
 
             // convert to opengl friendly thing
             // Xcoordinate = (Xrecord * Xscale) + Xoffset
-
-            // mein z = deren -x
-            // mein x deren y
-            // mein y deren z
-
-            // mein x und z tauschen?
-            // bei x und z minus tauschen
-
-            // also war es eigentlich:
-            // mein x deren x
-            // mein z derer -y
-            // mein y deren z
 
             // center pointcloud
             Vertex v = {
