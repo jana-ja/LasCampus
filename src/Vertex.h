@@ -5,7 +5,7 @@
 #ifndef LASCAMPUS_VERTEX_H
 #define LASCAMPUS_VERTEX_H
 
-struct Vertex{
+struct Vertex {
     float x, y, z;
 };
 

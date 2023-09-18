@@ -8,7 +8,8 @@
 #include "Window.h"
 
 
-Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f), vertices(vertices),
+Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
+                                                         vertices(vertices),
                                                          vertexCount(vertexCount) {
 
     // glfw
@@ -21,7 +22,8 @@ Window::Window(Vertex* vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
 
     // shader
-    Shader shader("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs", "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
+    Shader shader("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
+                  "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
     shaderSettings(shader);
 
 
@@ -104,7 +106,7 @@ void Window::processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if(glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
         showIndicators = true;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -130,13 +132,11 @@ void Window::framebuffer_size_callback(GLFWwindow *window, int width, int height
     glViewport(0, 0, width, height);
 }
 
-void Window::mouse_callback(GLFWwindow* window)
-{
+void Window::mouse_callback(GLFWwindow *window) {
     GLdouble xPos, yPos;
     glfwGetCursorPos(window, &xPos, &yPos);
 
-    if (firstMouse)
-    {
+    if (firstMouse) {
         lastX = xPos;
         lastY = yPos;
         firstMouse = false;
@@ -202,14 +202,14 @@ void Window::initGlew() {
 }
 
 
-void Window::shaderSettings(Shader& shader) {
+void Window::shaderSettings(Shader &shader) {
     shader.use();
-    glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, 0.1f, 100.0f);
     shader.setMat4("projection", projection);
     shader.setFloat("pointSize", POINT_SIZE);
 }
 
-void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
+void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
 
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -236,7 +236,7 @@ void Window::dataStuff(GLuint& VBO, GLuint& VAO) {
     glBindVertexArray(0);
 }
 
-void Window::dataStuff2(GLuint& VBO, GLuint& VAO) {
+void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
 
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -249,12 +249,12 @@ void Window::dataStuff2(GLuint& VBO, GLuint& VAO) {
 
     float lineLength = 0.2f;
     float coordPoints[] = {
-            0.0f,  0.0f, 0.0f,  // center
-            lineLength,  0.0f, 0.0f,  // x
-            0.0f,  0.0f, 0.0f,  // center
-            0.0f,  lineLength, 0.0f,  // y
-            0.0f,  0.0f, 0.0f,  // center
-            0.0f,  0.0f, lineLength,  // z
+            0.0f, 0.0f, 0.0f,  // center
+            lineLength, 0.0f, 0.0f,  // x
+            0.0f, 0.0f, 0.0f,  // center
+            0.0f, lineLength, 0.0f,  // y
+            0.0f, 0.0f, 0.0f,  // center
+            0.0f, 0.0f, lineLength,  // z
     };
     glBufferData(GL_ARRAY_BUFFER, sizeof(coordPoints), coordPoints, GL_STATIC_DRAW);
 

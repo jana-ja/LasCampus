@@ -32,24 +32,24 @@ private:
 
     // mouse input
     bool firstMouse = true;
-    float lastX =  800.0f / 2.0;
-    float lastY =  600.0 / 2.0;
+    float lastX = 800.0f / 2.0;
+    float lastY = 600.0 / 2.0;
 
     // delta time for smooth movement, independent of render speed
-    float deltaTime = 0.0f;	// Time between current frame and last frame
+    float deltaTime = 0.0f;    // Time between current frame and last frame
     float lastFrame = 0.0f; // Time of last frame
 
     // data
-    Vertex* vertices;
+    Vertex *vertices;
     uint32_t vertexCount;
 
     bool showIndicators = false;
 
-    void processInput(GLFWwindow* window);
+    void processInput(GLFWwindow *window);
 
     static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
-    void mouse_callback(GLFWwindow* window);
+    void mouse_callback(GLFWwindow *window);
 
 //    static void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
 
@@ -59,12 +59,12 @@ private:
 
     void initGlew();
 
-    void shaderSettings(Shader& shader);
+    void shaderSettings(Shader &shader);
 
     // pass by ref
-    void dataStuff(GLuint& VBO, GLuint& VAO);
+    void dataStuff(GLuint &VBO, GLuint &VAO);
 
-    void dataStuff2(GLuint& VBO, GLuint& VAO);
+    void dataStuff2(GLuint &VBO, GLuint &VAO);
 
 };
 
