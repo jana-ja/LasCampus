@@ -48,6 +48,34 @@ private:
         double maxZ, minZ;
     };
 
+    // variable length record header
+#pragma pack(1)
+    struct __attribute__ ((packed)) VarLenRecHeader {
+        uint16_t reserved; // unsigned short - 2 bytes
+        char userid[16]; // user which created the var len rec. // can be LASF_Spec or LASF_Projection in this case
+        uint16_t recordId; // depends on userid. 34735 for userId LASF_Projection is GeoKeyDirectoryTag and is mandatory here.
+        uint16_t recordLenAfterHeader;
+        char description[32];
+    };
+
+#pragma pack(1)
+    struct __attribute__ ((packed)) GeoKeyDirectoryTag {
+        uint16_t wKeyDirectoryVersion; // always 1
+        uint16_t wKeyRevision; // always 1
+        uint16_t wMinorRevision; // always 0
+        uint16_t wNumberOfKeys;
+    };
+
+#pragma pack(1)
+    struct __attribute__ ((packed)) GeoKeyEntry {
+        uint16_t wKeyId; // id from GeoTiff specification
+        uint16_t wTiffTagLocation; // 0 -> data is in wValueOffset.
+                                    // 34736 -> wValueOffset is index of data in GeoDoubleParamsTag record.
+                                    // 34767 -> wValueOffset is index of data in GeoAsciiParamsTag record.
+        uint16_t wCount; // only relevant for GeoAsciiParamsTag, 1 otherwise
+        uint16_t wValueOffset; // content depends on wTiffTagLocation
+    };
+
     // Point Data Record Format 1
 #pragma pack(1)
     struct __attribute__ ((packed)) PointDRF1 {

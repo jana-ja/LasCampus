@@ -18,6 +18,9 @@ void PointCloud::read(const string &path) {
     ifstream inf(path, ios::binary);
 
     if (inf.is_open()) {
+
+
+        // header
         Header header;
 
         // fill in header ref with read data of size of header
@@ -32,6 +35,38 @@ void PointCloud::read(const string &path) {
         assert(header.headerSize == sizeof(header));
         assert(header.pointDataRecordFormat == 1);
 
+
+        // var length records
+        VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
+        GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
+
+        for(int i = 0; i < header.numVarLenRecords; i++){
+//            auto testi = varLenRecHeaders[i]; // testi and varLenRecHeaders[0] have different addresses
+            // &varLenRecHeaders[i] == currentHeaderPtr == &(*currentHeaderPtr)  !=  &testi
+
+            // read header
+            auto currentHeaderPtr = &varLenRecHeaders[i];
+            auto he = *currentHeaderPtr;
+            inf.read((char *) &he, sizeof he);
+
+            if(strcmp(he.userid, "LASF_Projection") == 0  && he.recordId == 34735){
+                //  this var length record is the GeoKeyDirectoryTag
+                inf.read((char *) &geoKeyDirectoryTag, sizeof geoKeyDirectoryTag);
+                // geo key entries
+                GeoKeyEntry geoKeyEntries[geoKeyDirectoryTag.wNumberOfKeys];
+                std::cout << "record len after ehader: " << he.recordLenAfterHeader << " size of struct " << sizeof geoKeyDirectoryTag + geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry) << std::endl;
+                inf.read((char *) &geoKeyEntries, geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
+                std::cout << "lol " << geoKeyEntries[0].wCount << std::endl;
+            }
+
+
+        }
+
+        // TODO assert GeoKeyDirectoryTag is there
+
+
+
+        // points
         std::cout << "num of points: " << header.numberOfPoints << std::endl;
 
         inf.seekg(header.pointDataOffset); // skip to point data
