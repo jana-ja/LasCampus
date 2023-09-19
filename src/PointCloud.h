@@ -59,14 +59,6 @@ private:
     };
 
 #pragma pack(1)
-    struct __attribute__ ((packed)) GeoKeyDirectoryTag {
-        uint16_t wKeyDirectoryVersion; // always 1
-        uint16_t wKeyRevision; // always 1
-        uint16_t wMinorRevision; // always 0
-        uint16_t wNumberOfKeys;
-    };
-
-#pragma pack(1)
     struct __attribute__ ((packed)) GeoKeyEntry {
         uint16_t wKeyId; // id from GeoTiff specification
         uint16_t wTiffTagLocation; // 0 -> data is in wValueOffset.
@@ -75,6 +67,16 @@ private:
         uint16_t wCount; // only relevant for GeoAsciiParamsTag, 1 otherwise
         uint16_t wValueOffset; // content depends on wTiffTagLocation
     };
+
+#pragma pack(1)
+    struct __attribute__ ((packed)) GeoKeyDirectoryTag {
+        uint16_t wKeyDirectoryVersion; // always 1
+        uint16_t wKeyRevision; // always 1
+        uint16_t wMinorRevision; // always 0
+        uint16_t wNumberOfKeys;
+        std::vector<GeoKeyEntry> entries;
+    };
+
 
     // Point Data Record Format 1
 #pragma pack(1)

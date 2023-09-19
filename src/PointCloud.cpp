@@ -51,12 +51,23 @@ void PointCloud::read(const string &path) {
 
             if(strcmp(he.userid, "LASF_Projection") == 0  && he.recordId == 34735){
                 //  this var length record is the GeoKeyDirectoryTag
-                inf.read((char *) &geoKeyDirectoryTag, sizeof geoKeyDirectoryTag);
-                // geo key entries
-                GeoKeyEntry geoKeyEntries[geoKeyDirectoryTag.wNumberOfKeys];
+                // read info
+                inf.read((char *) &geoKeyDirectoryTag, 8);//sizeof geoKeyDirectoryTag);
+                // read entries
+//                char* ptr = (char *)(&geoKeyDirectoryTag);
+//                ptr +=8;
+//                inf.read(ptr /*(char *) &geoKeyDirectoryTag) + 8*/ , geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
+
+
+
+
+//                // geo key entries
+                /*GeoKeyEntry*/ std::vector<GeoKeyEntry> geoKeyEntries(geoKeyDirectoryTag.wNumberOfKeys);
                 std::cout << "record len after ehader: " << he.recordLenAfterHeader << " size of struct " << sizeof geoKeyDirectoryTag + geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry) << std::endl;
-                inf.read((char *) &geoKeyEntries, geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
-                std::cout << "lol " << geoKeyEntries[0].wCount << std::endl;
+                // vllt bei dem ding in dem anderern ding dann resize??
+                inf.read((char *) &geoKeyEntries[0], geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
+//                std::cout << "lol " << geoKeyEntries[0].wCount << std::endl;
+                std::cout << "lol " <<  std::endl;
             }
 
 
