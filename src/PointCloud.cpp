@@ -41,39 +41,29 @@ void PointCloud::read(const string &path) {
         GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
 
         for(int i = 0; i < header.numVarLenRecords; i++){
-//            auto testi = varLenRecHeaders[i]; // testi and varLenRecHeaders[0] have different addresses
-            // &varLenRecHeaders[i] == currentHeaderPtr == &(*currentHeaderPtr)  !=  &testi
 
             // read header
-            auto currentHeaderPtr = &varLenRecHeaders[i];
-            auto he = *currentHeaderPtr;
-            inf.read((char *) &he, sizeof he);
+            auto& currentHeader = varLenRecHeaders[i]; // ref
+            inf.read((char *) &currentHeader, sizeof currentHeader);
 
-            if(strcmp(he.userid, "LASF_Projection") == 0  && he.recordId == 34735){
+            if(strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735){
                 //  this var length record is the GeoKeyDirectoryTag
+
                 // read info
                 inf.read((char *) &geoKeyDirectoryTag, 8);//sizeof geoKeyDirectoryTag);
+
+                // resize entry vector of geo key directory tag
+                geoKeyDirectoryTag.entries.resize(geoKeyDirectoryTag.wNumberOfKeys);
                 // read entries
-//                char* ptr = (char *)(&geoKeyDirectoryTag);
-//                ptr +=8;
-//                inf.read(ptr /*(char *) &geoKeyDirectoryTag) + 8*/ , geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
-
-
-
-
-//                // geo key entries
-                /*GeoKeyEntry*/ std::vector<GeoKeyEntry> geoKeyEntries(geoKeyDirectoryTag.wNumberOfKeys);
-                std::cout << "record len after ehader: " << he.recordLenAfterHeader << " size of struct " << sizeof geoKeyDirectoryTag + geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry) << std::endl;
-                // vllt bei dem ding in dem anderern ding dann resize??
-                inf.read((char *) &geoKeyEntries[0], geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
-//                std::cout << "lol " << geoKeyEntries[0].wCount << std::endl;
-                std::cout << "lol " <<  std::endl;
+                inf.read((char *) &geoKeyDirectoryTag.entries[0], geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
             }
 
 
         }
 
         // TODO assert GeoKeyDirectoryTag is there
+
+
 
 
 
