@@ -16,10 +16,18 @@ public:
 
     uint32_t getVerticesCount();
 
-    Vertex *getVertices();
+    Vertex* getVertices();
+
+    Vertex getUTMForOpenGL(Vertex* vertex);
+
+    Vertex getWGSForOpenGL(Vertex* vertex);
 
 private:
     std::vector<Vertex> vertices;
+
+    float xOffset;
+    float yOffset;
+    float zOffset;
 
 #pragma pack(1) // win - tightly pack the bytes and dont start at new power of two things
     struct __attribute__ ((packed)) Header {  // mac

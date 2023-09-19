@@ -63,8 +63,22 @@ void PointCloud::read(const string &path) {
 
         // TODO assert GeoKeyDirectoryTag is there
 
-
-
+        geoKeyDirectoryTag.entries[0].wValueOffset;
+        // CRS = coordinate reference system (?)
+        // geo tiff specification key -> value
+        // 1024 -> 1    -   GTModelTypeGeoKey
+            // the model CRS is a 2D projected coordinate reference system, indicated by the value of ProjectedCRSGeoKey
+        // 3072 -> 25832    -   v1.0 ProjectedCSTypeGeoKey / v1.1? ProjectedCRSGeoKey
+            // for 2D projected CRS ("map grids"). if model crs is pseudo-3D compund crs consisting of projected 2D crs with vertical crs, the code of vertical component is given through VerticalGeoKey
+            // shall be EPSG projected crs codes - finde 25832 nicht in der liste mit codes??
+            // UTM Zone 32N
+        // 3076 -> 9001 -   ProjLinearUnitsGeoKey
+            // linear units -   9001 = meter (surprise surprise)
+        // 4099 -> 9001 -   VerticalUnitsGeoKey
+            // ebenfalls meter
+        // 4096 -> 7837 -   VerticalCSTypeGeoKey / VerticalGeoKey
+            // wegen dem was bei ProjectedCTSGeoKey steht schaue ich bei EPSG Vertical CRS Codes nach
+            // DHHN2016 height
 
 
         // points
@@ -76,6 +90,9 @@ void PointCloud::read(const string &path) {
         auto midX = (header.maxX + header.minX) / 2.0f;
         auto midY = (header.maxY + header.minY) / 2.0f;
         auto midZ = (header.maxZ + header.minZ) / 2.0f;
+        xOffset = (float)midX;
+        yOffset = (float)midZ;
+        zOffset = (float)midY;
 
         for (uint32_t i = 0; i < header.numberOfPoints; i++) {
             PointDRF1 point;
@@ -118,4 +135,21 @@ uint32_t PointCloud::getVerticesCount() {
 
 Vertex *PointCloud::getVertices() {
     return vertices.data();
+}
+
+Vertex PointCloud::getUTMForOpenGL(Vertex* vertexOpenGL) {
+    // TODO offset is float, losing precision
+    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
+}
+
+Vertex PointCloud::getWGSForOpenGL(Vertex *vertex) {
+    // TODO offset is float, losing precision
+
+    // wert in utm holen, dann:
+
+    // zone number: 60 zones, each 6 degrees of longitude (horizontal stripes), number is consistent in horizontal stripes
+    // zone letter: 20 zones, each 8 degrees of latitude (vertical stripes), letter is consistent in vertical stripes
+    // x wert zwischen 100.000 und 899.999 meter in zone
+    // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
+    return Vertex();
 }
