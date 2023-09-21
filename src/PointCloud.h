@@ -25,7 +25,7 @@ public:
     bool hasColor();
 
 private:
-    std::vector<Vertex> vertices;
+    std::vector<ColorVertex> vertices;
 
     float xOffset;
     float yOffset;

@@ -12,6 +12,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Camera.h"
 #include "shader.h"
+#include "PointCloud.h"
 
 #ifndef LASCAMPUS_WINDOW_H
 #define LASCAMPUS_WINDOW_H
@@ -19,7 +20,7 @@
 
 class Window {
 public:
-    Window(Vertex *vertices, uint32_t vertexCount);
+    Window(PointCloud pointCloud);
 
 private:
     const int WIDTH;
@@ -62,10 +63,11 @@ private:
     void shaderSettings(Shader &shader);
 
     // pass by ref
-    void dataStuff(GLuint &VBO, GLuint &VAO);
+    void dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud);
 
     void dataStuff2(GLuint &VBO, GLuint &VAO);
 
+    Shader getPcShader(bool color);
 };
 
 

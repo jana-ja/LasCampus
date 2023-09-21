@@ -19,7 +19,6 @@ void PointCloud::read(const string &path) {
 
     if (inf.is_open()) {
 
-
         // header
         Header header;
 
@@ -40,13 +39,13 @@ void PointCloud::read(const string &path) {
         VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
         GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
 
-        for(int i = 0; i < header.numVarLenRecords; i++){
+        for (int i = 0; i < header.numVarLenRecords; i++) {
 
             // read header
-            auto& currentHeader = varLenRecHeaders[i]; // ref
+            auto &currentHeader = varLenRecHeaders[i]; // ref
             inf.read((char *) &currentHeader, sizeof currentHeader);
 
-            if(strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735){
+            if (strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735) {
                 //  this var length record is the GeoKeyDirectoryTag
 
                 // read info
@@ -55,7 +54,8 @@ void PointCloud::read(const string &path) {
                 // resize entry vector of geo key directory tag
                 geoKeyDirectoryTag.entries.resize(geoKeyDirectoryTag.wNumberOfKeys);
                 // read entries
-                inf.read((char *) &geoKeyDirectoryTag.entries[0], geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
+                inf.read((char *) &geoKeyDirectoryTag.entries[0],
+                         geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
             }
 
 
@@ -73,11 +73,11 @@ void PointCloud::read(const string &path) {
         auto midX = (header.maxX + header.minX) / 2.0f;
         auto midY = (header.maxY + header.minY) / 2.0f;
         auto midZ = (header.maxZ + header.minZ) / 2.0f;
-        xOffset = (float)midX;
-        yOffset = (float)midZ;
-        zOffset = (float)midY;
+        xOffset = (float) midX;
+        yOffset = (float) midZ;
+        zOffset = (float) midY;
 
-        if(header.pointDataRecordFormat == 1){
+        if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < header.numberOfPoints; i++) {
                 PointDRF1 point;
                 inf.read((char *) (&point), sizeof(PointDRF1));
@@ -86,17 +86,18 @@ void PointCloud::read(const string &path) {
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
                 // center pointcloud
-                Vertex v = {
-                        (float) (point.x * header.scaleX + header.offX - midX),
-                        (float) (point.z * header.scaleZ + header.offZ - midZ),
-                        -(float) (point.y * header.scaleY + header.offY - midY)
-
-                };
+                ColorVertex v;
+                v.x = (float) (point.x * header.scaleX + header.offX - midX);
+                v.y = (float) (point.z * header.scaleZ + header.offZ - midZ);
+                v.z = -(float) (point.y * header.scaleY + header.offY - midY);
+                v.red = 1.0;
+                v.green = 1.0;
+                v.blue = 1.0;
 
                 //cout << v.x << ", " << v.y << ", " << v.z << endl;
                 vertices.push_back(v);
             }
-        } else if(header.pointDataRecordFormat == 2){
+        } else if (header.pointDataRecordFormat == 2) {
             for (uint32_t i = 0; i < header.numberOfPoints; i++) {
                 PointDRF2 point;
                 inf.read((char *) (&point), sizeof(PointDRF2));
@@ -123,7 +124,6 @@ void PointCloud::read(const string &path) {
         }
 
 
-
         cout << "\t min\t max" << endl;
 
         cout << "x:\t" << header.minX - midX << "\t" << header.maxX - midX << endl;
@@ -147,7 +147,7 @@ Vertex *PointCloud::getVertices() {
     return vertices.data();
 }
 
-Vertex PointCloud::getUTMForOpenGL(Vertex* vertexOpenGL) {
+Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
     // TODO offset is float, losing precision
     return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
 }

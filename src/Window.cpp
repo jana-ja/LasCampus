@@ -8,9 +8,10 @@
 #include "Window.h"
 
 
-Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
-                                                         vertices(vertices),
-                                                         vertexCount(vertexCount) {
+Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f){
+
+    vertices = pointCloud.getVertices();
+    vertexCount = pointCloud.getVerticesCount();
 
     // glfw
     initGLFW();
@@ -23,12 +24,11 @@ Window::Window(Vertex *vertices, uint32_t vertexCount) : WIDTH(1024), HEIGHT(768
 
     // point cloud
     // shader
-    Shader pcShader("/Users/Shared/Masti/LasCampus/src/PointCloudVertexShader.vs",
-                    "/Users/Shared/Masti/LasCampus/src/PointCloudFragmentShader.fs");
+    Shader pcShader = getPcShader(pointCloud.hasColor());
     shaderSettings(pcShader);
     // data
     GLuint pcVBO, pcVAO;
-    dataStuff(pcVBO, pcVAO);
+    dataStuff(pcVBO, pcVAO, pointCloud);
 
     // coordinate system
     // shader
@@ -219,7 +219,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.setFloat("pointSize", POINT_SIZE);
 }
 
-void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
+void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
 
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -229,18 +229,27 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO) {
     glGenBuffers(1, &VBO);
     // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    auto verticesByteSize = /*sizeof(std::vector<Vertex>) +*/ (sizeof(Vertex) *
-                                                               vertexCount); // nur (sizeof(Vertex) * vertexCount) ??
-    //std::cout << "byte size" << verticesByteSize << std::endl;
-    glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
 
 
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
-    glEnableVertexAttribArray(0);
-    // color attribute // später richtige farben/texture
-//    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
-//    glEnableVertexAttribArray(1);
+
+//    if (pointCloud.hasColor()) {
+        auto verticesByteSize = (sizeof(ColorVertex) * vertexCount);
+//        auto verticesByteSize = pointCloud.getVerticesSize();
+//        sizeof(MyVector) + (sizeof(MyVector[0]) * MyVector.size())
+        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
+        // position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+        glEnableVertexAttribArray(0);
+        // color attribute // später richtige farben/texture
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+//    } else {
+//        auto verticesByteSize = (sizeof(Vertex) * vertexCount);
+//        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
+//        // position attribute
+//        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+//        glEnableVertexAttribArray(0);
+//    }
 
 
     // OPTIONAL: unbind
@@ -279,7 +288,7 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(0);
     // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
 
@@ -289,4 +298,14 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
     // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     glBindVertexArray(0);
+}
+
+Shader Window::getPcShader(bool hasColor) {
+//    if (hasColor) {
+        return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudColorVertexShader.vs",
+                      "/Users/Shared/Masti/LasCampus/src/PointCloudColorFragmentShader.fs");
+//    } else {
+//        return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudVertexShader.vs",
+//                      "/Users/Shared/Masti/LasCampus/src/PointCloudFragmentShader.fs");
+//    }
 }
