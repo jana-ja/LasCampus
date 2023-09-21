@@ -9,8 +9,8 @@ struct Vertex {
     float x, y, z;
 };
 
-struct ColorVertex : Vertex {
-    float x, red, y, green, z, blue;
+struct ColorVertex : Vertex{
+    float x, y, z, red, green, blue;
 };
 
 #endif //LASCAMPUS_VERTEX_H

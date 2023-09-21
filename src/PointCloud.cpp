@@ -111,9 +111,10 @@ void PointCloud::read(const string &path) {
 
                 // center pointcloud
                 ColorVertex v = {
-                        (float) (point.x * header.scaleX + header.offX - midX), redFloat,
-                        (float) (point.z * header.scaleZ + header.offZ - midZ), greenFloat,
-                        -(float) (point.y * header.scaleY + header.offY - midY), blueFloat
+                        (float) (point.x * header.scaleX + header.offX - midX),
+                        (float) (point.z * header.scaleZ + header.offZ - midZ),
+                        -(float) (point.y * header.scaleY + header.offY - midY),
+                        redFloat, greenFloat, blueFloat
 
                 };
 
