@@ -22,12 +22,16 @@ public:
 
     Vertex getWGSForOpenGL(Vertex* vertex);
 
+    bool hasColor();
+
 private:
     std::vector<Vertex> vertices;
 
     float xOffset;
     float yOffset;
     float zOffset;
+
+    int pointRecFormat;
 
 #pragma pack(1) // win - tightly pack the bytes and dont start at new power of two things
     struct __attribute__ ((packed)) Header {  // mac
@@ -97,6 +101,21 @@ private:
         uint8_t userData;
         uint16_t pointSourceId;
         double gpsTime;
+    };
+
+    // Point Data Record Format 2
+#pragma pack(1)
+    struct __attribute__ ((packed)) PointDRF2 {
+        uint32_t x, y, z;
+        uint16_t intensity;
+        uint8_t flags; // multiple bytes that are not needed and add up to eight
+        uint8_t classification;
+        uint8_t scanAngleRank;
+        uint8_t userData;
+        uint16_t pointSourceId;
+        uint16_t red;
+        uint16_t green;
+        uint16_t blue;
     };
 
 

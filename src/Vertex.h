@@ -9,4 +9,8 @@ struct Vertex {
     float x, y, z;
 };
 
+struct ColorVertex : Vertex {
+    float x, red, y, green, z, blue;
+};
+
 #endif //LASCAMPUS_VERTEX_H

@@ -33,8 +33,8 @@ void PointCloud::read(const string &path) {
         // can only read las version 1.2
         assert(header.versionMaj == 1 && header.versionMin == 2);
         assert(header.headerSize == sizeof(header));
-        assert(header.pointDataRecordFormat == 1);
-
+        assert(header.pointDataRecordFormat == 1 || header.pointDataRecordFormat == 2);
+        pointRecFormat = header.pointDataRecordFormat;
 
         // var length records
         VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
@@ -61,24 +61,7 @@ void PointCloud::read(const string &path) {
 
         }
 
-        // TODO assert GeoKeyDirectoryTag is there
 
-        geoKeyDirectoryTag.entries[0].wValueOffset;
-        // CRS = coordinate reference system (?)
-        // geo tiff specification key -> value
-        // 1024 -> 1    -   GTModelTypeGeoKey
-            // the model CRS is a 2D projected coordinate reference system, indicated by the value of ProjectedCRSGeoKey
-        // 3072 -> 25832    -   v1.0 ProjectedCSTypeGeoKey / v1.1? ProjectedCRSGeoKey
-            // for 2D projected CRS ("map grids"). if model crs is pseudo-3D compund crs consisting of projected 2D crs with vertical crs, the code of vertical component is given through VerticalGeoKey
-            // shall be EPSG projected crs codes - finde 25832 nicht in der liste mit codes??
-            // UTM Zone 32N
-        // 3076 -> 9001 -   ProjLinearUnitsGeoKey
-            // linear units -   9001 = meter (surprise surprise)
-        // 4099 -> 9001 -   VerticalUnitsGeoKey
-            // ebenfalls meter
-        // 4096 -> 7837 -   VerticalCSTypeGeoKey / VerticalGeoKey
-            // wegen dem was bei ProjectedCTSGeoKey steht schaue ich bei EPSG Vertical CRS Codes nach
-            // DHHN2016 height
 
 
         // points
@@ -94,24 +77,45 @@ void PointCloud::read(const string &path) {
         yOffset = (float)midZ;
         zOffset = (float)midY;
 
-        for (uint32_t i = 0; i < header.numberOfPoints; i++) {
-            PointDRF1 point;
-            inf.read((char *) (&point), sizeof(PointDRF1));
+        if(header.pointDataRecordFormat == 1){
+            for (uint32_t i = 0; i < header.numberOfPoints; i++) {
+                PointDRF1 point;
+                inf.read((char *) (&point), sizeof(PointDRF1));
 
-            // convert to opengl friendly thing
-            // Xcoordinate = (Xrecord * Xscale) + Xoffset
+                // convert to opengl friendly thing
+                // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
-            // center pointcloud
-            Vertex v = {
-                    (float) (point.x * header.scaleX + header.offX - midX),
-                    (float) (point.z * header.scaleZ + header.offZ - midZ),
-                    -(float) (point.y * header.scaleY + header.offY - midY)
+                // center pointcloud
+                Vertex v = {
+                        (float) (point.x * header.scaleX + header.offX - midX),
+                        (float) (point.z * header.scaleZ + header.offZ - midZ),
+                        -(float) (point.y * header.scaleY + header.offY - midY)
 
-            };
+                };
 
-            //cout << v.x << ", " << v.y << ", " << v.z << endl;
-            vertices.push_back(v);
+                //cout << v.x << ", " << v.y << ", " << v.z << endl;
+                vertices.push_back(v);
+            }
+        } else if(header.pointDataRecordFormat == 2){
+            for (uint32_t i = 0; i < header.numberOfPoints; i++) {
+                PointDRF2 point;
+                inf.read((char *) (&point), sizeof(PointDRF1));
+
+                // convert to opengl friendly thing
+                // Xcoordinate = (Xrecord * Xscale) + Xoffset
+
+                // center pointcloud
+                ColorVertex v = {
+                        (float) (point.x * header.scaleX + header.offX - midX), (float)point.red,
+                        (float) (point.z * header.scaleZ + header.offZ - midZ), (float)point.green,
+                        -(float) (point.y * header.scaleY + header.offY - midY), (float)point.blue
+
+                };
+
+                vertices.push_back(v);
+            }
         }
+
 
 
         cout << "\t min\t max" << endl;
@@ -152,4 +156,8 @@ Vertex PointCloud::getWGSForOpenGL(Vertex *vertex) {
     // x wert zwischen 100.000 und 899.999 meter in zone
     // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
     return Vertex();
+}
+
+bool PointCloud::hasColor() {
+    return pointRecFormat == 2;
 }
