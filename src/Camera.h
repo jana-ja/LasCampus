@@ -85,11 +85,11 @@ public:
         switch (direction) {
             case FORWARD:
                 horizontalFront = glm::vec3(front.x, 0, front.z);
-                position += horizontalFront * velocity;
+                position += glm::normalize(horizontalFront) * velocity;
                 break;
             case BACKWARD:
                 horizontalFront = glm::vec3(front.x, 0, front.z);
-                position -= horizontalFront * velocity;
+                position -= glm::normalize(horizontalFront) * velocity;
                 break;
             case LEFT:
                 position -= right * velocity;
