@@ -86,13 +86,10 @@ void PointCloud::read(const string &path) {
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
                 // center pointcloud
-                ColorVertex v;
+                Vertex v;
                 v.x = (float) (point.x * header.scaleX + header.offX - midX);
                 v.y = (float) (point.z * header.scaleZ + header.offZ - midZ);
                 v.z = -(float) (point.y * header.scaleY + header.offY - midY);
-                v.red = 1.0;
-                v.green = 1.0;
-                v.blue = 1.0;
 
                 //cout << v.x << ", " << v.y << ", " << v.z << endl;
                 vertices.push_back(v);
