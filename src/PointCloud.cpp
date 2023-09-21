@@ -99,16 +99,21 @@ void PointCloud::read(const string &path) {
         } else if(header.pointDataRecordFormat == 2){
             for (uint32_t i = 0; i < header.numberOfPoints; i++) {
                 PointDRF2 point;
-                inf.read((char *) (&point), sizeof(PointDRF1));
+                inf.read((char *) (&point), sizeof(PointDRF2));
 
                 // convert to opengl friendly thing
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
+                auto redInt = (point.red / 256);
+                auto redFloat = (point.red / 65536.0f);
+                auto greenFloat = (point.green / 65536.0f);
+                auto blueFloat = (point.blue / 65536.0f);
+
                 // center pointcloud
                 ColorVertex v = {
-                        (float) (point.x * header.scaleX + header.offX - midX), (float)point.red,
-                        (float) (point.z * header.scaleZ + header.offZ - midZ), (float)point.green,
-                        -(float) (point.y * header.scaleY + header.offY - midY), (float)point.blue
+                        (float) (point.x * header.scaleX + header.offX - midX), redFloat,
+                        (float) (point.z * header.scaleZ + header.offZ - midZ), greenFloat,
+                        -(float) (point.y * header.scaleY + header.offY - midY), blueFloat
 
                 };
 

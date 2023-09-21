@@ -95,7 +95,7 @@ private:
     struct __attribute__ ((packed)) PointDRF1 {
         uint32_t x, y, z;
         uint16_t intensity;
-        uint8_t flags; // multiple bytes that are not needed and add up to eight
+        uint8_t flags; // multiple bits that are not needed and add up to eight
         uint8_t classification;
         uint8_t scanAngleRank;
         uint8_t userData;
@@ -108,7 +108,7 @@ private:
     struct __attribute__ ((packed)) PointDRF2 {
         uint32_t x, y, z;
         uint16_t intensity;
-        uint8_t flags; // multiple bytes that are not needed and add up to eight
+        uint8_t flags; // multiple bits that are not needed and add up to eight
         uint8_t classification;
         uint8_t scanAngleRank;
         uint8_t userData;
