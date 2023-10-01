@@ -31,8 +31,8 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
 
     // coordinate system
     // shader
-    Shader csShader("/Users/Shared/Masti/LasCampus/src/shader/CoordSysVertexShader.vs",
-                    "/Users/Shared/Masti/LasCampus/src/shader/CoordSysFragmentShader.fs");
+    Shader csShader("../src/shader/CoordSysVertexShader.vs",
+                    "../src/shader/CoordSysFragmentShader.fs");
     shaderSettings(csShader);
     // data
     GLuint csVBO, csVAO;
@@ -300,10 +300,10 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
 
 Shader Window::getPointCloudShader(bool hasColor) {
     if (hasColor) {
-        return Shader("/Users/Shared/Masti/LasCampus/src/shader/PointCloudColorVertexShader.vs",
-                      "/Users/Shared/Masti/LasCampus/src/shader/PointCloudColorFragmentShader.fs");
+        return Shader("../src/shader/PointCloudColorVertexShader.vs",
+                      "../src/shader/PointCloudColorFragmentShader.fs");
     } else {
-        return Shader("/Users/Shared/Masti/LasCampus/src/shader/PointCloudVertexShader.vs",
-                      "/Users/Shared/Masti/LasCampus/src/shader/PointCloudFragmentShader.fs");
+        return Shader("../src/shader/PointCloudVertexShader.vs",
+                      "../src/shader/PointCloudFragmentShader.fs");
     }
 }
