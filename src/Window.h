@@ -42,6 +42,7 @@ private:
 
     // data
     Vertex *vertices;
+    Vertex *colorVertices;
     uint32_t vertexCount;
 
     bool showInfo = false;

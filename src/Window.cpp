@@ -10,7 +10,10 @@
 
 Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f){
 
-    vertices = pointCloud.getVertices();
+    if(pointCloud.hasColor())
+        colorVertices = pointCloud.getColorVertices();
+    else
+        vertices = pointCloud.getVertices();
     vertexCount = pointCloud.getVerticesCount();
 
     // glfw
@@ -232,24 +235,24 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
 
 
 
-//    if (pointCloud.hasColor()) {
-//        auto verticesByteSize = (sizeof(ColorVertex) * vertexCount);
-////        auto verticesByteSize = pointCloud.getVerticesSize();
-////        sizeof(MyVector) + (sizeof(MyVector[0]) * MyVector.size())
-//        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
-//        // position attribute
-//        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
-//        glEnableVertexAttribArray(0);
-//        // color attribute // später richtige farben/texture
-//        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
-//        glEnableVertexAttribArray(1);
-//    } else {
+    if (pointCloud.hasColor()) {
+        auto verticesByteSize = (sizeof(ColorVertex) * vertexCount);
+//        auto verticesByteSize = pointCloud.getVerticesSize();
+//        sizeof(MyVector) + (sizeof(MyVector[0]) * MyVector.size())
+        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, colorVertices, GL_STATIC_DRAW);
+        // position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+        glEnableVertexAttribArray(0);
+        // color attribute // später richtige farben/texture
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+    } else {
         auto verticesByteSize = (sizeof(Vertex) * vertexCount);
         glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
         // position attribute
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
         glEnableVertexAttribArray(0);
-//    }
+    }
 
 
     // OPTIONAL: unbind
@@ -301,11 +304,11 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
 }
 
 Shader Window::getPcShader(bool hasColor) {
-//    if (hasColor) {
-//        return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudColorVertexShader.vs",
-//                      "/Users/Shared/Masti/LasCampus/src/PointCloudColorFragmentShader.fs");
-//    } else {
+    if (hasColor) {
+        return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudColorVertexShader.vs",
+                      "/Users/Shared/Masti/LasCampus/src/PointCloudColorFragmentShader.fs");
+    } else {
         return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudVertexShader.vs",
                       "/Users/Shared/Masti/LasCampus/src/PointCloudFragmentShader.fs");
-//    }
+    }
 }

@@ -18,6 +18,8 @@ public:
 
     Vertex* getVertices();
 
+    Vertex* getColorVertices();
+
     Vertex getUTMForOpenGL(Vertex* vertex);
 
     Vertex getWGSForOpenGL(Vertex* vertex);
@@ -26,6 +28,7 @@ public:
 
 private:
     std::vector<Vertex> vertices;
+    std::vector<ColorVertex> colorVertices;
 
     float xOffset;
     float yOffset;

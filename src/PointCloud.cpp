@@ -116,7 +116,7 @@ void PointCloud::read(const string &path) {
 
                 };
 
-                vertices.push_back(v);
+                colorVertices.push_back(v);
             }
         }
 
@@ -137,11 +137,18 @@ void PointCloud::read(const string &path) {
 }
 
 uint32_t PointCloud::getVerticesCount() {
-    return (uint32_t) vertices.size();
+    if(hasColor())
+        return (uint32_t) colorVertices.size();
+    else
+        return (uint32_t) vertices.size();
 }
 
 Vertex *PointCloud::getVertices() {
     return vertices.data();
+}
+
+Vertex *PointCloud::getColorVertices() {
+    return colorVertices.data();
 }
 
 Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
