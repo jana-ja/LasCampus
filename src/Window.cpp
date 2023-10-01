@@ -8,17 +8,13 @@
 #include "Window.h"
 
 
-Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f){
+Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
+                                        pointCloud(pointCloud) {
 
-    if(pointCloud.hasColor())
-        colorVertices = pointCloud.getColorVertices();
-    else
-        vertices = pointCloud.getVertices();
-    vertexCount = pointCloud.getVerticesCount();
 
     // glfw
     initGLFW();
-    GLFWwindow *window = createWindow();
+    GLFWwindow* window = createWindow();
 
 
     // glew
@@ -72,7 +68,7 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
 
         // draw point cloud
         glBindVertexArray(pcVAO);
-        glDrawArrays(GL_POINTS, 0, vertexCount); // Starting from vertex 0
+        glDrawArrays(GL_POINTS, 0, pointCloud.getVertexCount()); // Starting from vertex 0
 
 
         if (showInfo) {
@@ -234,12 +230,11 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
 
-
     if (pointCloud.hasColor()) {
-        auto verticesByteSize = (sizeof(ColorVertex) * vertexCount);
+        auto verticesByteSize = (sizeof(ColorVertex) * pointCloud.getVertexCount());
 //        auto verticesByteSize = pointCloud.getVerticesSize();
 //        sizeof(MyVector) + (sizeof(MyVector[0]) * MyVector.size())
-        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, colorVertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getColorVertices(), GL_STATIC_DRAW);
         // position attribute
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
         glEnableVertexAttribArray(0);
@@ -247,8 +242,8 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
         glEnableVertexAttribArray(1);
     } else {
-        auto verticesByteSize = (sizeof(Vertex) * vertexCount);
-        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, vertices, GL_STATIC_DRAW);
+        auto verticesByteSize = (sizeof(Vertex) * pointCloud.getVertexCount());
+        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
         // position attribute
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
         glEnableVertexAttribArray(0);

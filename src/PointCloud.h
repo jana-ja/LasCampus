@@ -14,7 +14,7 @@ class PointCloud {
 public:
     PointCloud(const std::string &path);
 
-    uint32_t getVerticesCount();
+    uint32_t getVertexCount();
 
     Vertex* getVertices();
 

@@ -41,9 +41,7 @@ private:
     float lastFrame = 0.0f; // Time of last frame
 
     // data
-    Vertex *vertices;
-    Vertex *colorVertices;
-    uint32_t vertexCount;
+    PointCloud pointCloud;
 
     bool showInfo = false;
 

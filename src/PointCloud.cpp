@@ -136,8 +136,8 @@ void PointCloud::read(const string &path) {
     }
 }
 
-uint32_t PointCloud::getVerticesCount() {
-    if(hasColor())
+uint32_t PointCloud::getVertexCount() {
+    if (hasColor())
         return (uint32_t) colorVertices.size();
     else
         return (uint32_t) vertices.size();
