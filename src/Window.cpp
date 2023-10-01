@@ -23,7 +23,7 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
 
     // point cloud
     // shader
-    Shader pcShader = getPcShader(pointCloud.hasColor());
+    Shader pcShader = getPointCloudShader(pointCloud.hasColor());
     shaderSettings(pcShader);
     // data
     GLuint pcVBO, pcVAO;
@@ -31,8 +31,8 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
 
     // coordinate system
     // shader
-    Shader csShader("/Users/Shared/Masti/LasCampus/src/CoordSysVertexShader.vs",
-                    "/Users/Shared/Masti/LasCampus/src/CoordSysFragmentShader.fs");
+    Shader csShader("/Users/Shared/Masti/LasCampus/src/shader/CoordSysVertexShader.vs",
+                    "/Users/Shared/Masti/LasCampus/src/shader/CoordSysFragmentShader.fs");
     shaderSettings(csShader);
     // data
     GLuint csVBO, csVAO;
@@ -298,12 +298,12 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
     glBindVertexArray(0);
 }
 
-Shader Window::getPcShader(bool hasColor) {
+Shader Window::getPointCloudShader(bool hasColor) {
     if (hasColor) {
-        return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudColorVertexShader.vs",
-                      "/Users/Shared/Masti/LasCampus/src/PointCloudColorFragmentShader.fs");
+        return Shader("/Users/Shared/Masti/LasCampus/src/shader/PointCloudColorVertexShader.vs",
+                      "/Users/Shared/Masti/LasCampus/src/shader/PointCloudColorFragmentShader.fs");
     } else {
-        return Shader("/Users/Shared/Masti/LasCampus/src/PointCloudVertexShader.vs",
-                      "/Users/Shared/Masti/LasCampus/src/PointCloudFragmentShader.fs");
+        return Shader("/Users/Shared/Masti/LasCampus/src/shader/PointCloudVertexShader.vs",
+                      "/Users/Shared/Masti/LasCampus/src/shader/PointCloudFragmentShader.fs");
     }
 }

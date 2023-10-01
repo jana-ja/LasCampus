@@ -66,7 +66,7 @@ private:
 
     void dataStuff2(GLuint &VBO, GLuint &VAO);
 
-    Shader getPcShader(bool color);
+    Shader getPointCloudShader(bool color);
 };
 
 
