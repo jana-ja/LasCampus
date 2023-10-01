@@ -12,7 +12,7 @@
 
 class PointCloud {
 public:
-    PointCloud(const std::string &path);
+    PointCloud(const std::vector<std::string>& files);
 
     uint32_t getVertexCount();
 
@@ -30,11 +30,14 @@ private:
     std::vector<Vertex> vertices;
     std::vector<ColorVertex> colorVertices;
 
+    // offset is in opengl coord system!
     float xOffset;
     float yOffset;
     float zOffset;
 
     int pointRecFormat;
+
+    bool firstFile = true;
 
 #pragma pack(1) // win - tightly pack the bytes and dont start at new power of two things
     struct __attribute__ ((packed)) Header {  // mac

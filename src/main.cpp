@@ -1,15 +1,15 @@
-#include <iostream>
 #include "PointCloud.h"
 #include "DummyData.h"
 #include "Window.h"
 
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
+
+    std::vector<std::string> files{ R"(bdom50_32389_5705_1_nw_2021.las)" };
+//    std::vector<std::string> files{ R"(3dm_32_389_5705_1_nw.las)" };
 
     // read data
-//    auto lol = PointCloud(R"(..//las//bdom50_32389_5705_1_nw_2021.las)");
-    auto lol = PointCloud(R"(..//las//3dm_32_389_5705_1_nw.las)");
+    auto lol = PointCloud(files);
 
 
     // for now get dummy data
