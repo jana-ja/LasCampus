@@ -19,8 +19,8 @@ int main() {
     // for now get dummy data
     Vertex* vertices = getDummyVertices();
 
-//    Window windi = Window();
-//    windi.setVertices(vertices);
+    Window windi = Window();
+    windi.setVertices(vertices);
 
 
     return 0;

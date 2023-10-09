@@ -18,7 +18,7 @@ Vertex *getDummyVertices() {
         };
         vertices.push_back(v);
 
-        std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
+        // std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
     }
 
     return nullptr;
