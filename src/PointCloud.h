@@ -22,7 +22,7 @@ private:
     std::vector<Vertex> vertices;
 
     #pragma pack(1) // win - tightly pack the bytes and dont start at new power of two things
-    struct __attribute__ ((packed)) Header {  // mac
+    struct Header {  // mac
         char magic[4];
         uint16_t fileSourceId; // unsigned short - 2 bytes
         uint16_t globalEncoding;
@@ -49,7 +49,7 @@ private:
 
     // Point Data Record Format 1
 #pragma pack(1)
-    struct __attribute__ ((packed)) PointDRF1 {
+    struct PointDRF1 {
         uint32_t x,y,z;
         uint16_t intensity;
         uint8_t  flags; // multiple bytes that are not needed and add up to eight
