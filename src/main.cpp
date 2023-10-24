@@ -5,19 +5,29 @@
 
 int main() {
 
-    std::vector<std::string> files{ R"(bdom50_32389_5705_1_nw_2021.las)" };
-//    std::vector<std::string> files{ R"(3dm_32_389_5705_1_nw.las)" };
+//    std::vector<std::string> files{ R"(bdom50_32389_5705_1_nw_2021.las)" };
+    std::vector<std::string> files{ R"(3dm_32_389_5705_1_nw.las)" };
 
     // read data
-    auto lol = PointCloud(files);
+    try
+    {
+        auto lol = PointCloud(files);
 
 
-    // for now get dummy data
-    //auto lol = DummyData();
+        // for now get dummy data
+        //auto lol = DummyData();
 
 
-    Window windi = Window(lol);
-    //windi.setVertices(vertices);
+        Window windi = Window(lol);
+        //windi.setVertices(vertices);
+    }
+
+    catch (std::runtime_error& e)
+    {
+        std::cerr << e.what() << std::endl;
+        return -1;
+    }
+
 
 
     return 0;
