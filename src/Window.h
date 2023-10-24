@@ -7,7 +7,7 @@
 #include <iostream>
 #include <GL/glew.h> // Always include it before gl.h and glfw3.h, since it's a bit magic.
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
+#include "glm/glm.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "Camera.h"

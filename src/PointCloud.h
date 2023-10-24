@@ -39,8 +39,8 @@ private:
 
     bool firstFile = true;
 
-#pragma pack(1) // win - tightly pack the bytes and dont start at new power of two things
-    struct __attribute__ ((packed)) Header {  // mac
+#pragma pack(push,1) // win - tightly pack the bytes and dont start at new power of two things
+    struct Header {  // mac
         char magic[4];
         uint16_t fileSourceId; // unsigned short - 2 bytes
         uint16_t globalEncoding;
@@ -54,7 +54,7 @@ private:
         uint16_t creationDay, creationYear;
         uint16_t headerSize;
         uint32_t pointDataOffset;
-        uint32_t numVarLenRecords;
+        uint32_t numVarLenRecords = 2;
         uint8_t pointDataRecordFormat;
         uint16_t pointDataRecordLen;
         uint32_t numberOfPoints;
@@ -67,8 +67,8 @@ private:
     };
 
     // variable length record header
-#pragma pack(1)
-    struct __attribute__ ((packed)) VarLenRecHeader {
+//#pragma pack(1)
+    struct VarLenRecHeader {
         uint16_t reserved; // unsigned short - 2 bytes
         char userid[16]; // user which created the var len rec. // can be LASF_Spec or LASF_Projection in this case
         uint16_t recordId; // depends on userid. 34735 for userId LASF_Projection is GeoKeyDirectoryTag and is mandatory here.
@@ -76,8 +76,8 @@ private:
         char description[32];
     };
 
-#pragma pack(1)
-    struct __attribute__ ((packed)) GeoKeyEntry {
+//#pragma pack(1)
+    struct GeoKeyEntry {
         uint16_t wKeyId; // id from GeoTiff specification
         uint16_t wTiffTagLocation; // 0 -> data is in wValueOffset.
                                     // 34736 -> wValueOffset is index of data in GeoDoubleParamsTag record.
@@ -85,9 +85,9 @@ private:
         uint16_t wCount; // only relevant for GeoAsciiParamsTag, 1 otherwise
         uint16_t wValueOffset; // content depends on wTiffTagLocation
     };
-
-#pragma pack(1)
-    struct __attribute__ ((packed)) GeoKeyDirectoryTag {
+//
+//#pragma pack(1)
+    struct GeoKeyDirectoryTag {
         uint16_t wKeyDirectoryVersion; // always 1
         uint16_t wKeyRevision; // always 1
         uint16_t wMinorRevision; // always 0
@@ -97,8 +97,8 @@ private:
 
 
     // Point Data Record Format 1
-#pragma pack(1)
-    struct __attribute__ ((packed)) PointDRF1 {
+//#pragma pack(1)
+    struct PointDRF1 {
         uint32_t x, y, z;
         uint16_t intensity;
         uint8_t flags; // multiple bits that are not needed and add up to eight
@@ -110,8 +110,8 @@ private:
     };
 
     // Point Data Record Format 2
-#pragma pack(1)
-    struct __attribute__ ((packed)) PointDRF2 {
+//#pragma pack(1)
+    struct PointDRF2 {
         uint32_t x, y, z;
         uint16_t intensity;
         uint8_t flags; // multiple bits that are not needed and add up to eight
@@ -128,5 +128,6 @@ private:
     void read(const std::string &path);
 };
 
+#pragma pack(pop)
 
 #endif //LASCAMPUS_POINTCLOUD_H

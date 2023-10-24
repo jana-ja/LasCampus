@@ -6,8 +6,9 @@
 #include <fstream>
 #include <stdexcept>
 #include <assert.h>
-#include "PointCloud.h"
 #include "util.h"
+#include "PointCloud.h"
+
 
 using namespace std;
 
@@ -25,7 +26,7 @@ void PointCloud::read(const string& path) {
     if (inf.is_open()) {
 
         // header
-        Header header;
+        Header header = Header();
         // fill in header ref with read data of size of header
         inf.read((char*) &header,
                  sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
@@ -67,29 +68,29 @@ void PointCloud::read(const string& path) {
         }
 
 
-        // var length records
-        VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
-        GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
-
-        for (int i = 0; i < header.numVarLenRecords; i++) {
-
-            // read header
-            auto& currentHeader = varLenRecHeaders[i]; // ref
-            inf.read((char*) &currentHeader, sizeof currentHeader);
-
-            if (strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735) {
-                //  this var length record is the GeoKeyDirectoryTag
-
-                // read info
-                inf.read((char*) &geoKeyDirectoryTag, 8);//sizeof geoKeyDirectoryTag);
-
-                // resize entry vector of geo key directory tag
-                geoKeyDirectoryTag.entries.resize(geoKeyDirectoryTag.wNumberOfKeys);
-                // read entries
-                inf.read((char*) &geoKeyDirectoryTag.entries[0],
-                         geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
-            }
-        }
+//        // var length records
+//        VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
+//        GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
+//
+//        for (int i = 0; i < header.numVarLenRecords; i++) {
+//
+//            // read header
+//            auto& currentHeader = varLenRecHeaders[i]; // ref
+//            inf.read((char*) &currentHeader, sizeof currentHeader);
+//
+//            if (strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735) {
+//                //  this var length record is the GeoKeyDirectoryTag
+//
+//                // read info
+//                inf.read((char*) &geoKeyDirectoryTag, 8);//sizeof geoKeyDirectoryTag);
+//
+//                // resize entry vector of geo key directory tag
+//                geoKeyDirectoryTag.entries.resize(geoKeyDirectoryTag.wNumberOfKeys);
+//                // read entries
+//                inf.read((char*) &geoKeyDirectoryTag.entries[0],
+//                         geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
+//            }
+//        }
 
         // points
         std::cout << "Num of points: " << header.numberOfPoints << std::endl;
