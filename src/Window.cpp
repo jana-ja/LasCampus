@@ -2,6 +2,8 @@
 // Created by Jana Jansen on 01.09.23.
 //
 
+#include <iostream>
+#include <filesystem>
 #include "Window.h"
 #include "loadShader.h"
 
@@ -61,10 +63,11 @@ Window::Window() {
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
+    std::cout << "current path " << std::filesystem::current_path() << std::endl;
 
     // Create and compile our GLSL program from the shaders
-    GLuint programID = LoadShaders("/Users/Shared/Masti/LasCampus/src/SimpleVertexShader.vs",
-                                   "/Users/Shared/Masti/LasCampus/src/SimpleFragmentShader.fs");
+    GLuint programID = LoadShaders("..\\src\\SimpleVertexShader.vs",
+                                   "..\\src\\SimpleFragmentShader.fs");
 
 
     do {
