@@ -8,7 +8,7 @@
 #include "Window.h"
 
 
-Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
+Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(6.0f),
                                         pointCloud(pointCloud) {
 
 
