@@ -14,6 +14,8 @@ add_executable(LasCampus src/main.cpp
         src/Camera.h
         src/shader.h
         src/util.h
+        src/KdTree.cpp
+        src/KdTree.h
 )
 
 # glfw and glew from source

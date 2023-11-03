@@ -6,10 +6,21 @@
 #define LASCAMPUS_VERTEX_H
 
 struct Vertex {
-    float x, y, z;
+    float x, y, z;//, nX, nY, nZ;
+
+    float operator[](const int i) const{ // TODO macht das speicher größer?
+        switch (i) {
+            case 1:
+                return x;
+            case 2:
+                return y;
+            default:
+                return z;
+        }
+    }
 };
 
-struct ColorVertex : Vertex{
+struct ColorVertex : Vertex {
     float x, y, z, red, green, blue;
 };
 
