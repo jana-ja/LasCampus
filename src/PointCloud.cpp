@@ -15,9 +15,16 @@ using namespace std;
 PointCloud::PointCloud(const std::vector<std::string>& files) {
     std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
 
-    for (int i = 0; i < files.size(); i++) {
-        read(dir + files[i]);
+    for (const auto &file : files) {
+        read(dir + file);
     }
+    std::cout << TAG << "read data successful" << std::endl;
+
+    tree = KdTree(vertices);
+
+
+//    std::vector<KdTreeNode>* resi;
+//    tree.kNN(vertices[0], 2, resi);
 }
 
 void PointCloud::read(const string& path) {
@@ -27,13 +34,13 @@ void PointCloud::read(const string& path) {
 
         // header
         Header header = Header();
-        // fill in header ref with read data of size of header
+        // fill in header ref with read tree of size of header
         inf.read((char*) &header,
                  sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
 
-        std::cout << "File: " << path << std::endl;
-        std::cout << "Version: " << +header.versionMaj << "." << +header.versionMin << std::endl;
-        std::cout << "Point Data Record Format: " << +header.pointDataRecordFormat << std::endl;
+        std::cout << TAG << "File: " << path << std::endl;
+        std::cout << TAG << "Version: " << +header.versionMaj << "." << +header.versionMin << std::endl;
+        std::cout << TAG << "Point Data Record Format: " << +header.pointDataRecordFormat << std::endl;
 
 
         // version checks
@@ -42,11 +49,11 @@ void PointCloud::read(const string& path) {
         }
         assert(header.headerSize == sizeof(header));
         if (header.pointDataRecordFormat != 1 && header.pointDataRecordFormat != 2) {
-            throw std::invalid_argument("Can't handle given LAS file. Only point data record format 1 or 2 allowed.");
+            throw std::invalid_argument("Can't handle given LAS file. Only point tree record format 1 or 2 allowed.");
         }
 
 
-        // point data record format of multiple files must match
+        // point tree record format of multiple files must match
         if (firstFile) {
             // first file
             pointRecFormat = header.pointDataRecordFormat;
@@ -63,7 +70,7 @@ void PointCloud::read(const string& path) {
         } else {
             // following files
             if (header.pointDataRecordFormat != 1 && header.pointDataRecordFormat != 2) {
-                throw std::invalid_argument("All given LAS files need to have the same point data record format.");
+                throw std::invalid_argument("All given LAS files need to have the same point tree record format.");
             }
         }
 
@@ -93,10 +100,10 @@ void PointCloud::read(const string& path) {
 //        }
 
         // points
-        std::cout << "Num of points: " << header.numberOfPoints << std::endl;
-        inf.seekg(header.pointDataOffset); // skip to point data
+        std::cout << TAG << "Num of points: " << header.numberOfPoints << std::endl;
+        inf.seekg(header.pointDataOffset); // skip to point tree
         if (header.pointDataRecordFormat == 1) {
-            for (uint32_t i = 0; i < header.numberOfPoints; i++) {
+            for (uint32_t i = 0; i < header.numberOfPoints; i++) {//10000000; i++) {//header.numberOfPoints; i++) {
                 PointDRF1 point;
                 inf.read((char*) (&point), sizeof(PointDRF1));
 
@@ -111,30 +118,31 @@ void PointCloud::read(const string& path) {
 
                 vertices.push_back(v);
             }
-        } else if (header.pointDataRecordFormat == 2) {
-            for (uint32_t i = 0; i < header.numberOfPoints; i++) {
-                PointDRF2 point;
-                inf.read((char*) (&point), sizeof(PointDRF2));
-
-                // convert to opengl friendly thing
-                // Xcoordinate = (Xrecord * Xscale) + Xoffset
-
-                auto redFloat = (point.red / 65536.0f);
-                auto greenFloat = (point.green / 65536.0f);
-                auto blueFloat = (point.blue / 65536.0f);
-
-                // center pointcloud - offset is in opengl coord system!
-                ColorVertex v;
-                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
-                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
-                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-                v.red = redFloat;
-                v.green = greenFloat;
-                v.blue = blueFloat;
-
-                colorVertices.push_back(v);
-            }
         }
+//        else if (header.pointDataRecordFormat == 2) {
+//            for (uint32_t i = 0; i < header.numberOfPoints; i++) {
+//                PointDRF2 point;
+//                inf.read((char*) (&point), sizeof(PointDRF2));
+//
+//                // convert to opengl friendly thing
+//                // Xcoordinate = (Xrecord * Xscale) + Xoffset
+//
+//                auto redFloat = (point.red / 65536.0f);
+//                auto greenFloat = (point.green / 65536.0f);
+//                auto blueFloat = (point.blue / 65536.0f);
+//
+//                // center pointcloud - offset is in opengl coord system!
+//                ColorVertex v;
+//                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
+//                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
+//                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
+//                v.red = redFloat;
+//                v.green = greenFloat;
+//                v.blue = blueFloat;
+//
+//                colorVertices.push_back(v);
+//            }
+//        }
 
         if (!inf.good())
             throw runtime_error("Reading LAS ran into error");
@@ -145,9 +153,9 @@ void PointCloud::read(const string& path) {
 }
 
 uint32_t PointCloud::getVertexCount() {
-    if (hasColor())
-        return (uint32_t) colorVertices.size();
-    else
+//    if (hasColor())
+//        return (uint32_t) colorVertices.size();
+//    else
         return (uint32_t) vertices.size();
 }
 
@@ -155,9 +163,9 @@ Vertex* PointCloud::getVertices() {
     return vertices.data();
 }
 
-Vertex* PointCloud::getColorVertices() {
-    return colorVertices.data();
-}
+//Vertex* PointCloud::getColorVertices() {
+//    return colorVertices.tree();
+//}
 
 Vertex PointCloud::getUTMForOpenGL(Vertex* vertexOpenGL) {
     // TODO offset is float, losing precision
@@ -176,6 +184,10 @@ Vertex PointCloud::getWGSForOpenGL(Vertex* vertex) {
     return Vertex();
 }
 
-bool PointCloud::hasColor() {
-    return pointRecFormat == 2;
+void PointCloud::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result) {
+    tree.kNN(point, k, result);
 }
+
+//bool PointCloud::hasColor() {
+//    return pointRecFormat == 2;
+//}

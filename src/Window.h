@@ -23,6 +23,8 @@ public:
     Window(PointCloud pointCloud);
 
 private:
+    const char* TAG = "Window\t";
+
     const int WIDTH;
     const int HEIGHT;
     const std::string TITLE;
@@ -40,7 +42,7 @@ private:
     float deltaTime = 0.0f;    // Time between current frame and last frame
     float lastFrame = 0.0f; // Time of last frame
 
-    // data
+    // tree
     PointCloud pointCloud;
 
     bool showInfo = false;

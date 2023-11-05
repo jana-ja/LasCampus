@@ -8,33 +8,46 @@
 // TODO interface schreiben mit dingen die ich von meiner datenstruktur erwarte???
 class compare_dimension {
 public:
-    compare_dimension(size_t dim) { d = dim; }
-    bool operator()(const KdTreeNode& p, const KdTreeNode& q) {
-        return (p.vertex[d] < q.vertex[d]);
+    explicit compare_dimension(size_t dim) { d = dim; }
+    bool operator()(const KdTreeNode& p, const KdTreeNode& q) const {
+        return ((*p.vertex)[d] < (*q.vertex)[d]);
     }
     size_t d;
 };
 
-KdTree::KdTree(const std::vector<KdTreeNode>* pNodes) {
+KdTree::KdTree(const std::vector<Vertex>& points) {
+
+    std::cout << TAG << "Begin Tree" << std::endl;
+
     size_t i, j;
-    double val;
-    // copy over input data
-    if (!pNodes || pNodes->empty())
-        throw std::invalid_argument("kdtree::KdTree(): argument pNodes must not be empty");
-    nodes = *pNodes;
+    float val;
+    if (points.empty())
+        throw std::invalid_argument("KdTree::KdTree(): argument points must not be empty");
+    // convert points to nodes
+    int idx=0;
+    for (auto v=points.begin(); v != points.end(); ++v, ++idx)
+    {
+        nodes.push_back(KdTreeNode(&*v, idx));
+    }
+
     // compute global bounding box
-    lobound = pNodes->begin()->vertex;
-    upbound = pNodes->begin()->vertex;
-    for (i = 1; i < pNodes->size(); i++) {
+    lobound = *points.begin();
+    upbound = *points.begin();
+    for (i = 1; i < points.size(); i++) {
         for (j = 0; j < 3; j++) {
-            val = pNodes[i].vertex[j];
+            val = points[i][j];
             if (lobound[j] > val) lobound[j] = val;
             if (upbound[j] < val) upbound[j] = val;
         }
     }
     // build tree recursively
-    root = build_tree(0, 0, pNodes.size());
+    root = build_tree(0, 0, points.size());
+
+    std::cout << TAG << "Tree finished" << std::endl;
+
 }
+
+
 
 //--------------------------------------------------------------
 // recursive build of tree
@@ -42,6 +55,7 @@ KdTree::KdTree(const std::vector<KdTreeNode>* pNodes) {
 // from "allnodes" from which the subtree is to be built
 //--------------------------------------------------------------
 KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
+//    std::cout << TAG << "Build Tree " << depth << " " << a << " "  << b << std::endl;
     size_t m;
     double temp, cutval;
     KdTreeNode* node = new KdTreeNode();
@@ -56,7 +70,7 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
         std::nth_element(nodes.begin() + a, nodes.begin() + m,
                          nodes.begin() + b, compare_dimension(node->cutDim));
         node->vertex = nodes[m].vertex;
-        cutval = nodes[m].vertex[node->cutDim];
+        cutval = (*nodes[m].vertex)[node->cutDim];
         node->index = m;
         if (m - a > 0) {
             temp = upbound[node->cutDim];
@@ -65,54 +79,15 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
             upbound[node->cutDim] = temp;
         }
         if (b - m > 1) {
-            temp = lobound[node->cutdim];
-            lobound[node->cutdim] = cutval;
+            temp = lobound[node->cutDim];
+            lobound[node->cutDim] = cutval;
             node->right = build_tree(depth + 1, m + 1, b);
-            lobound[node->cutdim] = temp;
+            lobound[node->cutDim] = temp;
         }
     }
     return node;
 }
 
-void KdTree::k_nearest_neighbors(const Vertex& point, size_t k,
-                                 std::vector<KdTreeNode>* result) {
-    size_t i;
-    KdTreeNode temp;
-
-    result->clear();
-    if (k < 1) return;
-
-    // collect result of k values in neighborheap
-    //std::priority_queue<kNNSearchElem, std::vector<kNNSearchElem>, kNNSearchComparator>*
-    //neighborheap = new std::priority_queue<kNNSearchElem, std::vector<kNNSearchElem>, kNNSearchComparator>();
-    SearchQueue* neighborheap = new SearchQueue();
-    if (k > nodes.size()) {
-        // when more neighbors asked than nodes in tree, return everything
-        k = nodes.size();
-        for (i = 0; i < k; i++) {
-                neighborheap->push(
-                        kNNSearchElem(i, distance(nodes[i].vertex, point)));
-        }
-    } else {
-        neighbor_search(point, root, k, neighborheap);
-    }
-
-    // copy over result sorted by distance
-    // (we must revert the vector for ascending order)
-    while (!neighborheap->empty()) {
-        i = neighborheap->top().dataIndex;
-        neighborheap->pop();
-        result->push_back(nodes[i]);
-    }
-    // beware that less than k results might have been returned
-    k = result->size();
-    for (i = 0; i < k / 2; i++) {
-        temp = (*result)[i];
-        (*result)[i] = (*result)[k - 1 - i];
-        (*result)[k - 1 - i] = temp;
-    }
-    delete neighborheap;
-}
 
 //--------------------------------------------------------------
 // recursive function for nearest neighbor search in subtree
@@ -123,7 +98,7 @@ bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
                              size_t k, SearchQueue* neighborheap) {
     double curdist, dist;
 
-    curdist = distance(point, node->vertex);
+    curdist = distance(point, *node->vertex);
 
         if (neighborheap->size() < k) {
             neighborheap->push(kNNSearchElem(node->index, curdist));
@@ -133,7 +108,7 @@ bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
         }
 
     // first search on side closer to point
-    if (point[node->cutDim] < node->vertex[node->cutDim]) {
+    if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
         if (node->left)
             if (neighbor_search(point, node->left, k, neighborheap)) return true;
     } else {
@@ -146,7 +121,7 @@ bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
     } else {
         dist = neighborheap->top().distance;
     }
-    if (point[node->cutDim] < node->vertex[node->cutDim]) {
+    if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
         if (node->left && bounds_overlap_ball(point, dist, node->right))
             if (neighbor_search(point, node->right, k, neighborheap)) return true;
     } else {
@@ -182,12 +157,57 @@ bool KdTree::ball_within_bounds(const Vertex& point, double dist,
                                 KdTreeNode* node) {
     size_t i;
     for (i = 0; i < 3; i++)
-        if (coordinate_distance(point[i], node->lobound[i], i) <= dist ||
-            coordinate_distance(point[i], node->upbound[i], i) <= dist)
+        if (coordinate_distance(point[i], node->lobound[i]) <= dist ||
+            coordinate_distance(point[i], node->upbound[i]) <= dist)
             return false;
     return true;
 }
 
-double coordinate_distance(double x, double y) {
-        return (x - y) * (x - y);
+void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result) {
+    std::cout << TAG << "kNN with " << k << " for " << point.x << " " << point.y << " "  << point.z << std::endl;
+
+    size_t i;
+    KdTreeNode temp;
+
+    result->clear();
+    if (k < 1) return;
+
+    // collect result of k values in neighborheap
+    //std::priority_queue<kNNSearchElem, std::vector<kNNSearchElem>, kNNSearchComparator>*
+    //neighborheap = new std::priority_queue<kNNSearchElem, std::vector<kNNSearchElem>, kNNSearchComparator>();
+    SearchQueue* neighborheap = new SearchQueue();
+    if (k > nodes.size()) {
+        // when more neighbors asked than nodes in tree, return everything
+        k = nodes.size();
+        for (i = 0; i < k; i++) {
+            neighborheap->push(
+                    kNNSearchElem(i,  distance(*nodes[i].vertex, point)));
+        }
+    } else {
+        neighbor_search(point, root, k, neighborheap);
+    }
+
+    // copy over result sorted by distance
+    // (we must revert the vector for ascending order)
+    while (!neighborheap->empty()) {
+        i = neighborheap->top().dataIndex;
+        neighborheap->pop();
+        result->push_back(nodes[i]);
+    }
+    // beware that less than k results might have been returned
+    k = result->size();
+    for (i = 0; i < k / 2; i++) {
+        temp = (*result)[i];
+        (*result)[i] = (*result)[k - 1 - i];
+        (*result)[k - 1 - i] = temp;
+    }
+    delete neighborheap;
+    std::cout << TAG << "kNN finished " << std::endl;
+
+}
+
+
+
+const Vertex* KdTreeNode::getVertex() {
+    return vertex;
 }

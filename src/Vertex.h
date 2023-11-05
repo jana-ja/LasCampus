@@ -8,7 +8,20 @@
 struct Vertex {
     float x, y, z;//, nX, nY, nZ;
 
-    float operator[](const int i) const{ // TODO macht das speicher größer?
+    // this is to access from const vector of vertices
+    float operator[](const int i) const{
+        switch (i) {
+            case 1:
+                return x;
+            case 2:
+                return y;
+            default:
+                return z;
+        }
+    }
+
+    // this can access and modify
+    float& operator[](const int i){
         switch (i) {
             case 1:
                 return x;

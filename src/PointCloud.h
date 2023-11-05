@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <vector>
 #include "Vertex.h"
+#include "PointCloudDataStructure.h"
+#include "KdTree.h"
 
 #ifndef LASCAMPUS_POINTCLOUD_H
 #define LASCAMPUS_POINTCLOUD_H
@@ -18,17 +20,23 @@ public:
 
     Vertex* getVertices();
 
-    Vertex* getColorVertices();
+    void kNN(const Vertex& point, size_t k,
+             std::vector<KdTreeNode>* result);
+
+//    Vertex* getColorVertices();
 
     Vertex getUTMForOpenGL(Vertex* vertex);
 
     Vertex getWGSForOpenGL(Vertex* vertex);
 
-    bool hasColor();
+//    bool hasColor();
 
 private:
+    const char* TAG = "PC\t";
+
+    KdTree tree;
     std::vector<Vertex> vertices;
-    std::vector<ColorVertex> colorVertices;
+    //std::vector<ColorVertex> colorVertices;
 
     // offset is in opengl coord system!
     float xOffset;
@@ -40,7 +48,7 @@ private:
     bool firstFile = true;
 
 #pragma pack(push,1) // win - tightly pack the bytes and dont start at new power of two things
-    struct Header {  // mac
+    struct Header {
         char magic[4];
         uint16_t fileSourceId; // unsigned short - 2 bytes
         uint16_t globalEncoding;
@@ -79,9 +87,9 @@ private:
 //#pragma pack(1)
     struct GeoKeyEntry {
         uint16_t wKeyId; // id from GeoTiff specification
-        uint16_t wTiffTagLocation; // 0 -> data is in wValueOffset.
-                                    // 34736 -> wValueOffset is index of data in GeoDoubleParamsTag record.
-                                    // 34767 -> wValueOffset is index of data in GeoAsciiParamsTag record.
+        uint16_t wTiffTagLocation; // 0 -> tree is in wValueOffset.
+                                    // 34736 -> wValueOffset is index of tree in GeoDoubleParamsTag record.
+                                    // 34767 -> wValueOffset is index of tree in GeoAsciiParamsTag record.
         uint16_t wCount; // only relevant for GeoAsciiParamsTag, 1 otherwise
         uint16_t wValueOffset; // content depends on wTiffTagLocation
     };
@@ -111,18 +119,18 @@ private:
 
     // Point Data Record Format 2
 //#pragma pack(1)
-    struct PointDRF2 {
-        uint32_t x, y, z;
-        uint16_t intensity;
-        uint8_t flags; // multiple bits that are not needed and add up to eight
-        uint8_t classification;
-        uint8_t scanAngleRank;
-        uint8_t userData;
-        uint16_t pointSourceId;
-        uint16_t red;
-        uint16_t green;
-        uint16_t blue;
-    };
+//    struct PointDRF2 {
+//        uint32_t x, y, z;
+//        uint16_t intensity;
+//        uint8_t flags; // multiple bits that are not needed and add up to eight
+//        uint8_t classification;
+//        uint8_t scanAngleRank;
+//        uint8_t userData;
+//        uint16_t pointSourceId;
+//        uint16_t red;
+//        uint16_t green;
+//        uint16_t blue;
+//    };
 
 
     void read(const std::string &path);
