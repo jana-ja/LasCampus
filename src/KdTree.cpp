@@ -122,10 +122,10 @@ bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
         dist = neighborheap->top().distance;
     }
     if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
-        if (node->left && bounds_overlap_ball(point, dist, node->right))
+        if (node->right && bounds_overlap_ball(point, dist, node->right))
             if (neighbor_search(point, node->right, k, neighborheap)) return true;
     } else {
-        if (node->right && bounds_overlap_ball(point, dist, node->left))
+        if (node->left && bounds_overlap_ball(point, dist, node->left))
             if (neighbor_search(point, node->left, k, neighborheap)) return true;
     }
 
@@ -177,6 +177,7 @@ void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result)
     //neighborheap = new std::priority_queue<kNNSearchElem, std::vector<kNNSearchElem>, kNNSearchComparator>();
     SearchQueue* neighborheap = new SearchQueue();
     if (k > nodes.size()) {
+        std::cout << TAG << "kNN return all" << std::endl;
         // when more neighbors asked than nodes in tree, return everything
         k = nodes.size();
         for (i = 0; i < k; i++) {
@@ -184,9 +185,11 @@ void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result)
                     kNNSearchElem(i,  distance(*nodes[i].vertex, point)));
         }
     } else {
+        std::cout << TAG << "kNN neighbor search" << std::endl;
         neighbor_search(point, root, k, neighborheap);
     }
 
+    std::cout << TAG << "kNN copy result" << std::endl;
     // copy over result sorted by distance
     // (we must revert the vector for ascending order)
     while (!neighborheap->empty()) {
