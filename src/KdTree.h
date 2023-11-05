@@ -9,9 +9,8 @@
 #include <vector>
 #include <queue>
 #include "Vertex.h"
-#include "PointCloudDataStructure.h"
 
-struct KdTreeNode {//: public PointCloudNode {
+struct KdTreeNode {
 
     KdTreeNode() {}
 

@@ -16,7 +16,6 @@ add_executable(LasCampus src/main.cpp
         src/util.h
         src/KdTree.cpp
         src/KdTree.h
-        src/PointCloudDataStructure.h
 )
 
 if (WIN32)

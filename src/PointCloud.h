@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <vector>
 #include "Vertex.h"
-#include "PointCloudDataStructure.h"
 #include "KdTree.h"
 
 #ifndef LASCAMPUS_POINTCLOUD_H
