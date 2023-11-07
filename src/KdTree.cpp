@@ -3,9 +3,9 @@
 //
 
 #include <stdexcept>
+#include <chrono>
 #include "KdTree.h"
 
-// TODO interface schreiben mit dingen die ich von meiner datenstruktur erwarte???
 class compare_dimension {
 public:
     explicit compare_dimension(size_t dim) { d = dim; }
@@ -41,9 +41,9 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
         }
     }
     auto start = std::chrono::high_resolution_clock::now();
-#pragma omp parallel
+//#pragma omp parallel
     {
-#pragma omp single
+//#pragma omp single
         {
             // build tree recursively
             root = build_tree(0, 0, points.size());
@@ -66,35 +66,42 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
 //    std::cout << TAG << "Build Tree " << depth << " " << a << " "  << b << std::endl;
     size_t m;
     double temp, cutval;
-    KdTreeNode* node = new KdTreeNode();
-    node->lobound = lobound;
-    node->upbound = upbound;
-    node->cutDim = depth % 3;
+//    KdTreeNode* node = new KdTreeNode();
+    KdTreeNode* node;
     if (b - a <= 1) {
+        node = &nodes[a];
+        node->lobound = lobound;
+        node->upbound = upbound;
+        node->cutDim = depth % 3;
         node->index = a;
-        node->vertex = nodes[a].vertex;
+//        node->vertex = nodes[a].vertex;
     } else {
         m = (a + b) / 2;
+        node = &nodes[m];
+        node->lobound = lobound;
+        node->upbound = upbound;
+        node->cutDim = depth % 3;
         std::nth_element(nodes.begin() + a, nodes.begin() + m,
                          nodes.begin() + b, compare_dimension(node->cutDim)); // TODO parallel problems?
-        node->vertex = nodes[m].vertex;
+//        node->vertex = nodes[m].vertex;
         cutval = (*nodes[m].vertex)[node->cutDim];
         node->index = m;
         if (m - a > 0) {
             temp = upbound[node->cutDim];
             upbound[node->cutDim] = cutval; // TODO parallel problems
-#pragma omp task
+//#pragma omp task
             node->left = build_tree(depth + 1, a, m);
             upbound[node->cutDim] = temp;
         }
         if (b - m > 1) {
             temp = lobound[node->cutDim];
             lobound[node->cutDim] = cutval;
-#pragma omp task
+//#pragma omp task
             node->right = build_tree(depth + 1, m + 1, b);
             lobound[node->cutDim] = temp;
         }
     }
+
     return node;
 }
 
@@ -120,11 +127,11 @@ bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
     // first search on side closer to point
     if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
         if (node->left)
-#pragma omp task
+//#pragma omp task
             if (neighbor_search(point, node->left, k, neighborheap)) return true;
     } else {
         if (node->right)
-#pragma omp task
+//#pragma omp task
             if (neighbor_search(point, node->right, k, neighborheap)) return true;
     }
     // second search on farther side, if necessary
@@ -135,11 +142,11 @@ bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
     }
     if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
         if (node->right && bounds_overlap_ball(point, dist, node->right))
-#pragma omp task
+//#pragma omp task
             if (neighbor_search(point, node->right, k, neighborheap)) return true;
     } else {
         if (node->left && bounds_overlap_ball(point, dist, node->left))
-#pragma omp task
+//#pragma omp task
             if (neighbor_search(point, node->left, k, neighborheap)) return true;
     }
 
@@ -199,9 +206,9 @@ void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result)
                     kNNSearchElem(i,  distance(*nodes[i].vertex, point)));
         }
     } else {
-#pragma omp parallel
+//#pragma omp parallel
         {
-#pragma omp single
+//#pragma omp single
             {
                 std::cout << TAG << "kNN neighbor search" << std::endl;
                 neighbor_search(point, root, k, neighborheap);

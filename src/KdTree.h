@@ -12,9 +12,18 @@
 
 struct KdTreeNode {
 
-    KdTreeNode() {}
+    KdTreeNode() {
+        vertex = nullptr;
+        index = -1;
+        left = nullptr;
+        right = nullptr;
+//        cutDim = -1;
+    }
 
-    KdTreeNode(const Vertex* vertex, int index) : vertex(vertex), index(index) {}
+    KdTreeNode(const Vertex* vertex, int index) : vertex(vertex), index(index) {
+        left = nullptr;
+        right = nullptr;
+    }
 
 
     const Vertex* vertex;
