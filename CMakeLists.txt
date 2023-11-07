@@ -3,6 +3,9 @@ project(LasCampus)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# added -fopenmp
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
+
 add_executable(LasCampus src/main.cpp
         src/PointCloud.cpp
         src/PointCloud.h
@@ -46,6 +49,8 @@ if (WIN32)
     add_subdirectory(${GLM_SOURCE_DIR})
     target_link_libraries(LasCampus PUBLIC glm::glm)
 
+    find_package(OpenMP REQUIRED)
+    target_link_libraries(LasCampus PRIVATE OpenMP::OpenMP_CXX)
 
 elseif (APPLE)
     # from mac:

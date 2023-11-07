@@ -41,9 +41,9 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
         }
     }
     auto start = std::chrono::high_resolution_clock::now();
-//#pragma omp parallel
+#pragma omp parallel
     {
-//#pragma omp single
+#pragma omp single
         {
             // build tree recursively
             root = build_tree(0, 0, points.size());
@@ -89,14 +89,14 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
         if (m - a > 0) {
             temp = upbound[node->cutDim];
             upbound[node->cutDim] = cutval; // TODO parallel problems
-//#pragma omp task
+#pragma omp task
             node->left = build_tree(depth + 1, a, m);
             upbound[node->cutDim] = temp;
         }
         if (b - m > 1) {
             temp = lobound[node->cutDim];
             lobound[node->cutDim] = cutval;
-//#pragma omp task
+#pragma omp task
             node->right = build_tree(depth + 1, m + 1, b);
             lobound[node->cutDim] = temp;
         }
