@@ -73,9 +73,9 @@ public:
 private:
     const char* TAG = "KdTree\t";
     // helper variable for keeping track of subtree bounding box
-    Vertex lobound, upbound;
+//    Vertex lobound, upbound;
 
-    KdTreeNode* build_tree(size_t depth, size_t a, size_t b);
+    KdTreeNode* build_tree(size_t depth, size_t a, size_t b, Vertex lobound, Vertex upbound);
 
     std::vector<KdTreeNode> nodes;
     KdTreeNode* root;

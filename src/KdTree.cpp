@@ -16,6 +16,11 @@ public:
 };
 
 KdTree::KdTree(const std::vector<Vertex>& points) {
+    // TODO schauen ob es schneller geht: vector von nodes nicht zwischen threads sharen.
+    //  vllt teile als kopien mitgeben bei build_tree?
+    //  vllt nodes einmal vorsortieren? ne geht nicht weil immer nach anderer dim sortiert wird.
+    //  einmal versuchen den ganzen nodes vector openmp private zu machen und jeder hat seine eigene kopie.
+    //  sonst funktion umschreiben dass sie vector annimmt und immer das relevante stück nur reingeben.
 
     std::cout << TAG << "Begin Tree" << std::endl;
 
@@ -31,8 +36,8 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
     }
 
     // compute global bounding box
-    lobound = *points.begin();
-    upbound = *points.begin();
+    Vertex lobound = *points.begin();
+    Vertex upbound = *points.begin();
     for (i = 1; i < points.size(); i++) {
         for (j = 0; j < 3; j++) {
             val = points[i][j];
@@ -46,7 +51,7 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
 #pragma omp single
         {
             // build tree recursively
-            root = build_tree(0, 0, points.size());
+            root = build_tree(0, 0, points.size(), lobound, upbound);
         }
     }
     auto stop = std::chrono::high_resolution_clock::now();
@@ -62,7 +67,7 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
 // "a" and "b"-1 are the lower and upper indices
 // from "allnodes" from which the subtree is to be built
 //--------------------------------------------------------------
-KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
+KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound, Vertex upbound) {
 //    std::cout << TAG << "Build Tree " << depth << " " << a << " "  << b << std::endl;
     size_t m;
     double temp, cutval;
@@ -88,16 +93,16 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b) {
         node->index = m;
         if (m - a > 0) {
             temp = upbound[node->cutDim];
-            upbound[node->cutDim] = cutval; // TODO parallel problems
+            upbound[node->cutDim] = cutval;
 #pragma omp task
-            node->left = build_tree(depth + 1, a, m);
+            node->left = build_tree(depth + 1, a, m, lobound, upbound);
             upbound[node->cutDim] = temp;
         }
         if (b - m > 1) {
             temp = lobound[node->cutDim];
             lobound[node->cutDim] = cutval;
 #pragma omp task
-            node->right = build_tree(depth + 1, m + 1, b);
+            node->right = build_tree(depth + 1, m + 1, b, lobound, upbound);
             lobound[node->cutDim] = temp;
         }
     }
