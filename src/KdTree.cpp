@@ -56,7 +56,7 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
     }
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "Tree finished in " << duration.count() << std::endl;
+    std::cout << TAG << "Tree finished in " << duration.count() << " max depth: " << maxDepth << std::endl;
 
 }
 
@@ -69,6 +69,11 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
 //--------------------------------------------------------------
 KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound, Vertex upbound) {
 //    std::cout << TAG << "Build Tree " << depth << " " << a << " "  << b << std::endl;
+
+    if(depth > maxDepth){
+        maxDepth = depth;
+    }
+
     size_t m;
     double temp, cutval;
 //    KdTreeNode* node = new KdTreeNode();
@@ -94,15 +99,23 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound,
         if (m - a > 0) {
             temp = upbound[node->cutDim];
             upbound[node->cutDim] = cutval;
+            if(depth < 13) {
 #pragma omp task
-            node->left = build_tree(depth + 1, a, m, lobound, upbound);
+                node->left = build_tree(depth + 1, a, m, lobound, upbound);
+            } else {
+                node->left = build_tree(depth + 1, a, m, lobound, upbound);
+            }
             upbound[node->cutDim] = temp;
         }
         if (b - m > 1) {
             temp = lobound[node->cutDim];
             lobound[node->cutDim] = cutval;
+            if(depth < 13) {
 #pragma omp task
-            node->right = build_tree(depth + 1, m + 1, b, lobound, upbound);
+                node->right = build_tree(depth + 1, m + 1, b, lobound, upbound);
+            } else {
+                node->right = build_tree(depth + 1, m + 1, b, lobound, upbound);
+            }
             lobound[node->cutDim] = temp;
         }
     }

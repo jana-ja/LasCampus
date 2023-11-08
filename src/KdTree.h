@@ -80,6 +80,9 @@ private:
     std::vector<KdTreeNode> nodes;
     KdTreeNode* root;
 
+    // TODO test
+    int maxDepth = 0;
+
     bool neighbor_search(const Vertex& point, KdTreeNode* node, size_t k, SearchQueue* neighborheap);
 
     bool bounds_overlap_ball(const Vertex& point, double dist, KdTreeNode* node);
