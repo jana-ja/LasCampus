@@ -75,7 +75,7 @@ private:
     // helper variable for keeping track of subtree bounding box
 //    Vertex lobound, upbound;
 
-    KdTreeNode* build_tree(size_t depth, size_t a, size_t b, Vertex lobound, Vertex upbound);
+    KdTreeNode* build_tree(size_t depth, size_t a, size_t b, std::vector<KdTreeNode> buildNodes, Vertex lobound, Vertex upbound);
 
     std::vector<KdTreeNode> nodes;
     KdTreeNode* root;
@@ -90,6 +90,7 @@ private:
     bool ball_within_bounds(const Vertex& point, double dist, KdTreeNode* node);
 
 
+    void printVector(std::vector<KdTreeNode> nodes);
 };
 
 inline double distance(const Vertex& p, const Vertex& q) {

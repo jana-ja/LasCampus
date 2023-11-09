@@ -22,8 +22,8 @@ PointCloud::PointCloud(const std::vector<std::string>& files) {
 
     tree = KdTree(vertices);
 
-    std::vector<KdTreeNode> resi;
-    tree.kNN(vertices[0], 2, &resi);
+//    std::vector<KdTreeNode> resi;
+//    tree.kNN(vertices[0], 2, &resi);
 }
 
 void PointCloud::read(const string& path) {

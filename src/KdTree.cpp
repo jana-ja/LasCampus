@@ -51,7 +51,7 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
 #pragma omp single
         {
             // build tree recursively
-            root = build_tree(0, 0, points.size(), lobound, upbound);
+            root = build_tree(0, 0, points.size(), nodes, lobound, upbound);
         }
     }
     auto stop = std::chrono::high_resolution_clock::now();
@@ -67,8 +67,10 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
 // "a" and "b"-1 are the lower and upper indices
 // from "allnodes" from which the subtree is to be built
 //--------------------------------------------------------------
-KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound, Vertex upbound) {
+KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, std::vector<KdTreeNode> buildNodes, Vertex lobound, Vertex upbound) {
 //    std::cout << TAG << "Build Tree " << depth << " " << a << " "  << b << std::endl;
+
+
 
     if(depth > maxDepth){
         maxDepth = depth;
@@ -78,43 +80,57 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound,
     double temp, cutval;
 //    KdTreeNode* node = new KdTreeNode();
     KdTreeNode* node;
+    auto cutDim = depth % 3;
     if (b - a <= 1) {
+        // anchor, two or less elements
+//        std::cout << "\tbuildnodes from " << a << " to " << b << " depth: " << depth << std::endl;
+//        printVector(buildNodes);
         node = &nodes[a];
         node->lobound = lobound;
         node->upbound = upbound;
-        node->cutDim = depth % 3;
+        node->cutDim = cutDim;
         node->index = a;
 //        node->vertex = nodes[a].vertex;
     } else {
         m = (a + b) / 2;
+        std::nth_element(buildNodes.begin() + (a-a), buildNodes.begin() + (m-a),
+                         buildNodes.begin() + (b-a), compare_dimension(cutDim)); // TODO parallel problems?
+//        std::cout << "\tbuildnodes from " << a << " to " << b << " depth: " << depth << std::endl;
+//        printVector(buildNodes);
+
         node = &nodes[m];
         node->lobound = lobound;
         node->upbound = upbound;
-        node->cutDim = depth % 3;
-        std::nth_element(nodes.begin() + a, nodes.begin() + m,
-                         nodes.begin() + b, compare_dimension(node->cutDim)); // TODO parallel problems?
+        node->cutDim = cutDim;
+
 //        node->vertex = nodes[m].vertex;
-        cutval = (*nodes[m].vertex)[node->cutDim];
+        cutval = (*node->vertex)[cutDim];
         node->index = m;
         if (m - a > 0) {
             temp = upbound[node->cutDim];
             upbound[node->cutDim] = cutval;
+            std::vector<KdTreeNode> leftVec(buildNodes.begin() + (a-a), buildNodes.begin() + (m-a));
+//            std::cout << "\tleftVec" << std::endl;
+//            printVector(leftVec);
             if(depth < 13) {
 #pragma omp task
-                node->left = build_tree(depth + 1, a, m, lobound, upbound);
+                node->left = build_tree(depth + 1, a, m, leftVec, lobound, upbound);
             } else {
-                node->left = build_tree(depth + 1, a, m, lobound, upbound);
+                node->left = build_tree(depth + 1, a, m, leftVec, lobound, upbound);
             }
             upbound[node->cutDim] = temp;
         }
         if (b - m > 1) {
             temp = lobound[node->cutDim];
             lobound[node->cutDim] = cutval;
+            std::vector<KdTreeNode> rightVec(buildNodes.begin() + (m-a), buildNodes.begin() + (b-a));
+//            std::cout << "\trightVec" << std::endl;
+//            printVector(rightVec);
             if(depth < 13) {
 #pragma omp task
-                node->right = build_tree(depth + 1, m + 1, b, lobound, upbound);
+                node->right = build_tree(depth + 1, m, b, rightVec, lobound, upbound);
             } else {
-                node->right = build_tree(depth + 1, m + 1, b, lobound, upbound);
+                node->right = build_tree(depth + 1, m, b, rightVec, lobound, upbound);
             }
             lobound[node->cutDim] = temp;
         }
@@ -255,6 +271,11 @@ void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result)
 
 }
 
+void KdTree::printVector(std::vector<KdTreeNode> nodes) {
+    for(auto node: nodes){
+        std::cout << "adress: " << &node << " vertex: " << node.vertex << " idx: " << node.index << " left: " << node.left << " right: " << node.right << std::endl;
+    }
+}
 
 
 const Vertex* KdTreeNode::getVertex() {
