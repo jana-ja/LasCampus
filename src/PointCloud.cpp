@@ -21,9 +21,6 @@ PointCloud::PointCloud(const std::vector<std::string>& files) {
     std::cout << TAG << "read data successful" << std::endl;
 
     tree = KdTree(vertices);
-
-//    std::vector<KdTreeNode> resi;
-//    tree.kNN(vertices[0], 2, &resi);
 }
 
 void PointCloud::read(const string& path) {
@@ -102,7 +99,7 @@ void PointCloud::read(const string& path) {
         std::cout << TAG << "Num of points: " << header.numberOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
         if (header.pointDataRecordFormat == 1) {
-            for (uint32_t i = 0; i < 10000000; i++) {//header.numberOfPoints; i++) {
+            for (uint32_t i = 0; i < 5; i++) {//header.numberOfPoints; i++) {
                 PointDRF1 point;
                 inf.read((char*) (&point), sizeof(PointDRF1));
 

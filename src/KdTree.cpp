@@ -16,11 +16,6 @@ public:
 };
 
 KdTree::KdTree(const std::vector<Vertex>& points) {
-    // TODO schauen ob es schneller geht: vector von nodes nicht zwischen threads sharen.
-    //  vllt teile als kopien mitgeben bei build_tree?
-    //  vllt nodes einmal vorsortieren? ne geht nicht weil immer nach anderer dim sortiert wird.
-    //  einmal versuchen den ganzen nodes vector openmp private zu machen und jeder hat seine eigene kopie.
-    //  sonst funktion umschreiben dass sie vector annimmt und immer das relevante stück nur reingeben.
 
     std::cout << TAG << "Begin Tree" << std::endl;
 
@@ -60,17 +55,12 @@ KdTree::KdTree(const std::vector<Vertex>& points) {
 
 }
 
-
-
 //--------------------------------------------------------------
 // recursive build of tree
 // "a" and "b"-1 are the lower and upper indices
-// from "allnodes" from which the subtree is to be built
+// from "nodes" from which the subtree is to be built
 //--------------------------------------------------------------
 KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound, Vertex upbound) {
-//    std::cout << TAG << "Build Tree " << depth << " " << a << " "  << b << std::endl;
-
-
 
     if(depth > maxDepth){
         maxDepth = depth;
@@ -78,39 +68,28 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound,
 
     size_t m;
     double temp, cutval;
-//    KdTreeNode* node = new KdTreeNode();
     KdTreeNode* node;
     auto cutDim = depth % 3;
     if (b - a <= 1) {
         // anchor, two or less elements
-//        std::cout << "\tbuildnodes from " << a << " to " << b << " depth: " << depth << std::endl;
-//        printVector(a,b);
         node = &nodes[a];
         node->lobound = lobound;
         node->upbound = upbound;
         node->cutDim = cutDim;
         node->index = a;
-//        node->vertex = nodes[a].vertex;
     } else {
         m = (a + b) / 2;
         std::nth_element(nodes.begin() + a, nodes.begin() + m,
-                         nodes.begin() + b, compare_dimension(cutDim)); // TODO parallel problems?
-//        std::cout << "\tbuildnodes from " << a << " to " << b << " depth: " << depth << " m: " << m << std::endl;
-//        printVector(a,b);
-
+                         nodes.begin() + b, compare_dimension(cutDim));
         node = &nodes[m];
         node->lobound = lobound;
         node->upbound = upbound;
         node->cutDim = cutDim;
-
-//        node->vertex = nodes[m].vertex;
         cutval = (*node->vertex)[cutDim];
         node->index = m;
         if (m - a > 0) {
             temp = upbound[node->cutDim];
             upbound[node->cutDim] = cutval;
-//            std::cout << "\tleftVec" << std::endl;
-//            printVector(leftVec);
             if(depth < 13) {
 #pragma omp task
                 node->left = build_tree(depth + 1, a, m, lobound, upbound);
@@ -122,8 +101,6 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound,
         if (b - m > 1) {
             temp = lobound[node->cutDim];
             lobound[node->cutDim] = cutval;
-//            std::cout << "\trightVec" << std::endl;
-//            printVector(rightVec);
             if(depth < 13) {
 #pragma omp task
                 node->right = build_tree(depth + 1, m+1, b, lobound, upbound); // m+1 weil m schon return von diesem durchgang ist
@@ -137,84 +114,6 @@ KdTreeNode* KdTree::build_tree(size_t depth, size_t a, size_t b, Vertex lobound,
     return node;
 }
 
-
-//--------------------------------------------------------------
-// recursive function for nearest neighbor search in subtree
-// under *node*. Stores result in *neighborheap*.
-// returns "true" when no nearer neighbor elsewhere possible
-//--------------------------------------------------------------
-bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
-                             size_t k, SearchQueue* neighborheap) {
-    double curdist, dist;
-
-    curdist = distance(point, *node->vertex);
-
-        if (neighborheap->size() < k) {
-            neighborheap->push(kNNSearchElem(node->index, curdist));
-        } else if (curdist < neighborheap->top().distance) {
-            neighborheap->pop();
-            neighborheap->push(kNNSearchElem(node->index, curdist));
-        }
-
-    // first search on side closer to point
-    if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
-        if (node->left)
-//#pragma omp task
-            if (neighbor_search(point, node->left, k, neighborheap)) return true;
-    } else {
-        if (node->right)
-//#pragma omp task
-            if (neighbor_search(point, node->right, k, neighborheap)) return true;
-    }
-    // second search on farther side, if necessary
-    if (neighborheap->size() < k) {
-        dist = std::numeric_limits<double>::max();
-    } else {
-        dist = neighborheap->top().distance;
-    }
-    if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
-        if (node->right && bounds_overlap_ball(point, dist, node->right))
-//#pragma omp task
-            if (neighbor_search(point, node->right, k, neighborheap)) return true;
-    } else {
-        if (node->left && bounds_overlap_ball(point, dist, node->left))
-//#pragma omp task
-            if (neighbor_search(point, node->left, k, neighborheap)) return true;
-    }
-
-    if (neighborheap->size() == k) dist = neighborheap->top().distance;
-    return ball_within_bounds(point, dist, node);
-}
-
-// returns true when the bounds of *node* overlap with the
-// ball with radius *distance* around *point*
-bool KdTree::bounds_overlap_ball(const Vertex& point, double dist,
-                                 KdTreeNode* node) {
-    double distsum = 0.0;
-    size_t i;
-    for (i = 0; i < 3; i++) {
-        if (point[i] < node->lobound[i]) {  // lower than low boundary
-            distsum += coordinate_distance(point[i], node->lobound[i]);
-            if (distsum > dist) return false;
-        } else if (point[i] > node->upbound[i]) {  // higher than high boundary
-            distsum += coordinate_distance(point[i], node->upbound[i]);
-            if (distsum > dist) return false;
-        }
-    }
-    return true;
-}
-
-// returns true when the bounds of *node* completely contain the
-// ball with radius *distance* around *point*
-bool KdTree::ball_within_bounds(const Vertex& point, double dist,
-                                KdTreeNode* node) {
-    size_t i;
-    for (i = 0; i < 3; i++)
-        if (coordinate_distance(point[i], node->lobound[i]) <= dist ||
-            coordinate_distance(point[i], node->upbound[i]) <= dist)
-            return false;
-    return true;
-}
 
 void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result) {
     std::cout << TAG << "kNN with " << k << " for " << point.x << " " << point.y << " "  << point.z << std::endl;
@@ -268,6 +167,85 @@ void KdTree::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result)
     std::cout << TAG << "kNN finished " << std::endl;
 
 }
+
+//--------------------------------------------------------------
+// recursive function for nearest neighbor search in subtree
+// under *node*. Stores result in *neighborheap*.
+// returns "true" when no nearer neighbor elsewhere possible
+//--------------------------------------------------------------
+bool KdTree::neighbor_search(const Vertex& point, KdTreeNode* node,
+                             size_t k, SearchQueue* neighborheap) {
+    double curdist, dist;
+
+    curdist = distance(point, *node->vertex);
+
+        if (neighborheap->size() < k) {
+            neighborheap->push(kNNSearchElem(node->index, curdist));
+        } else if (curdist < neighborheap->top().distance) {
+            neighborheap->pop();
+            neighborheap->push(kNNSearchElem(node->index, curdist));
+        }
+
+    // first search on side closer to point
+    if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
+        if (node->left)
+//#pragma omp task
+            if (neighbor_search(point, node->left, k, neighborheap)) return true;
+    } else {
+        if (node->right)
+//#pragma omp task
+            if (neighbor_search(point, node->right, k, neighborheap)) return true;
+    }
+    // second search on farther side, if necessary
+    if (neighborheap->size() < k) {
+        dist = std::numeric_limits<double>::max();
+    } else {
+        dist = neighborheap->top().distance;
+    }
+    if (point[node->cutDim] < (*node->vertex)[node->cutDim]) {
+        if (node->right && bounds_overlap_ball(point, dist, node->right))
+//#pragma omp task
+            if (neighbor_search(point, node->right, k, neighborheap)) return true;
+    } else {
+        if (node->left && bounds_overlap_ball(point, dist, node->left))
+//#pragma omp task
+            if (neighbor_search(point, node->left, k, neighborheap)) return true;
+    }
+
+    if (neighborheap->size() == k) dist = neighborheap->top().distance;
+    return ball_within_bounds(point, dist, node);
+}
+
+// returns true when the bounds of *node* completely contain the
+// ball with radius *distance* around *point*
+bool KdTree::ball_within_bounds(const Vertex& point, double dist,
+                                KdTreeNode* node) {
+    size_t i;
+    for (i = 0; i < 3; i++)
+        if (coordinate_distance(point[i], node->lobound[i]) <= dist ||
+            coordinate_distance(point[i], node->upbound[i]) <= dist)
+            return false;
+    return true;
+}
+
+// returns true when the bounds of *node* overlap with the
+// ball with radius *distance* around *point*
+bool KdTree::bounds_overlap_ball(const Vertex& point, double dist,
+                                 KdTreeNode* node) {
+    double distsum = 0.0;
+    size_t i;
+    for (i = 0; i < 3; i++) {
+        if (point[i] < node->lobound[i]) {  // lower than low boundary
+            distsum += coordinate_distance(point[i], node->lobound[i]);
+            if (distsum > dist) return false;
+        } else if (point[i] > node->upbound[i]) {  // higher than high boundary
+            distsum += coordinate_distance(point[i], node->upbound[i]);
+            if (distsum > dist) return false;
+        }
+    }
+    return true;
+}
+
 
 void KdTree::printVector(int a, int b) {
     for(auto node = nodes.begin()+a; node != nodes.begin()+b; node++ ){
