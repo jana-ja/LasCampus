@@ -25,7 +25,7 @@ PointCloud::PointCloud(const std::vector<std::string> &files) {
 //    tree = KdTree(vertices);
 //    buildTree(vertices);
 
-//    calculateNormals();
+    calculateNormals();
 }
 
 void PointCloud::read(const string &path) {
@@ -243,7 +243,9 @@ void PointCloud::calculateNormals() {
 
     // normals->size () should have the same size as the input cloud->size ()*
 
+    pcl::Normal bla;
 
+    bla = normals->points[0];
     stop = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "normal calc in " << duration.count() << std::endl;

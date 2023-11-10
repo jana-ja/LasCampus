@@ -27,6 +27,10 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
     // shader
     Shader pcShader = getPointCloudShader(false);//pointCloud.hasColor());
     shaderSettings(pcShader);
+    // colors / lighting
+    pcShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
+    pcShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+    pcShader.setVec3("lightPos", 0.0f, 100.0f, 0.0f);
     // tree
     GLuint pcVBO, pcVAO;
     dataStuff(pcVBO, pcVAO, pointCloud);
@@ -221,13 +225,14 @@ void Window::shaderSettings(Shader &shader) {
 }
 
 void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
-
+    GLuint normalVBO;
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(VAO);
 
     // Generate 1 buffer, put the resulting identifier in vbo
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &normalVBO);
     // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
@@ -248,8 +253,16 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
         auto verticesByteSize = (sizeof(pcl::PointXYZ) * pointCloud.getVertexCount());
         glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
         // position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
-        glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
+    glEnableVertexAttribArray(0);
+    // normal attribute
+    glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
+
+    auto normalsByteSize = (sizeof(pcl::Normal) * pointCloud.getVertexCount());
+    glBufferData(GL_ARRAY_BUFFER, normalsByteSize, pointCloud.getNormals(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 32 * sizeof(float), (void *) (4 * sizeof(float))); // TODO ???
+    glEnableVertexAttribArray(1);
+
 //    }
 
 
