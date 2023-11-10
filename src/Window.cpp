@@ -250,17 +250,18 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
 //        glEnableVertexAttribArray(1);
 //    }
 //    else {
-        auto verticesByteSize = (sizeof(pcl::PointXYZ) * pointCloud.getVertexCount());
+        auto verticesByteSize = (sizeof(pcl::PointNormal) * pointCloud.getVertexCount());
+        // sizeof(PointNormal) = 48 -> 12 floats. 4 for point, 4 for normal, 4 for curvature
         glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
         // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
     glEnableVertexAttribArray(0);
     // normal attribute
-    glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
+//    glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
 
-    auto normalsByteSize = (sizeof(pcl::Normal) * pointCloud.getVertexCount());
-    glBufferData(GL_ARRAY_BUFFER, normalsByteSize, pointCloud.getNormals(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 32 * sizeof(float), (void *) (4 * sizeof(float))); // TODO ???
+//    auto normalsByteSize = (sizeof(pcl::Normal) * pointCloud.getVertexCount());
+//    glBufferData(GL_ARRAY_BUFFER, normalsByteSize, pointCloud.getNormals(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void *) (4 * sizeof(float))); // TODO ??? testen in vorherigem commit mit 8 skip
     glEnableVertexAttribArray(1);
 
 //    }

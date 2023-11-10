@@ -20,7 +20,7 @@ public:
 
     uint32_t getVertexCount();
 
-    pcl::PointXYZ* getVertices();
+    pcl::PointNormal* getVertices();
     pcl::Normal* getNormals();
 
     void kNN(const Vertex& point, size_t k,
@@ -40,7 +40,7 @@ private:
     KdTree tree;
 //    std::vector<Vertex> vertices;
 //    pcl::PointCloud<pcl::PointXYZ>::Ptr
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointNormal>::Ptr cloud = pcl::PointCloud<pcl::PointNormal>::Ptr(new pcl::PointCloud<pcl::PointNormal>);
     pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
     //std::vector<ColorVertex> colorVertices;
 

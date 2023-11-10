@@ -119,7 +119,7 @@ void PointCloud::read(const string &path) {
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
                 // center pointcloud - offset is in opengl coord system!
-                pcl::PointXYZ v;
+                pcl::PointNormal v;
                 v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
                 v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
                 v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
@@ -167,7 +167,7 @@ uint32_t PointCloud::getVertexCount() {
     return (uint32_t) cloud->width;
 }
 
-pcl::PointXYZ *PointCloud::getVertices() {
+pcl::PointNormal *PointCloud::getVertices() {
     return cloud->data();// vertices.data();
 }
 
@@ -219,13 +219,14 @@ void PointCloud::calculateNormals() {
 
     // Create the normal estimation class, and pass the input dataset to it
 //    pcl::gpu::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+    pcl::NormalEstimation<pcl::PointNormal, pcl::PointNormal> ne;
+//    pcl::NormalEstimation<pcl::PointNormal, pcl::Normal> ne2;
     //ne.setNumberOfThreads(8);
     ne.setInputCloud(cloud);
 
     // Create an empty kdtree representation, and pass it to the normal estimation object.
     // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+    pcl::search::KdTree<pcl::PointNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointNormal>());
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "tree in " << duration.count() << std::endl;
@@ -235,17 +236,20 @@ void PointCloud::calculateNormals() {
 
     // Use all neighbors in a sphere of radius 300cm
 //    ne.setRadiusSearch(3);
+    pcl::PointNormal bla;
+
+    bla = cloud->points[0];
     ne.setKSearch(6);
 
     // Compute the features
-    ne.compute(*normals);
+//    ne.compute(*normals);
+    ne.compute(*cloud);
 
 
     // normals->size () should have the same size as the input cloud->size ()*
 
-    pcl::Normal bla;
 
-    bla = normals->points[0];
+    bla = cloud->points[0];
     stop = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "normal calc in " << duration.count() << std::endl;
