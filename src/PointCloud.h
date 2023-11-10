@@ -6,6 +6,9 @@
 #include <vector>
 #include "Vertex.h"
 #include "KdTree.h"
+#include <pcl/point_types.h>
+#include <pcl/features/normal_3d.h>
+//#include <pcl/gpu/features/normal_3d.cu>
 
 #ifndef LASCAMPUS_POINTCLOUD_H
 #define LASCAMPUS_POINTCLOUD_H
@@ -17,7 +20,8 @@ public:
 
     uint32_t getVertexCount();
 
-    Vertex* getVertices();
+    pcl::PointXYZ* getVertices();
+    pcl::Normal* getNormals();
 
     void kNN(const Vertex& point, size_t k,
              std::vector<KdTreeNode>* result);
@@ -34,7 +38,10 @@ private:
     const char* TAG = "PC\t";
 
     KdTree tree;
-    std::vector<Vertex> vertices;
+//    std::vector<Vertex> vertices;
+//    pcl::PointCloud<pcl::PointXYZ>::Ptr
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
     //std::vector<ColorVertex> colorVertices;
 
     // offset is in opengl coord system!
@@ -133,6 +140,10 @@ private:
 
 
     void read(const std::string &path);
+
+    void calculateNormals();
+
+    void buildTree(std::vector<Vertex> vertices);
 };
 
 #pragma pack(pop)

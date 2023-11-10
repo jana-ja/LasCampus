@@ -6,24 +6,29 @@
 #include <fstream>
 #include <stdexcept>
 #include <assert.h>
+#include <Eigen/Core>
+#include <chrono>
 #include "util.h"
 #include "PointCloud.h"
 
 
 using namespace std;
 
-PointCloud::PointCloud(const std::vector<std::string>& files) {
+PointCloud::PointCloud(const std::vector<std::string> &files) {
     std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
 
-    for (const auto &file : files) {
+    for (const auto &file: files) {
         read(dir + file);
     }
     std::cout << TAG << "read data successful" << std::endl;
 
-    tree = KdTree(vertices);
+//    tree = KdTree(vertices);
+//    buildTree(vertices);
+
+//    calculateNormals();
 }
 
-void PointCloud::read(const string& path) {
+void PointCloud::read(const string &path) {
     ifstream inf(path, ios::binary);
 
     if (inf.is_open()) {
@@ -31,7 +36,7 @@ void PointCloud::read(const string& path) {
         // header
         Header header = Header();
         // fill in header ref with read tree of size of header
-        inf.read((char*) &header,
+        inf.read((char *) &header,
                  sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
 
         std::cout << TAG << "File: " << path << std::endl;
@@ -96,23 +101,30 @@ void PointCloud::read(const string& path) {
 //        }
 
         // points
-        std::cout << TAG << "Num of points: " << header.numberOfPoints << std::endl;
+        int pointsUsed = 5000000;  //header.numberOfPoints
+
+        std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
+
+        // init cloud
+        cloud->width = pointsUsed;
+        cloud->height = 1;
+
         if (header.pointDataRecordFormat == 1) {
-            for (uint32_t i = 0; i < 5; i++) {//header.numberOfPoints; i++) {
+            for (uint32_t i = 0; i < pointsUsed; i++) {//header.numberOfPoints; i++) {
                 PointDRF1 point;
-                inf.read((char*) (&point), sizeof(PointDRF1));
+                inf.read((char *) (&point), sizeof(PointDRF1));
 
                 // convert to opengl friendly thing
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
                 // center pointcloud - offset is in opengl coord system!
-                Vertex v;
+                pcl::PointXYZ v;
                 v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
                 v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
                 v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
 
-                vertices.push_back(v);
+                cloud->push_back(v);
             }
         }
 //        else if (header.pointDataRecordFormat == 2) {
@@ -152,23 +164,23 @@ uint32_t PointCloud::getVertexCount() {
 //    if (hasColor())
 //        return (uint32_t) colorVertices.size();
 //    else
-        return (uint32_t) vertices.size();
+    return (uint32_t) cloud->width;
 }
 
-Vertex* PointCloud::getVertices() {
-    return vertices.data();
+pcl::PointXYZ *PointCloud::getVertices() {
+    return cloud->data();// vertices.data();
 }
 
 //Vertex* PointCloud::getColorVertices() {
 //    return colorVertices.tree();
 //}
 
-Vertex PointCloud::getUTMForOpenGL(Vertex* vertexOpenGL) {
+Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
     // TODO offset is float, losing precision
     return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
 }
 
-Vertex PointCloud::getWGSForOpenGL(Vertex* vertex) {
+Vertex PointCloud::getWGSForOpenGL(Vertex *vertex) {
     // TODO offset is float, losing precision
 
     // wert in utm holen, dann:
@@ -180,8 +192,93 @@ Vertex PointCloud::getWGSForOpenGL(Vertex* vertex) {
     return Vertex();
 }
 
-void PointCloud::kNN(const Vertex& point, size_t k, std::vector<KdTreeNode>* result) {
+void PointCloud::kNN(const Vertex &point, size_t k, std::vector<KdTreeNode> *result) {
     tree.kNN(point, k, result);
+}
+
+void PointCloud::calculateNormals() {
+    auto start = std::chrono::high_resolution_clock::now();
+
+
+    std::cout << TAG << "start normal calc" << std::endl;
+
+//    // Placeholder for the 3x3 covariance matrix at each surface patch
+//    Eigen::Matrix3f covariance_matrix;
+//    // 16-bytes aligned placeholder for the XYZ centroid of a surface patch
+//    Eigen::Vector4f xyz_centroid;
+//    // Estimate the XYZ centroid
+//    pcl::compute3DCentroid(cloud, xyz_centroid);
+//    // Compute the 3x3 covariance matrix
+//    pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
+//    // TODO solve normal orientation
+
+//
+//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr (new pcl::PointCloud<pcl::PointXYZ>);
+//    cloudPtr.pu;
+
+
+    // Create the normal estimation class, and pass the input dataset to it
+//    pcl::gpu::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+    //ne.setNumberOfThreads(8);
+    ne.setInputCloud(cloud);
+
+    // Create an empty kdtree representation, and pass it to the normal estimation object.
+    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "tree in " << duration.count() << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    ne.setSearchMethod(tree);
+
+
+    // Use all neighbors in a sphere of radius 300cm
+//    ne.setRadiusSearch(3);
+    ne.setKSearch(6);
+
+    // Compute the features
+    ne.compute(*normals);
+
+
+    // normals->size () should have the same size as the input cloud->size ()*
+
+
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "normal calc in " << duration.count() << std::endl;
+}
+
+void PointCloud::buildTree(std::vector<Vertex> vertices) {
+//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+//    cloud.
+//
+//
+//
+//    // Create the normal estimation class, and pass the input dataset to it
+//    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+//    ne.setInputCloud(cloud);
+//
+//    // Create an empty kdtree representation, and pass it to the normal estimation object.
+//    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+//    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+//    ne.setSearchMethod(tree);
+//
+//    // Output datasets
+//    pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(new pcl::PointCloud<pcl::Normal>);
+//
+//    // Use all neighbors in a sphere of radius 3cm
+//    ne.setRadiusSearch(0.03);
+//
+//    // Compute the features
+//    ne.compute(*cloud_normals);
+//
+//    // cloud_normals->size () should have the same size as the input cloud->size ()*
+
+}
+
+pcl::Normal *PointCloud::getNormals() {
+    return normals->data();
 }
 
 //bool PointCloud::hasColor() {

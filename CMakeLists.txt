@@ -49,8 +49,13 @@ if (WIN32)
     add_subdirectory(${GLM_SOURCE_DIR})
     target_link_libraries(LasCampus PUBLIC glm::glm)
 
+    # OpenMP
     find_package(OpenMP REQUIRED)
     target_link_libraries(LasCampus PRIVATE OpenMP::OpenMP_CXX)
+
+    # PCL
+    find_package(PCL CONFIG REQUIRED)
+    target_link_libraries(LasCampus PRIVATE ${PCL_LIBRARIES})
 
 elseif (APPLE)
     # from mac:

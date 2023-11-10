@@ -245,10 +245,10 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
 //        glEnableVertexAttribArray(1);
 //    }
 //    else {
-        auto verticesByteSize = (sizeof(Vertex) * pointCloud.getVertexCount());
+        auto verticesByteSize = (sizeof(pcl::PointXYZ) * pointCloud.getVertexCount());
         glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
         // position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
         glEnableVertexAttribArray(0);
 //    }
 
