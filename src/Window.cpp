@@ -14,7 +14,7 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
 
     // glfw
     initGLFW();
-    GLFWwindow* window = createWindow();
+    GLFWwindow *window = createWindow();
     std::cout << TAG << "Init glfw successful" << std::endl;
 
 
@@ -237,34 +237,17 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
 
-//    if (pointCloud.hasColor()) {
-//        auto verticesByteSize = (sizeof(ColorVertex) * pointCloud.getVertexCount());
-////        auto verticesByteSize = pointCloud.getVerticesSize();
-////        sizeof(MyVector) + (sizeof(MyVector[0]) * MyVector.size())
-//        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getColorVertices(), GL_STATIC_DRAW);
-//        // position attribute
-//        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
-//        glEnableVertexAttribArray(0);
-//        // color attribute // später richtige farben/texture
-//        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
-//        glEnableVertexAttribArray(1);
-//    }
-//    else {
-        auto verticesByteSize = (sizeof(pcl::PointNormal) * pointCloud.getVertexCount());
-        // sizeof(PointNormal) = 48 -> 12 floats. 4 for point, 4 for normal, 4 for curvature
-        glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
-        // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
+    auto verticesByteSize = (sizeof(pcl::PointNormal) * pointCloud.getVertexCount());
+    // sizeof(PointNormal) = 48 -> 12 floats. 4 for point, 4 for normal, 4 for curvature
+    glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float),
+                          (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
     glEnableVertexAttribArray(0);
     // normal attribute
-//    glBindBuffer(GL_ARRAY_BUFFER, normalVBO);
-
-//    auto normalsByteSize = (sizeof(pcl::Normal) * pointCloud.getVertexCount());
-//    glBufferData(GL_ARRAY_BUFFER, normalsByteSize, pointCloud.getNormals(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void *) (4 * sizeof(float))); // TODO ??? testen in vorherigem commit mit 8 skip
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void *) (4 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-//    }
 
 
     // OPTIONAL: unbind
@@ -316,11 +299,8 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
 }
 
 Shader Window::getPointCloudShader(bool hasColor) {
-    if (hasColor) {
-        return Shader("../src/shader/PointCloudColorVertexShader.vs",
-                      "../src/shader/PointCloudColorFragmentShader.fs");
-    } else {
-        return Shader("../src/shader/PointCloudVertexShader.vs",
-                      "../src/shader/PointCloudFragmentShader.fs");
-    }
+
+    return Shader("../src/shader/PointCloudVertexShader.vs",
+                  "../src/shader/PointCloudFragmentShader.fs");
+
 }

@@ -9,8 +9,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
 add_executable(LasCampus src/main.cpp
         src/PointCloud.cpp
         src/PointCloud.h
-        src/DummyData.cpp
-        src/DummyData.h
         src/Vertex.h
         src/Window.cpp
         src/Window.h

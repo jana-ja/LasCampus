@@ -127,30 +127,6 @@ void PointCloud::read(const string &path) {
                 cloud->push_back(v);
             }
         }
-//        else if (header.pointDataRecordFormat == 2) {
-//            for (uint32_t i = 0; i < header.numberOfPoints; i++) {
-//                PointDRF2 point;
-//                inf.read((char*) (&point), sizeof(PointDRF2));
-//
-//                // convert to opengl friendly thing
-//                // Xcoordinate = (Xrecord * Xscale) + Xoffset
-//
-//                auto redFloat = (point.red / 65536.0f);
-//                auto greenFloat = (point.green / 65536.0f);
-//                auto blueFloat = (point.blue / 65536.0f);
-//
-//                // center pointcloud - offset is in opengl coord system!
-//                ColorVertex v;
-//                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
-//                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
-//                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-//                v.red = redFloat;
-//                v.green = greenFloat;
-//                v.blue = blueFloat;
-//
-//                colorVertices.push_back(v);
-//            }
-//        }
 
         if (!inf.good())
             throw runtime_error("Reading LAS ran into error");
@@ -161,9 +137,6 @@ void PointCloud::read(const string &path) {
 }
 
 uint32_t PointCloud::getVertexCount() {
-//    if (hasColor())
-//        return (uint32_t) colorVertices.size();
-//    else
     return (uint32_t) cloud->width;
 }
 
@@ -171,9 +144,6 @@ pcl::PointNormal *PointCloud::getVertices() {
     return cloud->data();// vertices.data();
 }
 
-//Vertex* PointCloud::getColorVertices() {
-//    return colorVertices.tree();
-//}
 
 Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
     // TODO offset is float, losing precision
@@ -254,39 +224,3 @@ void PointCloud::calculateNormals() {
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "normal calc in " << duration.count() << std::endl;
 }
-
-void PointCloud::buildTree(std::vector<Vertex> vertices) {
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-//    cloud.
-//
-//
-//
-//    // Create the normal estimation class, and pass the input dataset to it
-//    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-//    ne.setInputCloud(cloud);
-//
-//    // Create an empty kdtree representation, and pass it to the normal estimation object.
-//    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-//    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-//    ne.setSearchMethod(tree);
-//
-//    // Output datasets
-//    pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(new pcl::PointCloud<pcl::Normal>);
-//
-//    // Use all neighbors in a sphere of radius 3cm
-//    ne.setRadiusSearch(0.03);
-//
-//    // Compute the features
-//    ne.compute(*cloud_normals);
-//
-//    // cloud_normals->size () should have the same size as the input cloud->size ()*
-
-}
-
-pcl::Normal *PointCloud::getNormals() {
-    return normals->data();
-}
-
-//bool PointCloud::hasColor() {
-//    return pointRecFormat == 2;
-//}

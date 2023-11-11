@@ -26,23 +26,16 @@ public:
     void kNN(const Vertex& point, size_t k,
              std::vector<KdTreeNode>* result);
 
-//    Vertex* getColorVertices();
-
     Vertex getUTMForOpenGL(Vertex* vertex);
 
     Vertex getWGSForOpenGL(Vertex* vertex);
-
-//    bool hasColor();
 
 private:
     const char* TAG = "PC\t";
 
     KdTree tree;
-//    std::vector<Vertex> vertices;
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr
     pcl::PointCloud<pcl::PointNormal>::Ptr cloud = pcl::PointCloud<pcl::PointNormal>::Ptr(new pcl::PointCloud<pcl::PointNormal>);
     pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
-    //std::vector<ColorVertex> colorVertices;
 
     // offset is in opengl coord system!
     float xOffset;
@@ -142,8 +135,6 @@ private:
     void read(const std::string &path);
 
     void calculateNormals();
-
-    void buildTree(std::vector<Vertex> vertices);
 };
 
 #pragma pack(pop)
