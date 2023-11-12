@@ -15,125 +15,40 @@
 using namespace std;
 
 PointCloud::PointCloud(const std::vector<std::string> &files) {
-    std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
 
+    LasDataIO io = LasDataIO();
+
+
+    std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
+    // in cache muss: pointrecformat, anzahl points, offset
+
+    uint32_t startIdx = 0;
+    uint32_t endIdx;
+    uint32_t pointCount;
     for (const auto &file: files) {
-        read(dir + file);
+
+        // get points
+        io.readLas(dir + file, cloud, &pointCount);
+
+        endIdx = pointCount;
+
+        // get normals
+        std::string normalFile = file;
+        normalFile.replace(normalFile.end()-3, normalFile.end()-1, "normal");
+        if(!io.readNormalsFromCache(dir + normalFile, cloud, startIdx, endIdx)){
+            calculateNormals(startIdx, endIdx); // TODO use idx
+            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx);
+        }
+
+        startIdx += pointCount;
     }
     std::cout << TAG << "read data successful" << std::endl;
+
 
 //    tree = KdTree(vertices);
 //    buildTree(vertices);
 
-    calculateNormals();
-}
-
-void PointCloud::read(const string &path) {
-    ifstream inf(path, ios::binary);
-
-    if (inf.is_open()) {
-
-        // header
-        Header header = Header();
-        // fill in header ref with read tree of size of header
-        inf.read((char *) &header,
-                 sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
-
-        std::cout << TAG << "File: " << path << std::endl;
-        std::cout << TAG << "Version: " << +header.versionMaj << "." << +header.versionMin << std::endl;
-        std::cout << TAG << "Point Data Record Format: " << +header.pointDataRecordFormat << std::endl;
-
-
-        // version checks
-        if (header.versionMaj != 1 || header.versionMin != 2) {
-            throw std::invalid_argument("Can't handle given LAS file. Only LAS version 1.2 allowed.");
-        }
-        assert(header.headerSize == sizeof(header));
-        if (header.pointDataRecordFormat != 1 && header.pointDataRecordFormat != 2) {
-            throw std::invalid_argument("Can't handle given LAS file. Only point tree record format 1 or 2 allowed.");
-        }
-
-
-        // point tree record format of multiple files must match
-        if (firstFile) {
-            // first file
-            pointRecFormat = header.pointDataRecordFormat;
-
-            // mittelpunkt von x, y, z - to center pointcloud
-            auto midX = (header.maxX + header.minX) / 2.0f;
-            auto midY = (header.maxY + header.minY) / 2.0f;
-            auto midZ = (header.maxZ + header.minZ) / 2.0f;
-            xOffset = (float) midX;
-            yOffset = (float) midZ;
-            zOffset = (float) midY;
-
-            firstFile = false;
-        } else {
-            // following files
-            if (header.pointDataRecordFormat != 1 && header.pointDataRecordFormat != 2) {
-                throw std::invalid_argument("All given LAS files need to have the same point tree record format.");
-            }
-        }
-
-
-//        // var length records
-//        VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
-//        GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
-//
-//        for (int i = 0; i < header.numVarLenRecords; i++) {
-//
-//            // read header
-//            auto& currentHeader = varLenRecHeaders[i]; // ref
-//            inf.read((char*) &currentHeader, sizeof currentHeader);
-//
-//            if (strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735) {
-//                //  this var length record is the GeoKeyDirectoryTag
-//
-//                // read info
-//                inf.read((char*) &geoKeyDirectoryTag, 8);//sizeof geoKeyDirectoryTag);
-//
-//                // resize entry vector of geo key directory tag
-//                geoKeyDirectoryTag.entries.resize(geoKeyDirectoryTag.wNumberOfKeys);
-//                // read entries
-//                inf.read((char*) &geoKeyDirectoryTag.entries[0],
-//                         geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
-//            }
-//        }
-
-        // points
-        int pointsUsed = 5000000;  //header.numberOfPoints
-
-        std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
-        inf.seekg(header.pointDataOffset); // skip to point tree
-
-        // init cloud
-        cloud->width = pointsUsed;
-        cloud->height = 1;
-
-        if (header.pointDataRecordFormat == 1) {
-            for (uint32_t i = 0; i < pointsUsed; i++) {//header.numberOfPoints; i++) {
-                PointDRF1 point;
-                inf.read((char *) (&point), sizeof(PointDRF1));
-
-                // convert to opengl friendly thing
-                // Xcoordinate = (Xrecord * Xscale) + Xoffset
-
-                // center pointcloud - offset is in opengl coord system!
-                pcl::PointNormal v;
-                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
-                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
-                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-
-                cloud->push_back(v);
-            }
-        }
-
-        if (!inf.good())
-            throw runtime_error("Reading LAS ran into error");
-
-    } else {
-        throw runtime_error("Can't find LAS file");
-    }
+//    calculateNormals();
 }
 
 uint32_t PointCloud::getVertexCount() {
@@ -145,28 +60,28 @@ pcl::PointNormal *PointCloud::getVertices() {
 }
 
 
-Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
-    // TODO offset is float, losing precision
-    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
-}
-
-Vertex PointCloud::getWGSForOpenGL(Vertex *vertex) {
-    // TODO offset is float, losing precision
-
-    // wert in utm holen, dann:
-
-    // zone number: 60 zones, each 6 degrees of longitude (horizontal stripes), number is consistent in horizontal stripes
-    // zone letter: 20 zones, each 8 degrees of latitude (vertical stripes), letter is consistent in vertical stripes
-    // x wert zwischen 100.000 und 899.999 meter in zone
-    // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
-    return Vertex();
-}
+//Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
+//    // TODO offset is float, losing precision
+//    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
+//}
+//
+//Vertex PointCloud::getWGSForOpenGL(Vertex *vertex) {
+//    // TODO offset is float, losing precision
+//
+//    // wert in utm holen, dann:
+//
+//    // zone number: 60 zones, each 6 degrees of longitude (horizontal stripes), number is consistent in horizontal stripes
+//    // zone letter: 20 zones, each 8 degrees of latitude (vertical stripes), letter is consistent in vertical stripes
+//    // x wert zwischen 100.000 und 899.999 meter in zone
+//    // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
+//    return Vertex();
+//}
 
 void PointCloud::kNN(const Vertex &point, size_t k, std::vector<KdTreeNode> *result) {
     tree.kNN(point, k, result);
 }
 
-void PointCloud::calculateNormals() {
+void PointCloud::calculateNormals(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
     auto start = std::chrono::high_resolution_clock::now();
 
 

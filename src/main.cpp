@@ -1,5 +1,4 @@
 #include "PointCloud.h"
-#include "DummyData.h"
 #include "Window.h"
 
 
