@@ -25,6 +25,7 @@ PointCloud::PointCloud(const std::vector<std::string> &files) {
     uint32_t startIdx = 0;
     uint32_t endIdx;
     uint32_t pointCount;
+    std::cout << TAG << "begin loading data" << std::endl;
     for (const auto &file: files) {
 
         // get points
@@ -42,7 +43,7 @@ PointCloud::PointCloud(const std::vector<std::string> &files) {
 
         startIdx += pointCount;
     }
-    std::cout << TAG << "read data successful" << std::endl;
+    std::cout << TAG << "loading data successful" << std::endl;
 
 
 //    tree = KdTree(vertices);
@@ -85,7 +86,7 @@ void PointCloud::calculateNormals(const uint32_t& startIdx, const uint32_t& endI
     auto start = std::chrono::high_resolution_clock::now();
 
 
-    std::cout << TAG << "start normal calc" << std::endl;
+    std::cout << TAG << "start normal calculation" << std::endl;
 
 //    // Placeholder for the 3x3 covariance matrix at each surface patch
 //    Eigen::Matrix3f covariance_matrix;
@@ -112,10 +113,6 @@ void PointCloud::calculateNormals(const uint32_t& startIdx, const uint32_t& endI
     // Create an empty kdtree representation, and pass it to the normal estimation object.
     // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
     pcl::search::KdTree<pcl::PointNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointNormal>());
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "tree in " << duration.count() << std::endl;
-    start = std::chrono::high_resolution_clock::now();
     ne.setSearchMethod(tree);
 
 
@@ -135,7 +132,7 @@ void PointCloud::calculateNormals(const uint32_t& startIdx, const uint32_t& endI
 
 
     bla = cloud->points[0];
-    stop = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "normal calc in " << duration.count() << std::endl;
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "finished normal calculation in " << duration.count() << "s" << std::endl;
 }

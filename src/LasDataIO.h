@@ -23,7 +23,7 @@ public:
     void writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
 private:
 
-    const std::string TAG = "LasDataIO";
+    const std::string TAG = "LasIO\t";
 
     int pointRecFormat;
     bool firstFile = true;

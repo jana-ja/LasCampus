@@ -31,7 +31,7 @@ private:
     const float POINT_SIZE;
 
     // camera
-    Camera camera = Camera(glm::vec3(-100.0f, 10.0f, 100.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
+    Camera camera = Camera(glm::vec3(0.0f, 10.0f, 0.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
 
     // mouse input
     bool firstMouse = true;

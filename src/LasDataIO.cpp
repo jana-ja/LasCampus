@@ -31,6 +31,8 @@
 
 void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, uint32_t* pointCount) {
 
+    std::cout << TAG << "read las file..." << std::endl;
+
     std::ifstream inf(path, std::ios::binary);
 
     if (inf.is_open()) {
@@ -103,7 +105,7 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 //        }
 
         // points
-        int pointsUsed = 20; // header.numberOfPoints;
+        int pointsUsed = header.numberOfPoints;
         *pointCount = pointsUsed;
 
         std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
@@ -134,6 +136,9 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
         if (!inf.good())
             throw std::runtime_error("Reading .las ran into error");
 
+        std::cout << TAG << "finished reading las file" << std::endl;
+
+
     } else {
         throw std::runtime_error("Can't find .las file");
     }
@@ -142,11 +147,17 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 
 bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx) { // TODO endindex muss exklusiv sein!
 
+    std::cout << TAG << "try to read normals from cache" << std::endl;
+
     std::ifstream inf(normalPath, std::ios::binary);
-    if (!inf.good())
+    if (!inf.good()) {
+        std::cout << TAG << "no cache file found" << std::endl;
         return false;
+    }
 
     if (inf.is_open()) {
+        std::cout << TAG << "cache file found" << std::endl;
+
         // read header
         NormalHeader normalHeader;
         inf.read((char *) (&normalHeader), sizeof(NormalHeader));
@@ -166,6 +177,7 @@ bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::P
         if (!inf.good())
             throw std::runtime_error("Reading .normal ran into error");
 
+        std::cout << TAG << "finished reading normals from cache" << std::endl;
         return true;
 
     } else {
@@ -184,6 +196,8 @@ void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::Po
                                     const uint32_t &endIdx) { // TODO end index is exclusive
     std::ofstream out(normalPath, std::ios::binary);
 
+    std::cout << TAG << "writing normals to cache" << std::endl;
+
     if (out.is_open()) {
         // write header
         NormalHeader normalHeader;
@@ -200,6 +214,8 @@ void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::Po
             throw std::runtime_error("Writing .normal ran into error");
 
         out.close();
+        std::cout << TAG << "finished writing normals to cache" << std::endl;
+
 
     } else {
         throw std::runtime_error("Can't find .normal file");
