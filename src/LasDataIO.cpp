@@ -166,12 +166,12 @@ bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::P
 
         // read normals
         for (auto it = cloud->points.begin() + startIdx; it != cloud->points.begin() + endIdx; it++) {
-            Normal normal;
-            inf.read((char *) (&normal), sizeof(Normal));
+            float normal[3];
+            inf.read((char *) (&normal), 3 * sizeof(float));
 
-            (*it).normal_x = normal.x;
-            (*it).normal_y = normal.y;
-            (*it).normal_z = normal.z;
+            (*it).normal_x = normal[0];
+            (*it).normal_y = normal[1];
+            (*it).normal_z = normal[2];
         }
 
         if (!inf.good())
@@ -207,7 +207,7 @@ void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::Po
 
         // write normals
         for (auto it = cloud->points.begin() + startIdx; it != cloud->points.begin() + endIdx; it++) {
-            out.write((char *) (&*it), sizeof(Normal));
+            out.write((char *) (&*it->normal), 3 * sizeof(float));
         }
 
         if (!out.good())
