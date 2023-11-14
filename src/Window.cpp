@@ -28,7 +28,7 @@ Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"
     Shader pcShader = getPointCloudShader(false);//pointCloud.hasColor());
     shaderSettings(pcShader);
     // colors / lighting
-    pcShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
+//    pcShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
     pcShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
     pcShader.setVec3("lightPos", 0.0f, 100.0f, 0.0f);
     // tree
@@ -241,12 +241,15 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
     // sizeof(PointNormal) = 48 -> 12 floats. 4 for point, 4 for normal, 4 for curvature
     glBufferData(GL_ARRAY_BUFFER, verticesByteSize, pointCloud.getVertices(), GL_STATIC_DRAW);
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float),
-                          (void *) 0); // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) 0);
+        // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
     glEnableVertexAttribArray(0);
     // normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12 * sizeof(float), (void *) (4 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal::normal)));
     glEnableVertexAttribArray(1);
+    // color attribute
+    glVertexAttribPointer(2, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pcl::PointNormal), (void *) (8 * sizeof(float))); // durch GL_TRUE wird unsigned byte richtig erkannnt und zu float konvertiert
+    glEnableVertexAttribArray(2);
 
 
 

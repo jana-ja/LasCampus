@@ -5,7 +5,7 @@
 #include "LasDataIO.h"
 
 
-//void LasDataIO::readAll(const std::vector<std::string>& files, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud) {
+//void LasDataIO::readAll(const std::vector<std::string>& files, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
 //
 //    std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
 //    // in cache muss: pointrecformat, anzahl points, offset
@@ -29,7 +29,7 @@
 //}
 
 
-void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, uint32_t* pointCount) {
+void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount) {
 
     std::cout << TAG << "read las file..." << std::endl;
 
@@ -105,13 +105,14 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 //        }
 
         // points
-        int pointsUsed = header.numberOfPoints;
+        int pointsUsed = 100000; //header.numberOfPoints;
         *pointCount = pointsUsed;
 
         std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
 
         // init cloud
+        inf.seekg(11500000 * sizeof(PointDRF1), std::ios_base::cur); // skip to point tree
         cloud->width = pointsUsed; // TODO help noch anpassen für mehrere files
         cloud->height = 1;
 
@@ -124,10 +125,15 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
                 // center pointcloud - offset is in opengl coord system!
-                pcl::PointNormal v;
+                pcl::PointXYZRGBNormal v;
                 v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
                 v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
                 v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
+                // die haben rgb vertauscht..
+                v.b = 125; // r
+                v.g = 78; // g
+                v.r = 39; // b
+                v.a = 255;
 
                 cloud->push_back(v);
             }
@@ -145,7 +151,7 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 }
 
 
-bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx) { // TODO endindex muss exklusiv sein!
+bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx) { // TODO endindex muss exklusiv sein!
 
     std::cout << TAG << "try to read normals from cache" << std::endl;
 
@@ -192,7 +198,7 @@ bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::P
  * @param startIdx
  * @param endIdx exclusive
  */
-void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointNormal>::Ptr &cloud, const uint32_t &startIdx,
+void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &cloud, const uint32_t &startIdx,
                                     const uint32_t &endIdx) { // TODO end index is exclusive
     std::ofstream out(normalPath, std::ios::binary);
 

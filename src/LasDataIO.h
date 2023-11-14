@@ -17,10 +17,9 @@ class LasDataIO {
 
 public:
 
-//    void readAll(const std::vector<std::string> &files, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud);
-    void readLas(const std::string &path, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, uint32_t* pointCount);
-    bool readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
-    void writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
+    void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount);
+    bool readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
+    void writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
 private:
 
     const std::string TAG = "LasIO\t";

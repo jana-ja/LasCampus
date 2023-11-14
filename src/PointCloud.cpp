@@ -37,8 +37,8 @@ PointCloud::PointCloud(const std::vector<std::string> &files) {
         std::string normalFile = file;
         normalFile.replace(normalFile.end()-3, normalFile.end()-1, "normal");
         if(!io.readNormalsFromCache(dir + normalFile, cloud, startIdx, endIdx)){
-            calculateNormals(startIdx, endIdx); // TODO use idx
-            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx);
+//            calculateNormals(startIdx, endIdx); // TODO use idx
+//            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
         startIdx += pointCount;
@@ -56,7 +56,7 @@ uint32_t PointCloud::getVertexCount() {
     return (uint32_t) cloud->width;
 }
 
-pcl::PointNormal *PointCloud::getVertices() {
+pcl::PointXYZRGBNormal *PointCloud::getVertices() {
     return cloud->data();// vertices.data();
 }
 
@@ -84,54 +84,56 @@ void PointCloud::kNN(const Vertex &point, size_t k, std::vector<KdTreeNode> *res
 
 void PointCloud::calculateNormals(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
     auto start = std::chrono::high_resolution_clock::now();
-
-
     std::cout << TAG << "start normal calculation" << std::endl;
 
-//    // Placeholder for the 3x3 covariance matrix at each surface patch
-//    Eigen::Matrix3f covariance_matrix;
-//    // 16-bytes aligned placeholder for the XYZ centroid of a surface patch
-//    Eigen::Vector4f xyz_centroid;
-//    // Estimate the XYZ centroid
-//    pcl::compute3DCentroid(cloud, xyz_centroid);
-//    // Compute the 3x3 covariance matrix
-//    pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
-//    // TODO solve normal orientation
+    auto blub = cloud->points[0];
+    std::cout << sizeof(blub) << std::endl;
 
 //
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr (new pcl::PointCloud<pcl::PointXYZ>);
-//    cloudPtr.pu;
-
-
-    // Create the normal estimation class, and pass the input dataset to it
-//    pcl::gpu::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-    pcl::NormalEstimation<pcl::PointNormal, pcl::PointNormal> ne;
-//    pcl::NormalEstimation<pcl::PointNormal, pcl::Normal> ne2;
-    //ne.setNumberOfThreads(8);
-    ne.setInputCloud(cloud);
-
-    // Create an empty kdtree representation, and pass it to the normal estimation object.
-    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-    pcl::search::KdTree<pcl::PointNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointNormal>());
-    ne.setSearchMethod(tree);
-
-
-    // Use all neighbors in a sphere of radius 300cm
-//    ne.setRadiusSearch(3);
-    pcl::PointNormal bla;
-
-    bla = cloud->points[0];
-    ne.setKSearch(6);
-
-    // Compute the features
-//    ne.compute(*normals);
-    ne.compute(*cloud);
-
-
-    // normals->size () should have the same size as the input cloud->size ()*
-
-
-    bla = cloud->points[0];
+////    // Placeholder for the 3x3 covariance matrix at each surface patch
+////    Eigen::Matrix3f covariance_matrix;
+////    // 16-bytes aligned placeholder for the XYZ centroid of a surface patch
+////    Eigen::Vector4f xyz_centroid;
+////    // Estimate the XYZ centroid
+////    pcl::compute3DCentroid(cloud, xyz_centroid);
+////    // Compute the 3x3 covariance matrix
+////    pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
+////    // TODO solve normal orientation
+//
+////
+////    pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr (new pcl::PointCloud<pcl::PointXYZ>);
+////    cloudPtr.pu;
+//
+//
+//    // Create the normal estimation class, and pass the input dataset to it
+////    pcl::gpu::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+//    pcl::NormalEstimation<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal> ne;
+////    pcl::NormalEstimation<pcl::PointXYZRGBNormal, pcl::Normal> ne2;
+//    //ne.setNumberOfThreads(8);
+//    ne.setInputCloud(cloud);
+//
+//    // Create an empty kdtree representation, and pass it to the normal estimation object.
+//    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+//    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+//    ne.setSearchMethod(tree);
+//
+//
+//    // Use all neighbors in a sphere of radius 300cm
+////    ne.setRadiusSearch(3);
+//    pcl::PointXYZRGBNormal bla;
+//
+//    bla = cloud->points[0];
+//    ne.setKSearch(6);
+//
+//    // Compute the features
+////    ne.compute(*normals);
+//    ne.compute(*cloud);
+//
+//
+//    // normals->size () should have the same size as the input cloud->size ()*
+//
+//
+//    bla = cloud->points[0];
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "finished normal calculation in " << duration.count() << "s" << std::endl;

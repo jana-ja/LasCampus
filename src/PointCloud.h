@@ -21,7 +21,7 @@ public:
 
     uint32_t getVertexCount();
 
-    pcl::PointNormal* getVertices();
+    pcl::PointXYZRGBNormal* getVertices();
 
     void kNN(const Vertex& point, size_t k,
              std::vector<KdTreeNode>* result);
@@ -34,7 +34,7 @@ private:
     const char* TAG = "PC\t";
 
     KdTree tree;
-    pcl::PointCloud<pcl::PointNormal>::Ptr cloud = pcl::PointCloud<pcl::PointNormal>::Ptr(new pcl::PointCloud<pcl::PointNormal>);
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
 
     // offset is in opengl coord system!
