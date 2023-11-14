@@ -5,30 +5,6 @@
 #include "LasDataIO.h"
 
 
-//void LasDataIO::readAll(const std::vector<std::string>& files, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
-//
-//    std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
-//    // in cache muss: pointrecformat, anzahl points, offset
-//
-//    for (const auto &file: files) {
-//        int startIdx, endIdx;
-//
-//        // get points
-//        readLas(dir + file, cloud, &startIdx, &endIdx);
-//
-//        // get normals
-//        std::string normalPath = path - .las + .normals;
-//        if(!readNormalsFromCache(normalPath, cloud, startIdx, endIdx)){
-//            calcNormals(cloud, startIdx, endIdx); // TODO gehört nicht in IO
-//            writeNormalsToCache(normalPath, cloud, startIdx, endIdx);
-//        }
-//    }
-//    std::cout << TAG << "read data successful" << std::endl;
-//
-//
-//}
-
-
 void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount) {
 
     std::cout << TAG << "read las file..." << std::endl;
@@ -129,7 +105,7 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                 v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
                 v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
                 v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-                // die haben rgb vertauscht..
+                // pcl library switched r and b component
                 v.b = 125; // r
                 v.g = 78; // g
                 v.r = 39; // b

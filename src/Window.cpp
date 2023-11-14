@@ -3,7 +3,6 @@
 //
 
 
-#include "Vertex.h"
 #include <stdexcept>
 #include "Window.h"
 

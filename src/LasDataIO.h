@@ -20,6 +20,7 @@ public:
     void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount);
     bool readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
     void writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
+
 private:
 
     const std::string TAG = "LasIO\t";
@@ -30,8 +31,6 @@ private:
     float xOffset;
     float yOffset;
     float zOffset;
-
-
 
 
 #pragma pack(push, 1) // win - tightly pack the bytes and dont start at new power of two things
@@ -62,7 +61,6 @@ private:
     };
 
 // variable length record header
-//#pragma pack(1)
     struct VarLenRecHeader {
         uint16_t reserved; // unsigned short - 2 bytes
         char userid[16]; // user which created the var len rec. // can be LASF_Spec or LASF_Projection in this case
@@ -71,7 +69,6 @@ private:
         char description[32];
     };
 
-//#pragma pack(1)
     struct GeoKeyEntry {
         uint16_t wKeyId; // id from GeoTiff specification
         uint16_t wTiffTagLocation; // 0 -> tree is in wValueOffset.
@@ -81,7 +78,6 @@ private:
         uint16_t wValueOffset; // content depends on wTiffTagLocation
     };
 //
-//#pragma pack(1)
     struct GeoKeyDirectoryTag {
         uint16_t wKeyDirectoryVersion; // always 1
         uint16_t wKeyRevision; // always 1
@@ -92,7 +88,6 @@ private:
 
 
 // Point Data Record Format 1
-//#pragma pack(1)
     struct PointDRF1 {
         uint32_t x, y, z;
         uint16_t intensity;
@@ -109,15 +104,9 @@ private:
 
     };
 
-    struct Normal {
-        float x, y, z;
-    };
 };
 
 #pragma pack(pop)
-
-
-
 
 
 #endif //LASCAMPUS_LASDATAIO_H
