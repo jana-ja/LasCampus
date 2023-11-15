@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <pcl/octree/octree_search.h>
 #include "LasDataIO.h"
 #include <pcl/point_types.h>
 #include <pcl/features/normal_3d.h>
@@ -37,6 +38,9 @@ private:
 
 
     void calculateNormals(const uint32_t& startIdx, const uint32_t& endIdx);
+
+    template <typename PointT>
+    std::vector<int> algo1(const float& r, const PointT& voxelCenter, const std::vector<int>& pointIdxRadiusSearchh);
 };
 
 
