@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <Eigen/Core>
 #include <chrono>
+#include <random>
 #include "util.h"
 #include "DataStructure.h"
 
@@ -74,7 +75,7 @@ void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &e
 
     // ****** NORMAL CALCULATION ******
 
-    octree.robustNormalEstimation();
+    octree.robustNormalEstimation(cloud);
 
 
     stop = std::chrono::high_resolution_clock::now();
@@ -109,29 +110,43 @@ uint32_t DataStructure::getVertexCount() {
 pcl::PointXYZRGBNormal *DataStructure::getVertices() {
     return cloud->data();// vertices.data();
 }
-template <typename PointT,
-        typename LeafContainerT = OctreeContainerPointIndices,
-        typename BranchContainerT = OctreeContainerEmpty>
-std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch, pcl::octree::OctreePointCloud<PointT, LeafContainerT, BranchContainerT> cloud) {
+
+std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) {
 
 
-        plane bestPlane;
-        long bestPlaneInSum;
-        long bestPlaneOutSum;
+        Plane bestPlane;
+        long bestPlaneInSum = 0;
+        long bestPlaneOutSum = 0;
         // find best plane
-        for (auto i = 0; i < 10; i++) { // TODO wie viele rnandom ebenen testen??
+        for (auto i = 0; i < 100; i++) { // TODO wie viele rnandom ebenen testen??
             long inSum = 0;
             long outSum = 0;
-            plane currPlane = buildPlane(3 random points);
+
+            std::vector<int> randSample;
+            size_t nelems = 3;
+            std::sample(
+                    pointIdxRadiusSearch.begin(),
+                    pointIdxRadiusSearch.end(),
+                    std::back_inserter(randSample),
+                    nelems,
+                    std::mt19937{std::random_device{}()}
+            );
+
+
+            Plane currPlane = { (*cloud)[randSample[0]], (*cloud)[randSample[1]], (*cloud)[randSample[2]] };
 
                 for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
                     const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
 
-                    if(dist(point, plane) > thresholdDelta){
+                    if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1){ // normale wur
+                        continue;
+                    }
+
+                    if(pointPlaneDistance(point, currPlane) > 0.5f){ //thresholdDelta){ // TODO find good threshold
                         outSum++;
                         // TODO bei der suche nach möglicher bester ebene: wenn ouside points > als bei aktuell bester direkt skip
 //                        if(outSum > bestPlaneOutSum)
-//                            continue;
+//                            break;
                     } else {
                         inSum++;
                     }
@@ -139,7 +154,7 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
 
                 // check if currPlane is bestPlane
                 if (inSum > bestPlaneInSum){
-                    bestPlane = plane;
+                    std::memcpy(bestPlane, currPlane, sizeof(pcl::PointXYZRGBNormal[3]));
                     bestPlaneInSum = inSum;
                     bestPlaneOutSum = outSum;
                 }
@@ -153,12 +168,35 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
             // found consistent neighborhood of voxelCenter
             // voxelCenter is considered as a planar point
             // TODO ist es wohl schneller die in points oben immer neu hinzuzufügen oder hier nochmal alle zu durchlaufen einmal?
+
+            // TODO mark points as unavailable for following detection - extra vector? are points just pointers? then assign normal from detected plane!
+            // set normal, functions as unavailable detection too
+            auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
+            auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
+
+            auto planeNormal = normalize(crossProduct(vec1, vec2));
+
+            // color debug
+            int randR = rand()%(255-0 + 1) + 0;
+            int randG = rand()%(255-0 + 1) + 0;
+            int randB = rand()%(255-0 + 1) + 0;
             for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
 
                 const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
-                if(dist(point, bestPlane) <= 0.5f){//} thresholdDelta) { // TODO thresholdDelta richtig bestimmen
+                if(pointPlaneDistance(point, bestPlane) <= 0.5f){//} thresholdDelta) { // TODO thresholdDelta richtig bestimmen
                     neighborhood.push_back(pointIdxRadiusSearch[p]);
-                    // TODO mark points as unavailable for following detection - extra vector? are points just pointers? then assign normal from detected plane!
+
+
+                    (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
+                    (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
+                    (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
+
+
+
+                    (*cloud)[pointIdxRadiusSearch[p]].b = randR;
+                    (*cloud)[pointIdxRadiusSearch[p]].g = randG;
+                    (*cloud)[pointIdxRadiusSearch[p]].r = randB;
+
 
                 }
             }
@@ -172,7 +210,7 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
 
 
 template <typename PointT, typename LeafContainerT, typename BranchContainerT>
-void pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimation() const  // TODO je nachdem ob ich normalen assignen kann void oder neighborhoods zurückgeben
+void pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimation(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) const  // TODO je nachdem ob ich normalen assignen kann void oder neighborhoods zurückgeben
 {
 
     OctreeKey key;
@@ -181,7 +219,7 @@ void pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainer
 
     robustNormalEstimationRecursive(this->root_node_,
                                       key,
-                                      1);
+                                      1, cloud);
 
 }
 
@@ -190,7 +228,8 @@ void
 pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimationRecursive(
                                   const BranchNode* node,
                                   const OctreeKey& key,
-                                  uindex_t tree_depth) const
+                                  uindex_t tree_depth,
+                                  pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) const
 {
 
     using Neighborhood = std::vector<int>;
@@ -232,7 +271,8 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
 
         if (this->radiusSearch(voxel_center, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             // algorithm 1
-            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, this);
+            auto bla = *this;
+            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, cloud);
             if(!neighborhood.empty()){
                 consNeighborhoods.push_back(neighborhood);
                 // TODO schwierig die punkte in dieser neighborhood müssen alle als vergeben markiert werden
@@ -245,9 +285,9 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
 
         if (child_node->getNodeType() == BRANCH_NODE) {
             // we have not reached maximum tree depth
-            getNeighborsWithinRadiusRecursive(static_cast<const BranchNode*>(child_node),
+            robustNormalEstimationRecursive(static_cast<const BranchNode*>(child_node),
                                               new_key,
-                                              tree_depth + 1);
+                                              tree_depth + 1, cloud);
         }
     }
 }
