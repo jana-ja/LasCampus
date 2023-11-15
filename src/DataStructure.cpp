@@ -7,12 +7,12 @@
 #include <Eigen/Core>
 #include <chrono>
 #include "util.h"
-#include "PointCloud.h"
+#include "DataStructure.h"
 
 
 using namespace std;
 
-PointCloud::PointCloud(const std::vector<std::string> &files) {
+DataStructure::DataStructure(const std::vector<std::string> &files) {
 
     LasDataIO io = LasDataIO();
 
@@ -35,7 +35,7 @@ PointCloud::PointCloud(const std::vector<std::string> &files) {
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
         if (!io.readNormalsFromCache(dir + normalFile, cloud, startIdx, endIdx)) {
-            calculateNormals(startIdx, endIdx); // TODO use idx
+            calculateNormals(startIdx, endIdx);
 //            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
@@ -45,7 +45,7 @@ PointCloud::PointCloud(const std::vector<std::string> &files) {
 }
 
 
-void PointCloud::calculateNormals(const uint32_t &startIdx, const uint32_t &endIdx) { // TODO use indices
+void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &endIdx) { // TODO use indices
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start octree" << std::endl;
 
@@ -53,7 +53,6 @@ void PointCloud::calculateNormals(const uint32_t &startIdx, const uint32_t &endI
     // find consistent neighborhoods
 
     // ****** OCTREE ******
-    srand((unsigned int) time(NULL));
 
     // minimum scale threshold - specified by referring to the sampling density of P
     // length of smallest voxel at lowest octree level
@@ -75,44 +74,7 @@ void PointCloud::calculateNormals(const uint32_t &startIdx, const uint32_t &endI
 
     // ****** NORMAL CALCULATION ******
 
-    pcl::PointXYZRGBNormal searchPoint = cloud->points[1000];
-
-    // TODO problem: start radius search in biggest voxel and move down the tree.
-    //  how to access all voxels of tree?
-    //  idee: getNeighborsWithinRadiusRecursive überschreiben/umschreiben sodass man max depth angeben kann? wie dann die kinder nicht doppelt machen?
-
-    // TODO for voxel in tree:
-    {
-        // TODO if voxel.count < 3 -> empty, skip
-
-        float voxelSize = 10.0f; // TODO
-        float r = sqrt(2.0) * (voxelSize/2.0);
-
-        // algorithm 1
-        algo1(r, octree);
-    }
-
-    // Neighbors within radius search
-
-    std::vector<int> pointIdxRadiusSearch;
-    std::vector<float> pointRadiusSquaredDistance;
-
-    float radius = 3.0f;
-
-    // TODO hier kann mana uch suche starten mit index von nem puntk aus cloud
-    std::cout << "Neighbors within radius search at (" << searchPoint.x
-              << " " << searchPoint.y
-              << " " << searchPoint.z
-              << ") with radius=" << radius << std::endl;
-
-
-    if (octree.radiusSearch(searchPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-        for (std::size_t i = 0; i < pointIdxRadiusSearch.size(); ++i)
-            std::cout << "    " << (*cloud)[pointIdxRadiusSearch[i]].x
-                      << " " << (*cloud)[pointIdxRadiusSearch[i]].y
-                      << " " << (*cloud)[pointIdxRadiusSearch[i]].z
-                      << " (squared distance: " << pointRadiusSquaredDistance[i] << ")" << std::endl;
-    }
+    octree.robustNormalEstimation();
 
 
     stop = std::chrono::high_resolution_clock::now();
@@ -123,12 +85,12 @@ void PointCloud::calculateNormals(const uint32_t &startIdx, const uint32_t &endI
 
 
 
-//Vertex PointCloud::getUTMForOpenGL(Vertex *vertexOpenGL) {
+//Vertex DataStructure::getUTMForOpenGL(Vertex *vertexOpenGL) {
 //    // TODO offset is float, losing precision
 //    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
 //}
 //
-//Vertex PointCloud::getWGSForOpenGL(Vertex *vertex) {
+//Vertex DataStructure::getWGSForOpenGL(Vertex *vertex) {
 //    // TODO offset is float, losing precision
 //
 //    // wert in utm holen, dann:
@@ -140,16 +102,17 @@ void PointCloud::calculateNormals(const uint32_t &startIdx, const uint32_t &endI
 //    return Vertex();
 //}
 
-uint32_t PointCloud::getVertexCount() {
+uint32_t DataStructure::getVertexCount() {
     return (uint32_t) cloud->width;
 }
 
-pcl::PointXYZRGBNormal *PointCloud::getVertices() {
+pcl::PointXYZRGBNormal *DataStructure::getVertices() {
     return cloud->data();// vertices.data();
 }
-
-std::vector<int> PointCloud::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch) {
-    using Neighborhood = std::vector<int>;
+template <typename PointT,
+        typename LeafContainerT = OctreeContainerPointIndices,
+        typename BranchContainerT = OctreeContainerEmpty>
+std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch, pcl::octree::OctreePointCloud<PointT, LeafContainerT, BranchContainerT> cloud) {
 
 
         plane bestPlane;
@@ -193,9 +156,9 @@ std::vector<int> PointCloud::algo1(const float& r, const std::vector<int>& point
             for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
 
                 const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
-                if(dist(point, bestPlane) <= thresholdDelta) {
+                if(dist(point, bestPlane) <= 0.5f){//} thresholdDelta) { // TODO thresholdDelta richtig bestimmen
                     neighborhood.push_back(pointIdxRadiusSearch[p]);
-                    // TODO mark points as unavailable for following detection
+                    // TODO mark points as unavailable for following detection - extra vector? are points just pointers? then assign normal from detected plane!
 
                 }
             }
@@ -209,57 +172,34 @@ std::vector<int> PointCloud::algo1(const float& r, const std::vector<int>& point
 
 
 template <typename PointT, typename LeafContainerT, typename BranchContainerT>
-pcl::uindex_t pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimation(
-        const PointT& p_q,
-        const double radius,
-        Indices& k_indices,
-        std::vector<float>& k_sqr_distances,
-        uindex_t max_nn) const
+void pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimation() const  // TODO je nachdem ob ich normalen assignen kann void oder neighborhoods zurückgeben
 {
 
-
-
-    assert(isFinite(p_q) &&
-           "Invalid (NaN, Inf) point coordinates given to nearestKSearch!");
     OctreeKey key;
     key.x = key.y = key.z = 0;
 
-    k_indices.clear();
-    k_sqr_distances.clear();
 
-    getNeighborsWithinRadiusRecursive(p_q,
-                                      radius * radius,
-                                      this->root_node_,
+    robustNormalEstimationRecursive(this->root_node_,
                                       key,
-                                      1,
-                                      k_indices,
-                                      k_sqr_distances,
-                                      max_nn);
+                                      1);
 
-    return k_indices.size();
 }
 
 template <typename PointT, typename LeafContainerT, typename BranchContainerT>
 void
-pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimationRecursive(const PointT& point,
-                                  const double radiusSquared,
+pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimationRecursive(
                                   const BranchNode* node,
                                   const OctreeKey& key,
-                                  uindex_t tree_depth,
-                                  Indices& k_indices,
-                                  std::vector<float>& k_sqr_distances,
-                                  uindex_t max_nn) const
+                                  uindex_t tree_depth) const
 {
 
     using Neighborhood = std::vector<int>;
+
 
     // TODO if voxel.count < 3 -> empty, skip
 
     vector<Neighborhood> consNeighborhoods;
 
-
-    // get spatial voxel information
-    double voxel_squared_diameter = this->getVoxelSquaredDiameter(tree_depth);
 
     // iterate over all children
     for (unsigned char child_idx = 0; child_idx < 8; child_idx++) {
@@ -273,7 +213,6 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
 
         OctreeKey new_key;
         PointT voxel_center;
-        float squared_dist;
 
         // generate new key for current branch voxel
         new_key.x = (key.x << 1) + (!!(child_idx & (1 << 2)));
@@ -291,19 +230,25 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
 
-        if (this->radiusSearch(voxelCenter, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+        if (this->radiusSearch(voxel_center, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             // algorithm 1
-            Neighborhood neighborhood = algo1(r, pointIdxRadiusSearch);
+            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, this);
             if(!neighborhood.empty()){
                 consNeighborhoods.push_back(neighborhood);
+                // TODO schwierig die punkte in dieser neighborhood müssen alle als vergeben markiert werden
             } else {
-                // TODO try to detect a valid plane from a small neighborhood of pi
+                // TODO try to detect a valid plane from a small neighborhood of pi - einfach weiter in die voxel oder spezifisch dafür suchen??
             }
         }
 
-        // TODO schwierig die punkte in dieser neighborhood müssen alle als vergeben markiert werden
         // *************************
 
+        if (child_node->getNodeType() == BRANCH_NODE) {
+            // we have not reached maximum tree depth
+            getNeighborsWithinRadiusRecursive(static_cast<const BranchNode*>(child_node),
+                                              new_key,
+                                              tree_depth + 1);
+        }
     }
 }
 

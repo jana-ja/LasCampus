@@ -7,8 +7,8 @@
 #include "Window.h"
 
 
-Window::Window(PointCloud pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(6.0f),
-                                        pointCloud(pointCloud) {
+Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(6.0f),
+                                           pointCloud(pointCloud) {
 
 
     // glfw
@@ -223,7 +223,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.setFloat("pointSize", POINT_SIZE);
 }
 
-void Window::dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud) {
+void Window::dataStuff(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
     GLuint normalVBO;
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).

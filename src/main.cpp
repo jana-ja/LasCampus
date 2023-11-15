@@ -1,4 +1,4 @@
-#include "PointCloud.h"
+#include "DataStructure.h"
 #include "Window.h"
 
 
@@ -11,9 +11,9 @@ int main() {
     // read tree
     try
     {
-        auto lol = PointCloud(files);
+        auto lol = DataStructure(files);
 
-        std::cout << "main\t" << "PointCloud finished" << std::endl;
+        std::cout << "main\t" << "DataStructure finished" << std::endl;
 
 
         Window windi = Window(lol);

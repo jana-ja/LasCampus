@@ -12,7 +12,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Camera.h"
 #include "shader.h"
-#include "PointCloud.h"
+#include "DataStructure.h"
 
 #ifndef LASCAMPUS_WINDOW_H
 #define LASCAMPUS_WINDOW_H
@@ -20,7 +20,7 @@
 
 class Window {
 public:
-    Window(PointCloud pointCloud);
+    Window(DataStructure pointCloud);
 
 private:
     const char* TAG = "Window\t";
@@ -43,7 +43,7 @@ private:
     float lastFrame = 0.0f; // Time of last frame
 
     // tree
-    PointCloud pointCloud;
+    DataStructure pointCloud;
 
     bool showInfo = false;
 
@@ -64,7 +64,7 @@ private:
     void shaderSettings(Shader &shader);
 
     // pass by ref
-    void dataStuff(GLuint &VBO, GLuint &VAO, PointCloud pointCloud);
+    void dataStuff(GLuint &VBO, GLuint &VAO, DataStructure pointCloud);
 
     void dataStuff2(GLuint &VBO, GLuint &VAO);
 

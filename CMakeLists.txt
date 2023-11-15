@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
 
 add_executable(LasCampus src/main.cpp
-        src/PointCloud.cpp
-        src/PointCloud.h
+        src/DataStructure.cpp
+        src/DataStructure.h
         src/Window.cpp
         src/Window.h
         src/Camera.h

@@ -13,9 +13,9 @@
 #define LASCAMPUS_POINTCLOUD_H
 
 
-class PointCloud {
+class DataStructure {
 public:
-    PointCloud(const std::vector<std::string>& files);
+    DataStructure(const std::vector<std::string>& files);
 
     uint32_t getVertexCount();
 
@@ -26,6 +26,8 @@ public:
 //    Vertex getWGSForOpenGL(Vertex* vertex);
 
 private:
+    using Neighborhood = std::vector<int>;
+
     const char* TAG = "PC\t";
 
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -39,8 +41,10 @@ private:
 
     void calculateNormals(const uint32_t& startIdx, const uint32_t& endIdx);
 
-    template <typename PointT>
-    std::vector<int> algo1(const float& r, const PointT& voxelCenter, const std::vector<int>& pointIdxRadiusSearchh);
+    template <typename PointT,
+            typename LeafContainerT = OctreeContainerPointIndices,
+            typename BranchContainerT = OctreeContainerEmpty>
+    static std::vector<int> algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch, pcl::octree::OctreePointCloud<PointT, LeafContainerT, BranchContainerT> cloud);
 };
 
 
