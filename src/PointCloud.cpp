@@ -209,7 +209,7 @@ std::vector<int> PointCloud::algo1(const float& r, const std::vector<int>& point
 
 
 template <typename PointT, typename LeafContainerT, typename BranchContainerT>
-pcl::uindex_t pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::radiusSearch(
+pcl::uindex_t pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimation(
         const PointT& p_q,
         const double radius,
         Indices& k_indices,
@@ -241,8 +241,7 @@ pcl::uindex_t pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, Branch
 
 template <typename PointT, typename LeafContainerT, typename BranchContainerT>
 void
-pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::
-getNeighborsWithinRadiusRecursive(const PointT& point,
+pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimationRecursive(const PointT& point,
                                   const double radiusSquared,
                                   const BranchNode* node,
                                   const OctreeKey& key,
@@ -292,7 +291,7 @@ getNeighborsWithinRadiusRecursive(const PointT& point,
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
 
-        if (octree.radiusSearch(voxelCenter, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+        if (this->radiusSearch(voxelCenter, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             // algorithm 1
             Neighborhood neighborhood = algo1(r, pointIdxRadiusSearch);
             if(!neighborhood.empty()){
