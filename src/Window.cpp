@@ -7,7 +7,7 @@
 #include "Window.h"
 
 
-Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(6.0f),
+Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
                                            pointCloud(pointCloud) {
 
 
