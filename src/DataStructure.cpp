@@ -114,7 +114,11 @@ pcl::PointXYZRGBNormal *DataStructure::getVertices() {
 std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &pointIdxRadiusSearch,
                                       pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) {
 
-    float thresholdDelta = 0.4f; // TODO find good threshold
+    // check if voxel/radius serach is "empty"
+    if(pointIdxRadiusSearch.size() < 3)
+        return std::vector<int>{};
+
+    float thresholdDelta = 0.15f; // TODO find good threshold
 
     Plane bestPlane;
     long bestPlaneInSum = 0;
@@ -236,7 +240,7 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
     using Neighborhood = std::vector<int>;
 
 
-    // TODO if voxel.count < 3 -> empty, skip
+    // TODO if voxel.count < 3 -> empty, skip - das ist jetzt in algo 1, denke da passt es auch sicherer hin
 
     vector<Neighborhood> consNeighborhoods;
 
