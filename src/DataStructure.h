@@ -50,7 +50,7 @@ private:
 
         float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
 
-        return dist;
+        return abs(dist);
     }
 
     static pcl::PointXYZ normalize(pcl::PointXYZ point){
