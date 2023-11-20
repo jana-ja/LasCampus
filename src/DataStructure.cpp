@@ -77,6 +77,12 @@ void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &e
 
     octree.robustNormalEstimation(cloud);
 
+    // TODO SOLUTION FOR PROBLEM: get bounding boxes of all voxels (not just leaf nodes) and calculate center points by myself
+    auto it = octree.breadth_begin();
+    it++;
+    Eigen::Vector3f voxel_min, voxel_max;
+    octree.getVoxelBounds(it, voxel_min, voxel_max);
+
 
     stop = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
@@ -123,52 +129,52 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
     Plane bestPlane;
     long bestPlaneInSum = 0;
     long bestPlaneOutSum = 0;
-    // find best plane
-    for (auto i = 0; i < 200; i++) { // TODO wie viele rnandom ebenen testen?? abängig von voxel point count machen
-        long inSum = 0;
-        long outSum = 0;
-
-        std::vector<int> randSample;
-        size_t nelems = 3;
-        std::sample(
-                pointIdxRadiusSearch.begin(),
-                pointIdxRadiusSearch.end(),
-                std::back_inserter(randSample),
-                nelems,
-                std::mt19937{std::random_device{}()}
-        );
-
-
-        Plane currPlane = {(*cloud)[randSample[0]], (*cloud)[randSample[1]], (*cloud)[randSample[2]]};
-
-        for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
-            const auto &point = (*cloud)[pointIdxRadiusSearch[p]];
-
-            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
-                continue;
-            }
-
-            if (pointPlaneDistance(point, currPlane) > thresholdDelta) {
-                outSum++;
-                // TODO bei der suche nach möglicher bester ebene: wenn ouside points > als bei aktuell bester direkt skip
-//                        if(outSum > bestPlaneOutSum)
-//                            break;
-            } else {
-                inSum++;
-            }
-        }
-
-        // check if currPlane is bestPlane
-        if (inSum > bestPlaneInSum) {
-            std::memcpy(bestPlane, currPlane, sizeof(pcl::PointXYZRGBNormal[3]));
-            bestPlaneInSum = inSum;
-            bestPlaneOutSum = outSum;
-        }
-    }
-
+//    // find best plane
+//    for (auto i = 0; i < 200; i++) { // TODO wie viele rnandom ebenen testen?? abängig von voxel point count machen
+//        long inSum = 0;
+//        long outSum = 0;
+//
+//        std::vector<int> randSample;
+//        size_t nelems = 3;
+//        std::sample(
+//                pointIdxRadiusSearch.begin(),
+//                pointIdxRadiusSearch.end(),
+//                std::back_inserter(randSample),
+//                nelems,
+//                std::mt19937{std::random_device{}()}
+//        );
+//
+//
+//        Plane currPlane = {(*cloud)[randSample[0]], (*cloud)[randSample[1]], (*cloud)[randSample[2]]};
+//
+//        for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
+//            const auto &point = (*cloud)[pointIdxRadiusSearch[p]];
+//
+//            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
+//                continue;
+//            }
+//
+//            if (pointPlaneDistance(point, currPlane) > thresholdDelta) {
+//                outSum++;
+//                // TODO bei der suche nach möglicher bester ebene: wenn ouside points > als bei aktuell bester direkt skip
+////                        if(outSum > bestPlaneOutSum)
+////                            break;
+//            } else {
+//                inSum++;
+//            }
+//        }
+//
+//        // check if currPlane is bestPlane
+//        if (inSum > bestPlaneInSum) {
+//            std::memcpy(bestPlane, currPlane, sizeof(pcl::PointXYZRGBNormal[3]));
+//            bestPlaneInSum = inSum;
+//            bestPlaneOutSum = outSum;
+//        }
+//    }
+//
     Neighborhood neighborhood;
     // is best plane "spurious"?
-    if (bestPlaneInSum > bestPlaneOutSum) {
+//    if (bestPlaneInSum > bestPlaneOutSum) {
         // plane is not "spurious"
         // found consistent neighborhood of voxelCenter
         // voxelCenter is considered as a planar point
@@ -176,27 +182,33 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
 
         // TODO mark points as unavailable for following detection - extra vector? are points just pointers? then assign normal from detected plane!
         // set normal, functions as unavailable detection too
-        auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
-        auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
+//        auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
+//        auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
 
-        auto planeNormal = normalize(crossProduct(vec1, vec2));
+//        auto planeNormal = normalize(crossProduct(vec1, vec2));
 
         // color debug
         int randR = rand() % (255 - 0 + 1) + 0;
         int randG = rand() % (255 - 0 + 1) + 0;
         int randB = rand() % (255 - 0 + 1) + 0;
+        std::cout << randR << " " << randG << " " << randB << std::endl;
         for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
 
             const auto &point = (*cloud)[pointIdxRadiusSearch[p]];
+            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
+                continue;
+            }
             auto dist = pointPlaneDistance(point, bestPlane);
-            if (dist <= thresholdDelta) {
+//            if (dist <= thresholdDelta) {
                 neighborhood.push_back(pointIdxRadiusSearch[p]);
 
 
-                (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
-
+//                (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
+//                (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
+//                (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
+                (*cloud)[pointIdxRadiusSearch[p]].normal_x = 0;
+                (*cloud)[pointIdxRadiusSearch[p]].normal_y = 1;
+                (*cloud)[pointIdxRadiusSearch[p]].normal_z = 0;
 
                 (*cloud)[pointIdxRadiusSearch[p]].b = randR;
                 (*cloud)[pointIdxRadiusSearch[p]].g = randG;
@@ -204,9 +216,9 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
 
 
             }
-        }
+//        }
 
-    }
+//    }
 
     return neighborhood;
 
@@ -262,7 +274,7 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
         new_key.y = (key.y << 1) + (!!(child_idx & (1 << 1)));
         new_key.z = (key.z << 1) + (!!(child_idx & (1 << 0)));
 
-        // generate voxel center point for voxel at key
+        // generate voxel center point for voxel at key // TODO PROBLEM: keys only address leaf node voxels! so i only get lef node center points.
         this->genVoxelCenterFromOctreeKey(new_key, tree_depth, voxel_center);
 
         // *************************
