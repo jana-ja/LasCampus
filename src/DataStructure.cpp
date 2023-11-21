@@ -75,13 +75,49 @@ void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &e
 
     // ****** NORMAL CALCULATION ******
 
-    octree.robustNormalEstimation(cloud);
+//    octree.robustNormalEstimation(cloud);
+
+
+    vector<Neighborhood> consNeighborhoods;
 
     // TODO SOLUTION FOR PROBLEM: get bounding boxes of all voxels (not just leaf nodes) and calculate center points by myself
-    auto it = octree.breadth_begin();
-    it++;
-    Eigen::Vector3f voxel_min, voxel_max;
-    octree.getVoxelBounds(it, voxel_min, voxel_max);
+    for(auto it = octree.breadth_begin(); it != octree.breadth_end(); it++){
+
+        // get bounds for voxel
+        Eigen::Vector3f voxel_min, voxel_max;
+        octree.getVoxelBounds(it, voxel_min, voxel_max);
+
+        // calc voxel center from bounds
+        pcl::PointXYZRGBNormal voxel_center;
+        voxel_center.x = (voxel_max[0] + voxel_min[0]) / 2.0f;
+        voxel_center.y = (voxel_max[1] + voxel_min[1]) / 2.0f;
+        voxel_center.z = (voxel_max[2] + voxel_min[2]) / 2.0f;
+
+
+        // calc search radius r from bounds
+        float voxelSize = abs(voxel_max[0] - voxel_min[0]); // voxel is a cube
+        float r = sqrt(2.0) * (voxelSize / 2.0);
+
+
+        // radius search
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        if (octree.radiusSearch(voxel_center, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+            // algorithm 1
+            auto bla = *this;
+            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, cloud);
+            if (!neighborhood.empty()) {
+                consNeighborhoods.push_back(neighborhood);
+                // TODO schwierig die punkte in dieser neighborhood müssen alle als vergeben markiert werden
+            } else {
+                // TODO try to detect a valid plane from a small neighborhood of pi - einfach weiter in die voxel oder spezifisch dafür suchen??
+            }
+        }
+
+
+    }
+
+
 
 
     stop = std::chrono::high_resolution_clock::now();
@@ -197,7 +233,7 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
             const auto &point = (*cloud)[pointIdxRadiusSearch[p]];
             if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
                 continue;
-            }
+//            }
             auto dist = pointPlaneDistance(point, bestPlane);
 //            if (dist <= thresholdDelta) {
                 neighborhood.push_back(pointIdxRadiusSearch[p]);
@@ -231,12 +267,8 @@ void pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainer
         pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) const  // TODO je nachdem ob ich normalen assignen kann void oder neighborhoods zurückgeben
 {
 
-    OctreeKey key;
-    key.x = key.y = key.z = 0;
-
 
     robustNormalEstimationRecursive(this->root_node_,
-                                    key,
                                     1, cloud);
 
 }
@@ -245,7 +277,6 @@ template<typename PointT, typename LeafContainerT, typename BranchContainerT>
 void
 pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::robustNormalEstimationRecursive(
         const BranchNode* node,
-        const OctreeKey& key,
         uindex_t tree_depth,
         pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) const {
 
@@ -259,26 +290,29 @@ pcl::octree::OctreePointCloudSearch<PointT, LeafContainerT, BranchContainerT>::r
 
     // iterate over all children
     for (unsigned char child_idx = 0; child_idx < 8; child_idx++) {
-        if (!this->branchHasChild(*node, child_idx))
+        if (!this->branchHasChild(*node, child_idx)) // TODO hätte ich das nur rausnehmen müssen?
             continue;
 
         const OctreeNode* child_node;
         child_node = this->getBranchChildPtr(*node, child_idx);
 
+        // TODO get bounds with iterator
 
         OctreeKey new_key;
         PointT voxel_center;
-
-        // generate new key for current branch voxel
-        new_key.x = (key.x << 1) + (!!(child_idx & (1 << 2)));
-        new_key.y = (key.y << 1) + (!!(child_idx & (1 << 1)));
-        new_key.z = (key.z << 1) + (!!(child_idx & (1 << 0)));
-
-        // generate voxel center point for voxel at key // TODO PROBLEM: keys only address leaf node voxels! so i only get lef node center points.
-        this->genVoxelCenterFromOctreeKey(new_key, tree_depth, voxel_center);
+        // TODO calc voxel center from bounds
+//
+//        // generate new key for current branch voxel
+//        new_key.x = (key.x << 1) + (!!(child_idx & (1 << 2)));
+//        new_key.y = (key.y << 1) + (!!(child_idx & (1 << 1)));
+//        new_key.z = (key.z << 1) + (!!(child_idx & (1 << 0)));
+//
+//        // generate voxel center point for voxel at key // TODO PROBLEM: keys only address leaf node voxels! so i only get lef node center points.
+//        this->genVoxelCenterFromOctreeKey(new_key, tree_depth, voxel_center);
 
         // *************************
-        float voxelSize = sqrt(this->getVoxelSquaredSideLen(tree_depth)); // TODO richtig?
+        // TODO calc r from bounds
+        float voxelSize = ;
         float r = sqrt(2.0) * (voxelSize / 2.0);
 
 
