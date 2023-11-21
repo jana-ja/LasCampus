@@ -133,27 +133,32 @@ void DataStructure::calculateNormals(const uint32_t& startIdx, const uint32_t& e
     stop = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "finished normal calculation in " << duration.count() << "s" << std::endl;
+
+
+
+
+    // ******  NORMAL OPTIMIZATION ******
+
+    // remove non planaer points (ex trees) from cons neighborhoods (c.N.)
+    // for every c.N.:
+        // for every non-planar point in c.N. (sind aktuell insgesamt nur so 230 von 10k... kann ich mir dann vllt grad auch sparen die rauszulassen
+            // get r neighborhood (r.N.) from point
+            // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
+            // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
+
+    // move points to better fitting c.N.
+    // for every c.N.
+        // for every planar point in c.N. (glaube nach step 1 sind da nur noch planer points drin)
+            // get r neighborhood from point
+            // for all c.N.s that contain at least one point from r's neighborhood (including that from the outermost loop)
+                // check distance of point to plane of the neighborhood, find c.N. with the smallest distance
+            // if c.N. with smallest distance is not the curretn one, move point.
+
+    // for each c.N.
+        // calculate normal (formula 3 with covariance matrix)
+
+    // all remaining points with no c.N. get uniform normal
 }
-
-
-
-
-//Vertex DataStructure::getUTMForOpenGL(Vertex *vertexOpenGL) {
-//    // TODO offset is float, losing precision
-//    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
-//}
-//
-//Vertex DataStructure::getWGSForOpenGL(Vertex *vertex) {
-//    // TODO offset is float, losing precision
-//
-//    // wert in utm holen, dann:
-//
-//    // zone number: 60 zones, each 6 degrees of longitude (horizontal stripes), number is consistent in horizontal stripes
-//    // zone letter: 20 zones, each 8 degrees of latitude (vertical stripes), letter is consistent in vertical stripes
-//    // x wert zwischen 100.000 und 899.999 meter in zone
-//    // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
-//    return Vertex();
-//}
 
 std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch,
                                       pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]) {
@@ -297,6 +302,23 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
     return neighborhood;
 }
 
+
+//Vertex DataStructure::getUTMForOpenGL(Vertex *vertexOpenGL) {
+//    // TODO offset is float, losing precision
+//    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
+//}
+//
+//Vertex DataStructure::getWGSForOpenGL(Vertex *vertex) {
+//    // TODO offset is float, losing precision
+//
+//    // wert in utm holen, dann:
+//
+//    // zone number: 60 zones, each 6 degrees of longitude (horizontal stripes), number is consistent in horizontal stripes
+//    // zone letter: 20 zones, each 8 degrees of latitude (vertical stripes), letter is consistent in vertical stripes
+//    // x wert zwischen 100.000 und 899.999 meter in zone
+//    // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
+//    return Vertex();
+//}
 
 uint32_t DataStructure::getVertexCount() {
     return (uint32_t) cloud->width;
