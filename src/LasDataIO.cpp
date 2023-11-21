@@ -81,7 +81,7 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 //        }
 
         // points
-        int pointsUsed = 100000; //header.numberOfPoints;
+        int pointsUsed = 200000; //header.numberOfPoints;
         *pointCount = pointsUsed;
 
         std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
@@ -109,9 +109,9 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                 v.normal_y = -1;
                 v.normal_z = -1;
                 // pcl library switched r and b component
-                v.b = 125; // r
-                v.g = 78; // g
-                v.r = 39; // b
+                v.b = 255; // r
+                v.g = 255; // g
+                v.r = 255; // b
                 v.a = 255;
 
                 cloud->push_back(v);
@@ -204,5 +204,18 @@ void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::Po
 
     } else {
         throw std::runtime_error("Can't find .normal file");
+    }
+}
+
+void LasDataIO::random(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &cloud) {
+    for (int i = 0; i < 10000; ++i) {
+        pcl::PointXYZRGBNormal p;
+        p.x = (float) (rand() % 100);
+        p.y = (float) (rand() % 100);
+        p.z = (float) (rand() % 100);
+
+        cloud->push_back(p);
+
+        //std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
     }
 }

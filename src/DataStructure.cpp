@@ -23,12 +23,13 @@ DataStructure::DataStructure(const std::vector<std::string> &files) {
 
     uint32_t startIdx = 0;
     uint32_t endIdx;
-    uint32_t pointCount;
+    uint32_t pointCount = 0;//; // TODO remove
     std::cout << TAG << "begin loading data" << std::endl;
     for (const auto &file: files) {
 
         // get points
-        io.readLas(dir + file, cloud, &pointCount);
+//        io.readLas(dir + file, cloud, &pointCount);
+        io.random(cloud);
 
         endIdx = pointCount;
 
@@ -65,11 +66,12 @@ void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &e
     // octree.defineBoundingBox(minX, minY, minZ, maxX, maxY, maxZ); // TODO get bounding box values, should be easy from las file data, for testing get while reading points from subset
 
     octree.setInputCloud(cloud);
+    octree.defineBoundingBox();
     octree.addPointsFromInputCloud();
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "finished octree in " << duration.count() << "s" << std::endl;
+    std::cout << TAG << "finished octree in " << duration.count() << "s. " << "depth: " << octree.getTreeDepth() << std::endl;
     start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start normal calculation" << std::endl;
 
@@ -98,6 +100,8 @@ void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &e
         float voxelSize = abs(voxel_max[0] - voxel_min[0]); // voxel is a cube
         float r = sqrt(2.0) * (voxelSize / 2.0);
 
+        double minX, minY, minZ, maxX, maxY, maxZ;
+        octree.getBoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
 
         // radius search
         std::vector<int> pointIdxRadiusSearch;
@@ -105,7 +109,7 @@ void DataStructure::calculateNormals(const uint32_t &startIdx, const uint32_t &e
         if (octree.radiusSearch(voxel_center, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             // algorithm 1
             auto bla = *this;
-            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, cloud);
+            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, cloud, it.getCurrentOctreeDepth());
             if (!neighborhood.empty()) {
                 consNeighborhoods.push_back(neighborhood);
                 // TODO schwierig die punkte in dieser neighborhood müssen alle als vergeben markiert werden
@@ -154,11 +158,13 @@ pcl::PointXYZRGBNormal *DataStructure::getVertices() {
 }
 
 std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &pointIdxRadiusSearch,
-                                      pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud) {
+                                      pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level) {
 
     // check if voxel/radius serach is "empty"
-    if(pointIdxRadiusSearch.size() < 3)
+    if(pointIdxRadiusSearch.size() < 3) {
+        std::cout << "skipping empty voxel on level " << level << std::endl;
         return std::vector<int>{};
+    }
 
     float thresholdDelta = 0.15f; // TODO find good threshold
 
@@ -216,7 +222,6 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
         // voxelCenter is considered as a planar point
         // TODO ist es wohl schneller die in points oben immer neu hinzuzufügen oder hier nochmal alle zu durchlaufen einmal?
 
-        // TODO mark points as unavailable for following detection - extra vector? are points just pointers? then assign normal from detected plane!
         // set normal, functions as unavailable detection too
 //        auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
 //        auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
@@ -227,12 +232,47 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
         int randR = rand() % (255 - 0 + 1) + 0;
         int randG = rand() % (255 - 0 + 1) + 0;
         int randB = rand() % (255 - 0 + 1) + 0;
-        std::cout << randR << " " << randG << " " << randB << std::endl;
+
+    switch (level) {
+        case 0:
+            randR = 255;
+            randG = 0;
+            randB = 0;
+            break;
+        case 1:
+            randR = 0;
+            randG = 255;
+            randB = 0;
+            break;
+        case 2:
+            randR = 0;
+            randG = 0;
+            randB = 255;
+            break;
+        case 3:
+            randR = 255;
+            randG = 255;
+            randB = 0;
+            break;
+        case 4:
+            randR = 0;
+            randG = 255;
+            randB = 255;
+            break;
+        case 5:
+            randR = 255;
+            randG = 0;
+            randB = 255;
+            break;
+
+    }
+
+//        std::cout << randR << " " << randG << " " << randB << std::endl;
         for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
 
             const auto &point = (*cloud)[pointIdxRadiusSearch[p]];
-            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
-                continue;
+//            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
+//                continue;
 //            }
             auto dist = pointPlaneDistance(point, bestPlane);
 //            if (dist <= thresholdDelta) {
@@ -242,15 +282,16 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int> &po
 //                (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
 //                (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
 //                (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_x = 0;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_y = 1;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_z = 0;
+if(level < 2) {
+    (*cloud)[pointIdxRadiusSearch[p]].normal_x = 0;
+    (*cloud)[pointIdxRadiusSearch[p]].normal_y = 1;
+    (*cloud)[pointIdxRadiusSearch[p]].normal_z = 0;
 
-                (*cloud)[pointIdxRadiusSearch[p]].b = randR;
-                (*cloud)[pointIdxRadiusSearch[p]].g = randG;
-                (*cloud)[pointIdxRadiusSearch[p]].r = randB;
+    (*cloud)[pointIdxRadiusSearch[p]].b = randB;
+    (*cloud)[pointIdxRadiusSearch[p]].g = randG;
+    (*cloud)[pointIdxRadiusSearch[p]].r = randR;
 
-
+}
             }
 //        }
 
