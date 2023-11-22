@@ -38,7 +38,7 @@ DataStructure::DataStructure(const std::vector<std::string>& files) {
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
         if (!io.readNormalsFromCache(dir + normalFile, cloud, startIdx, endIdx)) {
-            calculateNormals(startIdx, endIdx);
+            robustNormalEstimation(startIdx, endIdx);
 //            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
@@ -48,7 +48,7 @@ DataStructure::DataStructure(const std::vector<std::string>& files) {
 }
 
 
-void DataStructure::calculateNormals(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
+void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start octree" << std::endl;
 

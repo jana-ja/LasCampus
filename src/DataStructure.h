@@ -91,7 +91,7 @@ private:
     }
 
 
-    void calculateNormals(const uint32_t &startIdx, const uint32_t &endIdx);
+    void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
 
 };
 
