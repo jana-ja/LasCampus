@@ -24,11 +24,17 @@ public:
 //    Vertex getUTMForOpenGL(Vertex* vertex);
 //
 //    Vertex getWGSForOpenGL(Vertex* vertex);
-    static std::vector<int> algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
+
 
 private:
-    using Neighborhood = std::vector<int>; // vector of point indices
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
+
+    struct Neighborhood{
+        Plane plane;
+        std::vector<int> pointIdc;
+    };
+
+    static Neighborhood algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
 
     const char *TAG = "PC\t";
 

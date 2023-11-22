@@ -7,6 +7,7 @@
 #include <Eigen/Core>
 #include <chrono>
 #include <random>
+#include <set>
 #include "util.h"
 #include "DataStructure.h"
 
@@ -113,7 +114,7 @@ void DataStructure::calculateNormals(const uint32_t& startIdx, const uint32_t& e
             auto bla = *this;
             Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, cloud,
                                                              it.getCurrentOctreeDepth(), spur, okay);
-            if (!neighborhood.empty()) {
+            if (!neighborhood.pointIdc.empty()) {
                 // found a consistent neighborhood, points have already been
                 consNeighborhoods.push_back(neighborhood);
             }
@@ -122,7 +123,7 @@ void DataStructure::calculateNormals(const uint32_t& startIdx, const uint32_t& e
 
     int okaySum = 0, spurSum = 0;
 
-    for ( auto i = 0; i < octree.getTreeDepth(); i++ ){
+    for ( auto i = 0; i <= octree.getTreeDepth(); i++ ){ // TODO treedepth = 5, aber okay und spur sind gefüllt bis index 5, der kommt oben von getCurrentOctreeDepth... also <=
         std::cout << i << ": okay - " << okay[i] << ". spur - " << spur[i] << std::endl;
         okaySum += okay[i];
         spurSum += spur[i];
@@ -139,43 +140,166 @@ void DataStructure::calculateNormals(const uint32_t& startIdx, const uint32_t& e
 
     // ******  NORMAL OPTIMIZATION ******
 
-    // remove non planaer points (ex trees) from cons neighborhoods (c.N.)
+    float r = 1.0f; // TODO find good r
+
+    // build map pointIdc -> neighborhoodIdx?
+    std::map<int, int> pointNeighborhoodMap{};
+    for (auto i = 0; i < consNeighborhoods.size(); i++) {
+        for (auto pointIdx: consNeighborhoods[i].pointIdc) {
+            pointNeighborhoodMap[pointIdx] = i;
+        }
+    }
+    std::cout << TAG << "finished building map " << std::endl;
+
+
+    // remove non-planar points (ex trees) from cons neighborhoods (c.N.)
+
     // for every c.N.:
-        // for every non-planar point in c.N. (sind aktuell insgesamt nur so 230 von 10k... kann ich mir dann vllt grad auch sparen die rauszulassen
-            // get r neighborhood (r.N.) from point
-            // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
-            // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
+    // for every non-planar point in c.N. (sind aktuell insgesamt nur so 230 von 10k... kann ich mir dann vllt grad auch sparen die rauszulassen
+        // get r neighborhood (r.N.) from point
+        // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
+        // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
+    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
+        std::cout << TAG << "remove points in " << cnIdx << std::endl;
+
+        int removeCount = 0;
+
+        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
+        while(pointIt != consNeighborhoods[cnIdx].pointIdc.end()) { // TODO maybe filter only non-planar points
+
+
+            auto pointIdx = *pointIt;
+            const auto& point = (*cloud)[pointIdx];
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+                int insideCount = 0, outsideCount = 0;
+                for (auto npIdx: pointIdxRadiusSearch) {
+                    const auto& nPoint = (*cloud)[npIdx];
+                    if (pointNeighborhoodMap[npIdx] == cnIdx){
+                        insideCount++;
+                    } else {
+                       outsideCount++;
+                    }
+                }
+
+
+                if (insideCount < outsideCount){
+//                    std::cout << TAG << "remove point from " << cnIdx << std::endl;
+                    removeCount++;
+
+                    pointNeighborhoodMap.erase(pointIdx);
+                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
+                }
+                else ++pointIt;
+            }
+            else ++pointIt;
+        }
+        std::cout << TAG << "removed " << removeCount << " points from " << cnIdx << std::endl;
+    }
+    std::cout << TAG << "finished remove non planar points " << std::endl;
+
 
     // move points to better fitting c.N.
+
     // for every c.N.
-        // for every planar point in c.N. (glaube nach step 1 sind da nur noch planer points drin)
-            // get r neighborhood from point
-            // for all c.N.s that contain at least one point from r's neighborhood (including that from the outermost loop)
-                // check distance of point to plane of the neighborhood, find c.N. with the smallest distance
-            // if c.N. with smallest distance is not the curretn one, move point.
+    // for every planar point in c.N. (glaube nach step 1 sind da nur noch planar points drin)
+    // get r neighborhood from point
+    // for all c.N.s that contain at least one point from r's neighborhood (including that from the outermost loop)
+    // check distance of point to plane of the neighborhood, find c.N. with the smallest distance
+    // if c.N. with smallest distance is not the curretn one, move point.
+    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
+        std::cout << TAG << "move points from " << cnIdx << std::endl;
+
+        int moveCount = 0;
+
+        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
+        while(pointIt != consNeighborhoods[cnIdx].pointIdc.end()) {
+
+            auto pointIdx = *pointIt;
+            const auto& point = (*cloud)[pointIdx];
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+                // TODO bis hier ist alle same wie oben -> optimieren möglich? oben werden ja noch punkt verschoben
+                std::set<int> neighborhoodIdc = {};
+                // find all neighborhoods from neighbors
+                for (auto npIdx: pointIdxRadiusSearch) {
+                    neighborhoodIdc.insert(pointNeighborhoodMap[npIdx]);
+                }
+                // test if they are closer to point
+                double minDist = INFINITY;
+                int minDistIdx = -1;
+                for (auto neighborhoodIdx: neighborhoodIdc) {
+                    auto dist = pointPlaneDistance(point, consNeighborhoods[neighborhoodIdx].plane);
+                    if (dist < minDist){
+                        minDist = dist;
+                        minDistIdx = neighborhoodIdx;
+                    }
+                }
+                if (minDistIdx != cnIdx) {
+//                    std::cout << TAG << "move point from " << cnIdx << " to " << minDistIdx << std::endl;
+                    moveCount++;
+
+                    // move point
+                    pointNeighborhoodMap[pointIdx] = minDistIdx;
+
+                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
+                    consNeighborhoods[minDistIdx].pointIdc.push_back(pointIdx);
+                }
+                else ++pointIt;
+            }
+            else ++pointIt;
+        }
+        std::cout << TAG << "moved " << moveCount << " points from " << cnIdx << std::endl;
+    }
+    std::cout << TAG << "finished other thing " << std::endl;
+
+
 
     // for each c.N.
         // calculate normal (formula 3 with covariance matrix)
+        // TODO
+
 
     // all remaining points with no c.N. get uniform normal
+    // TODO
+
+
+    // add colors
+    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
+        // color debug
+        int randR = rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (255 - 0 + 1) + 0;
+        int randB = rand() % (255 - 0 + 1) + 0;
+        for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin(); pointIt != consNeighborhoods[cnIdx].pointIdc.end(); pointIt++) {
+            auto pointIdx = *pointIt;
+            (*cloud)[pointIdx].b = randB;
+            (*cloud)[pointIdx].g = randG;
+            (*cloud)[pointIdx].r = randR;
+        }
+    }
+    std::cout << TAG << "finished adding colors " << std::endl;
+
+
 }
 
-std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch,
+DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch,
                                       pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]) {
 
     // check if voxel/radius search is "empty"
     if (pointIdxRadiusSearch.size() < 3) {
         std::cout << "skipping empty voxel on level " << level << std::endl;
-        return std::vector<int>{};
+        return {};
     }
 
-    float thresholdDelta = 0.2f; // TODO find good threshold
+    float thresholdDelta = 0.3f; // TODO find good threshold
 
     Plane bestPlane;
     long bestPlaneInSum = 0;
     long bestPlaneOutSum = 0;
     // find best plane
-    for (auto i = 0; i < 2*r; i++) { // TODO wie viele rnandom ebenen testen?? abängig von voxel point count machen
+    for (auto i = 0; i < 3*r; i++) { // TODO wie viele random ebenen testen?? abhängig von voxel point count machen
         long inSum = 0;
         long outSum = 0;
 
@@ -209,6 +333,7 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
             }
         }
 
+        // TODO testen wie es ist zwei/drei best planes abzuchecken
         // check if currPlane is bestPlane
         if (inSum > bestPlaneInSum) {
             std::memcpy(bestPlane, currPlane, sizeof(pcl::PointXYZRGBNormal[3]));
@@ -225,16 +350,18 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
         // voxelCenter is considered as a planar point
         // TODO ist es wohl schneller die in points oben immer neu hinzuzufügen oder hier nochmal alle zu durchlaufen einmal?
 
-        // set normal, functions as unavailable detection too
+        std::memcpy(neighborhood.plane, bestPlane, sizeof(Plane));
+
+        // set normal, functions as unavailability detection too
         auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
         auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
 
         auto planeNormal = normalize(crossProduct(vec1, vec2));
 
-        // color debug
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
+//        // color debug
+//        int randR = rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (255 - 0 + 1) + 0;
+//        int randB = rand() % (255 - 0 + 1) + 0;
 
 //    switch (level) {
 //        case 0:
@@ -279,16 +406,16 @@ std::vector<int> DataStructure::algo1(const float& r, const std::vector<int>& po
             }
             auto dist = pointPlaneDistance(point, bestPlane);
             if (dist <= thresholdDelta) {
-                neighborhood.push_back(pointIdxRadiusSearch[p]);
+                neighborhood.pointIdc.push_back(pointIdxRadiusSearch[p]);
 
 
                 (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
                 (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
                 (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
 
-                (*cloud)[pointIdxRadiusSearch[p]].b = randB;
-                (*cloud)[pointIdxRadiusSearch[p]].g = randG;
-                (*cloud)[pointIdxRadiusSearch[p]].r = randR;
+//                (*cloud)[pointIdxRadiusSearch[p]].b = randB;
+//                (*cloud)[pointIdxRadiusSearch[p]].g = randG;
+//                (*cloud)[pointIdxRadiusSearch[p]].r = randR;
 
             }
         }
