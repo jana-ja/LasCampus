@@ -16,6 +16,8 @@ add_executable(LasCampus src/main.cpp
         src/util.h
         src/LasDataIO.h
         src/LasDataIO.cpp
+        src/ShpDataIO.cpp
+        src/ShpDataIO.h
 )
 
 if (WIN32)

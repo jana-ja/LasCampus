@@ -6,13 +6,14 @@
 #include <vector>
 #include <pcl/octree/octree_search.h>
 #include "LasDataIO.h"
+#include "ShpDataIO.h"
 #include <pcl/point_types.h>
 #include <pcl/impl/instantiate.hpp>  // defines the PCL_INSTANTIATE_PRODUCT macro
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
 
 // pcl only instantiates most common use cases, I use PointXYZRGBNormal
-PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)))
+PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)));
 
 
 
@@ -22,7 +23,7 @@ PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::Point
 
 class DataStructure {
 public:
-    DataStructure(const std::vector<std::string> &files);
+    DataStructure(const std::vector<std::string> &lasFiles, const std::string &shpFiles);
 
     uint32_t getVertexCount();
 

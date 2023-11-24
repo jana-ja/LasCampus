@@ -14,33 +14,35 @@
 
 using namespace std;
 
-DataStructure::DataStructure(const std::vector<std::string>& files) {
+DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile) {
 
-    LasDataIO io = LasDataIO();
+    std::string shpDir = ".." + PATH_SEPARATOR + "shp" + PATH_SEPARATOR;
+    ShpDataIO shpIo = ShpDataIO();
+    shpIo.readShp(shpDir + shpFile);
 
 
-    std::string dir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
-    // in cache muss: pointrecformat, anzahl points, offset
+    std::string lasDir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
+    LasDataIO lasIo = LasDataIO();
 
     uint32_t startIdx = 0;
     uint32_t endIdx;
     uint32_t pointCount = 0;//; // TODO remove
     std::cout << TAG << "begin loading data" << std::endl;
-    for (const auto& file: files) {
+    for (const auto& file: lasFiles) {
 
         // get points
-        io.readLas(dir + file, cloud, &pointCount);
-//        io.random(cloud);
+        lasIo.readLas(lasDir + file, cloud, &pointCount);
+//        lasIo.random(cloud);
 
         endIdx = pointCount;
 
         // get normals
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
-        if (!io.readNormalsFromCache(dir + normalFile, cloud, startIdx, endIdx)) {
+        if (!lasIo.readNormalsFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
 //            robustNormalEstimation(startIdx, endIdx);
             kdTreePcaNormalEstimation(startIdx, endIdx);
-//            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
+            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
         startIdx += pointCount;
