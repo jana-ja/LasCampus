@@ -54,10 +54,8 @@ void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const ui
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start normal calculation" << std::endl;
 
-    pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
-
     // Create the normal estimation class, and pass the input dataset to it
-    pcl::NormalEstimation<pcl::PointXYZRGBNormal, pcl::Normal> ne;
+    pcl::NormalEstimation<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal> ne;
     ne.setViewPoint(0.0f, 100000000.0f, 750000.0f);
 
     ne.setInputCloud(cloud);
@@ -70,13 +68,7 @@ void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const ui
     ne.setKSearch(6);
 
     // Compute the features
-    ne.compute(*normals);
-
-    for (auto i = 0; i < cloud->points.size(); i++){
-        cloud->points[i].normal_x = normals->points[i].normal_x;
-        cloud->points[i].normal_y = normals->points[i].normal_y;
-        cloud->points[i].normal_z = normals->points[i].normal_z;
-    }
+    ne.compute(*cloud);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);

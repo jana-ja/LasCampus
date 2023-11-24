@@ -12,7 +12,7 @@
 #include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
 
 // pcl only instantiates most common use cases, I use PointXYZRGBNormal
-PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::Normal)))
+PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)))
 
 
 
