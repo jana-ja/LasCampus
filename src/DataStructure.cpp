@@ -38,7 +38,8 @@ DataStructure::DataStructure(const std::vector<std::string>& files) {
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
         if (!io.readNormalsFromCache(dir + normalFile, cloud, startIdx, endIdx)) {
-            robustNormalEstimation(startIdx, endIdx);
+//            robustNormalEstimation(startIdx, endIdx);
+            kdTreePcaNormalEstimation(startIdx, endIdx);
 //            io.writeNormalsToCache(dir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
@@ -47,6 +48,40 @@ DataStructure::DataStructure(const std::vector<std::string>& files) {
     std::cout << TAG << "loading data successful" << std::endl;
 }
 
+
+void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::cout << TAG << "start normal calculation" << std::endl;
+
+    pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
+
+    // Create the normal estimation class, and pass the input dataset to it
+    pcl::NormalEstimation<pcl::PointXYZRGBNormal, pcl::Normal> ne;
+    ne.setViewPoint(0.0f, 100000000.0f, 750000.0f);
+
+    ne.setInputCloud(cloud);
+
+    // Create an empty kdtree representation, and pass it to the normal estimation object.
+    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    ne.setSearchMethod(tree);
+
+    ne.setKSearch(6);
+
+    // Compute the features
+    ne.compute(*normals);
+
+    for (auto i = 0; i < cloud->points.size(); i++){
+        cloud->points[i].normal_x = normals->points[i].normal_x;
+        cloud->points[i].normal_y = normals->points[i].normal_y;
+        cloud->points[i].normal_z = normals->points[i].normal_z;
+    }
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "finished normal estimation in " << duration.count() << "s" << std::endl;
+}
 
 void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
     auto start = std::chrono::high_resolution_clock::now();

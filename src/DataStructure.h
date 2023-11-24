@@ -7,7 +7,14 @@
 #include <pcl/octree/octree_search.h>
 #include "LasDataIO.h"
 #include <pcl/point_types.h>
+#include <pcl/impl/instantiate.hpp>  // defines the PCL_INSTANTIATE_PRODUCT macro
 #include <pcl/features/normal_3d.h>
+#include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
+
+// pcl only instantiates most common use cases, I use PointXYZRGBNormal
+PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::Normal)))
+
+
 
 #ifndef LASCAMPUS_POINTCLOUD_H
 #define LASCAMPUS_POINTCLOUD_H
@@ -27,25 +34,30 @@ public:
 
 
 private:
+
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
+
+    const char *TAG = "PC\t";
+
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+
+    // offset is in opengl coord system!
+//    float xOffset;
+//    float yOffset;
+//    float zOffset;
+
 
     struct Neighborhood{
         Plane plane;
         std::vector<int> pointIdc;
     };
 
+
+    void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
+
+    void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
     static Neighborhood algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
-
-    const char *TAG = "PC\t";
-
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
-            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-    pcl::PointCloud<pcl::Normal>::Ptr normals = pcl::PointCloud<pcl::Normal>::Ptr(new pcl::PointCloud<pcl::Normal>);
-
-    // offset is in opengl coord system!
-//    float xOffset;
-//    float yOffset;
-//    float zOffset;
 
     static float pointPlaneDistance(pcl::PointXYZRGBNormal point, Plane plane) {
         // calc normal for plane points
@@ -89,10 +101,6 @@ private:
         result.z = (a.z - b.z);
         return result;
     }
-
-
-    void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
-
 };
 
 
