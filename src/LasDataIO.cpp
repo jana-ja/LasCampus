@@ -109,9 +109,9 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 //                v.normal_y = -1;
 //                v.normal_z = -1;
                 // pcl library switched r and b component
-                v.b = 255; // r
-                v.g = 255; // g
-                v.r = 255; // b
+                v.b = 100; // r
+                v.g = 55; // g
+                v.r = 28; // b
                 v.a = 255;
 
                 cloud->push_back(v);
