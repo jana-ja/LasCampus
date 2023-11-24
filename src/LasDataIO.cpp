@@ -105,11 +105,11 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                 v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
                 v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
                 v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-                v.normal_x = -1;
-                v.normal_y = -1;
-                v.normal_z = -1;
+//                v.normal_x = -1;
+//                v.normal_y = -1;
+//                v.normal_z = -1;
                 // pcl library switched r and b component
-                v.b = 0; // r
+                v.b = 255; // r
                 v.g = 255; // g
                 v.r = 255; // b
                 v.a = 255;

@@ -76,6 +76,7 @@ void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const ui
 }
 
 void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
+    // TODO wenn das wieder benutzt wird die normalen beim einlesen wieder alle auf (-1, -1, -1) setzen
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start octree" << std::endl;
 
