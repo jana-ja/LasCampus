@@ -14,47 +14,19 @@ void ShpDataIO::readShp(const std::string &path) {
 
     if (inf.is_open()) {
 
-        // header
+        // read header
         Header header = Header();
-        // fill in header ref with read tree of size of header
         inf.read((char *) &header,
                  sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
 
         std::cout << TAG << "File: " << path << std::endl;
-//        std::cout << TAG << "Version: " << +header.versionMaj << "." << +header.versionMin << std::endl;
-//        std::cout << TAG << "Point Data Record Format: " << +header.pointDataRecordFormat << std::endl;
+        std::cout << TAG << "Shape Type: " << +header.shapeType << std::endl;
 
 
-//        // version checks
-//        if (header.versionMaj != 1 || header.versionMin != 2) {
-//            throw std::invalid_argument("Can't handle given LAS file. Only LAS version 1.2 allowed.");
-//        }
-//        assert(header.headerSize == sizeof(header));
-//        if (header.pointDataRecordFormat != 1 && header.pointDataRecordFormat != 2) {
-//            throw std::invalid_argument("Can't handle given LAS file. Only point tree record format 1 or 2 allowed.");
-//        }
-//
-//
-//        // point tree record format of multiple files must match
-//        if (firstFile) {
-//            // first file
-//            pointRecFormat = header.pointDataRecordFormat;
-//
-//            // mittelpunkt von x, y, z - to center pointcloud
-//            auto midX = (header.maxX + header.minX) / 2.0f;
-//            auto midY = (header.maxY + header.minY) / 2.0f;
-//            auto midZ = (header.maxZ + header.minZ) / 2.0f;
-//            xOffset = (float) midX;
-//            yOffset = (float) midZ;
-//            zOffset = (float) midY;
-//
-//            firstFile = false;
-//        } else {
-//            // following files
-//            if (header.pointDataRecordFormat != pointRecFormat) {
-//                throw std::invalid_argument("All given LAS files need to have the same point tree record format.");
-//            }
-//        }
+        // version checks
+        if (header.shapeType != 5) {
+            throw std::invalid_argument("Can't handle given SHP file. Only shapeType 5 (Polygon -> buildings) is allowed.");
+        }
 
 
 //        // var length records

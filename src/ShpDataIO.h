@@ -42,7 +42,7 @@ private:
     };
 
     struct VarLenRecContent {
-        uint32_t shapeType; // 1-based
+        uint32_t shapeType;
     };
 #pragma pack(pop)
 
