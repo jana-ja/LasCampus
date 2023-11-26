@@ -16,11 +16,19 @@ using namespace std;
 
 DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile) {
 
+    // read shape file
+    // TODO hard coded coordinates from current test las file
+    double maxX = 7.415424;
+    double maxY = 51.494428;
+    double minX = 7.401340;
+    double minY = 51.485245;
+
     std::string shpDir = ".." + PATH_SEPARATOR + "shp" + PATH_SEPARATOR;
-    ShpDataIO shpIo = ShpDataIO();
-    shpIo.readShp(shpDir + shpFile);
+    ShpDataIO shpIo = ShpDataIO(maxX, maxY, minX, minY);
+    shpIo.readShp(shpDir + shpFile, &buildings);
 
 
+    // read las file
     std::string lasDir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
     LasDataIO lasIo = LasDataIO();
 
@@ -112,7 +120,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
     vector<Neighborhood> consNeighborhoods;
 
     int okay[10]{0};
-    int spur[10]{0,0,0,0,0,0,0,0,0,0};
+    int spur[10]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 
     // depth first traversal
@@ -153,7 +161,8 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
     int okaySum = 0, spurSum = 0;
 
-    for ( auto i = 0; i <= octree.getTreeDepth(); i++ ){ // TODO treedepth = 5, aber okay und spur sind gefüllt bis index 5, der kommt oben von getCurrentOctreeDepth... also <=
+    for (auto i = 0; i <=
+                     octree.getTreeDepth(); i++) { // TODO treedepth = 5, aber okay und spur sind gefüllt bis index 5, der kommt oben von getCurrentOctreeDepth... also <=
         std::cout << i << ": okay - " << okay[i] << ". spur - " << spur[i] << std::endl;
         okaySum += okay[i];
         spurSum += spur[i];
@@ -186,16 +195,16 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
     // for every c.N.:
     // for every non-planar point in c.N. (sind aktuell insgesamt nur so 230 von 10k... kann ich mir dann vllt grad auch sparen die rauszulassen
-        // get r neighborhood (r.N.) from point
-        // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
-        // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
+    // get r neighborhood (r.N.) from point
+    // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
+    // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
     for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
         std::cout << TAG << "remove points in " << cnIdx << std::endl;
 
         int removeCount = 0;
 
         auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-        while(pointIt != consNeighborhoods[cnIdx].pointIdc.end()) { // TODO maybe filter only non-planar points
+        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) { // TODO maybe filter only non-planar points
 
 
             auto pointIdx = *pointIt;
@@ -206,24 +215,22 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                 int insideCount = 0, outsideCount = 0;
                 for (auto npIdx: pointIdxRadiusSearch) {
                     const auto& nPoint = (*cloud)[npIdx];
-                    if (pointNeighborhoodMap[npIdx] == cnIdx){
+                    if (pointNeighborhoodMap[npIdx] == cnIdx) {
                         insideCount++;
                     } else {
-                       outsideCount++;
+                        outsideCount++;
                     }
                 }
 
 
-                if (insideCount < outsideCount){
+                if (insideCount < outsideCount) {
 //                    std::cout << TAG << "remove point from " << cnIdx << std::endl;
                     removeCount++;
 
                     pointNeighborhoodMap.erase(pointIdx);
                     pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
-                }
-                else ++pointIt;
-            }
-            else ++pointIt;
+                } else ++pointIt;
+            } else ++pointIt;
         }
         std::cout << TAG << "removed " << removeCount << " points from " << cnIdx << std::endl;
     }
@@ -244,7 +251,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
         int moveCount = 0;
 
         auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-        while(pointIt != consNeighborhoods[cnIdx].pointIdc.end()) {
+        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) {
 
             auto pointIdx = *pointIt;
             const auto& point = (*cloud)[pointIdx];
@@ -262,7 +269,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                 int minDistIdx = -1;
                 for (auto neighborhoodIdx: neighborhoodIdc) {
                     auto dist = pointPlaneDistance(point, consNeighborhoods[neighborhoodIdx].plane);
-                    if (dist < minDist){
+                    if (dist < minDist) {
                         minDist = dist;
                         minDistIdx = neighborhoodIdx;
                     }
@@ -276,10 +283,8 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
                     pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
                     consNeighborhoods[minDistIdx].pointIdc.push_back(pointIdx);
-                }
-                else ++pointIt;
-            }
-            else ++pointIt;
+                } else ++pointIt;
+            } else ++pointIt;
         }
         std::cout << TAG << "moved " << moveCount << " points from " << cnIdx << std::endl;
     }
@@ -288,8 +293,8 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
 
     // for each c.N.
-        // calculate normal (formula 3 with covariance matrix)
-        // TODO
+    // calculate normal (formula 3 with covariance matrix)
+    // TODO
 
 
     // all remaining points with no c.N. get uniform normal
@@ -302,7 +307,8 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
         int randR = rand() % (255 - 0 + 1) + 0;
         int randG = rand() % (255 - 0 + 1) + 0;
         int randB = rand() % (255 - 0 + 1) + 0;
-        for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin(); pointIt != consNeighborhoods[cnIdx].pointIdc.end(); pointIt++) {
+        for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
+             pointIt != consNeighborhoods[cnIdx].pointIdc.end(); pointIt++) {
             auto pointIdx = *pointIt;
             (*cloud)[pointIdx].b = randB;
             (*cloud)[pointIdx].g = randG;
@@ -315,7 +321,8 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 }
 
 DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch,
-                                      pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]) {
+                                                 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level,
+                                                 int (& spur)[10], int (& okay)[10]) {
 
     // check if voxel/radius search is "empty"
     if (pointIdxRadiusSearch.size() < 3) {
@@ -329,7 +336,7 @@ DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vect
     long bestPlaneInSum = 0;
     long bestPlaneOutSum = 0;
     // find best plane
-    for (auto i = 0; i < 3*r; i++) { // TODO wie viele random ebenen testen?? abhängig von voxel point count machen
+    for (auto i = 0; i < 3 * r; i++) { // TODO wie viele random ebenen testen?? abhängig von voxel point count machen
         long inSum = 0;
         long outSum = 0;
 
@@ -459,6 +466,11 @@ DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vect
     return neighborhood;
 }
 
+// TODO später in util
+
+ShpDataIO::Point DataStructure::getUtmForWgs(ShpDataIO::Point wgsPoint) {
+    return wgsPoint;
+};
 
 //Vertex DataStructure::getUTMForOpenGL(Vertex *vertexOpenGL) {
 //    // TODO offset is float, losing precision
@@ -483,4 +495,9 @@ uint32_t DataStructure::getVertexCount() {
 
 pcl::PointXYZRGBNormal* DataStructure::getVertices() {
     return cloud->data();// vertices.data();
+}
+
+void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx) {
+        // TODO use buildings to detect right normal orientation
+        //  maybe also segmentation stuff?
 }

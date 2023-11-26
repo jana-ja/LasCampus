@@ -5,8 +5,30 @@
 #include <iostream>
 #include "ShpDataIO.h"
 
+#include <climits>
 
-void ShpDataIO::readShp(const std::string &path) {
+template<typename T>
+T swap_endian(T u) {
+    static_assert(CHAR_BIT == 8, "CHAR_BIT != 8");
+
+    union {
+        T u;
+        unsigned char u8[sizeof(T)];
+    } source, dest;
+
+    source.u = u;
+
+    for (size_t k = 0; k < sizeof(T); k++)
+        dest.u8[k] = source.u8[sizeof(T) - k - 1];
+
+    return dest.u;
+}
+
+
+ShpDataIO::ShpDataIO(double maxX, double maxY, double minX, double minY): boundsMaxX(maxX), boundsMaxY(maxY), boundsMinX(minX), boundsMinY(minY) {}
+
+// TODO idee: hier direkt bounding box mitgeben und nur die shapes innerhalb speichern
+void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings) {
 
     std::cout << TAG << "read shp file..." << std::endl;
 
@@ -14,10 +36,17 @@ void ShpDataIO::readShp(const std::string &path) {
 
     if (inf.is_open()) {
 
+        uint32_t bytesRead = 0;
+
         // read header
         Header header = Header();
-        inf.read((char *) &header,
+        inf.read((char*) &header,
                  sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
+        bytesRead += sizeof(header);
+        // swap big endian fields
+        header.fileCode = swap_endian<uint32_t>(header.fileCode);
+        header.fileLength = swap_endian<uint32_t>(header.fileLength);
+        auto fileLengthBytes = header.fileLength * 2; //* 16 / 8;
 
         std::cout << TAG << "File: " << path << std::endl;
         std::cout << TAG << "Shape Type: " << +header.shapeType << std::endl;
@@ -25,79 +54,101 @@ void ShpDataIO::readShp(const std::string &path) {
 
         // version checks
         if (header.shapeType != 5) {
-            throw std::invalid_argument("Can't handle given SHP file. Only shapeType 5 (Polygon -> buildings) is allowed.");
+            throw std::invalid_argument(
+                    "Can't handle given SHP file. Only shapeType 5 (Polygon -> buildings) is allowed.");
         }
 
 
-//        // var length records
-//        VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
-//        GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
-//
-//        for (int i = 0; i < header.numVarLenRecords; i++) {
-//
-//            // read header
-//            auto& currentHeader = varLenRecHeaders[i]; // ref
-//            inf.read((char*) &currentHeader, sizeof currentHeader);
-//
-//            if (strcmp(currentHeader.userid, "LASF_Projection") == 0 && currentHeader.recordId == 34735) {
-//                //  this var length record is the GeoKeyDirectoryTag
-//
-//                // read info
-//                inf.read((char*) &geoKeyDirectoryTag, 8);//sizeof geoKeyDirectoryTag);
-//
-//                // resize entry vector of geo key directory tag
-//                geoKeyDirectoryTag.entries.resize(geoKeyDirectoryTag.wNumberOfKeys);
-//                // read entries
-//                inf.read((char*) &geoKeyDirectoryTag.entries[0],
-//                         geoKeyDirectoryTag.wNumberOfKeys * sizeof(GeoKeyEntry));
-//            }
-//        }
+        bool readContents = true;
+        while (readContents) {
 
-//        // points
-//        int pointsUsed = 200000; //header.numberOfPoints;
-//        *pointCount = pointsUsed;
-//
-//        std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
-//        inf.seekg(header.pointDataOffset); // skip to point tree
-//
-//        // init cloud
-//        inf.seekg(11500000 * sizeof(PointDRF1), std::ios_base::cur); // skip to point tree
-//        cloud->width = pointsUsed; // TODO help noch anpassen für mehrere files
-//        cloud->height = 1;
-//
-//        if (header.pointDataRecordFormat == 1) {
-//            for (uint32_t i = 0; i < pointsUsed; i++) {//header.numberOfPoints; i++) {
-//                PointDRF1 point;
-//                inf.read((char *) (&point), sizeof(PointDRF1));
-//
-//                // convert to opengl friendly thing
-//                // Xcoordinate = (Xrecord * Xscale) + Xoffset
-//
-//                // center pointcloud - offset is in opengl coord system!
-//                pcl::PointXYZRGBNormal v;
-//                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
-//                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
-//                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-////                v.normal_x = -1;
-////                v.normal_y = -1;
-////                v.normal_z = -1;
-//                // pcl library switched r and b component
-//                v.b = 100; // r
-//                v.g = 55; // g
-//                v.r = 28; // b
-//                v.a = 255;
-//
-//                cloud->push_back(v);
-//            }
-//        }
+            // read var length record header - TODO gleich vector erstellen wo die ganzen var len records reinkommen??
+            VarLenRecHeader varLenRecHeader;
+            inf.read((char*) &varLenRecHeader, sizeof(varLenRecHeader));
+            bytesRead += sizeof(varLenRecHeader);
+            // swap big endian fields
+            varLenRecHeader.recNumber = swap_endian<uint32_t>(varLenRecHeader.recNumber);
+            varLenRecHeader.contentLen = swap_endian<uint32_t>(varLenRecHeader.contentLen);
+            auto contentLenBytes = varLenRecHeader.contentLen * 2; //* 16 / 8;
+//            std::cout << TAG << "var len rec len: " << +contentLenBytes << std::endl;
+
+
+            // read var length record content
+            PolygonRecContent polygonRecContent;
+
+            // read shape type
+            // all shapes in file have the same shape type (5 here) or null (0)
+            inf.read((char*) &polygonRecContent, sizeof(PolygonRecContent::shapeType));
+            bytesRead += sizeof(PolygonRecContent::shapeType);
+//            std::cout << TAG << "var len rec shape type: " << +polygonRecContent.shapeType << std::endl;
+            // skip if null shape
+            if (polygonRecContent.shapeType == 0) {
+                std::cout << TAG << "Skipping Null Shape" << std::endl;
+                continue;
+            }
+            // read polygon content
+            inf.read((char*) &polygonRecContent + sizeof(PolygonRecContent::shapeType),
+                     sizeof(polygonRecContent) - sizeof(PolygonRecContent::shapeType));
+            bytesRead += sizeof(polygonRecContent) - sizeof(PolygonRecContent::shapeType);
+
+
+            // check if polygon lies within bounds of las data
+            if(isPolygonInBounds(polygonRecContent)) {
+
+                // read part indices and points of all parts
+                Polygon polygon;
+                // part indices
+                uint32_t partIndex;
+                for (auto i = 0; i < polygonRecContent.numParts; i++) {
+                    inf.read((char*) &partIndex, sizeof(uint32_t));
+                    bytesRead += sizeof(uint32_t);
+                    polygon.parts.push_back(partIndex); // push back makes copy
+                }
+                // points of all parts
+                Point point;
+                for (auto i = 0; i < polygonRecContent.numPoints; i++) {
+                    inf.read((char*) &point, sizeof(Point));
+                    bytesRead += sizeof(Point);
+                    polygon.points.push_back(point);
+                }
+
+                buildings->push_back(polygon);
+
+            } else {
+
+                // skip this polygon
+                auto remainingBytesPolygon = contentLenBytes - sizeof(PolygonRecContent);
+                inf.seekg(remainingBytesPolygon, std::ios_base::cur); // skip to point tree
+                bytesRead += remainingBytesPolygon;
+
+            }
+
+            // test if file is finished
+//            std::cout << TAG << "bytesRead: " << +bytesRead << std::endl;
+            if(bytesRead >= fileLengthBytes){
+                readContents = false;
+            }
+
+        }
 
         if (!inf.good())
-            throw std::runtime_error("Reading .las ran into error");
+            throw std::runtime_error("Reading .shp ran into error");
 
-        std::cout << TAG << "finished reading las file" << std::endl;
+        std::cout << TAG << "finished reading shp file" << std::endl;
 
 
     } else {
-        throw std::runtime_error("Can't find .las file");
+        throw std::runtime_error("Can't find .shp file");
     }
 }
+
+bool ShpDataIO::isPolygonInBounds(ShpDataIO::PolygonRecContent& polygon) {
+    if (polygon.xMin > boundsMaxX || polygon.xMax < boundsMinX) {
+        return false; // out of bounds in x direction
+    }
+    if (polygon.yMin > boundsMaxY || polygon.yMax < boundsMinY) {
+        return false; // out of bounds in y direction
+    }
+    return true;
+}
+

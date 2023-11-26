@@ -43,6 +43,8 @@ private:
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
+    std::vector<ShpDataIO::Polygon> buildings;
+
     // offset is in opengl coord system!
 //    float xOffset;
 //    float yOffset;
@@ -59,6 +61,8 @@ private:
 
     void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
     static Neighborhood algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
+
+    void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx);
 
     static float pointPlaneDistance(pcl::PointXYZRGBNormal point, Plane plane) {
         // calc normal for plane points
@@ -102,6 +106,8 @@ private:
         result.z = (a.z - b.z);
         return result;
     }
+
+    ShpDataIO::Point DataStructure::getUtmForWgs(ShpDataIO::Point wgsPoint);
 };
 
 

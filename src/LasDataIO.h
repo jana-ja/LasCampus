@@ -57,8 +57,8 @@ private:
         double scaleX, scaleY, scaleZ;
         double offX, offY, offZ;
         double maxX, minX;
-        double maxY, minY;
-        double maxZ, minZ;
+        double maxY, minY; // z in opengl system
+        double maxZ, minZ; // y in opengl system
     };
 
 // variable length record header
