@@ -4,6 +4,7 @@
 
 
 #include <stdexcept>
+#include <vector>
 #include "Window.h"
 
 
@@ -24,7 +25,8 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    Shader pcShader = getPointCloudShader(false);//pointCloud.hasColor());
+    Shader pcShader("../src/shader/PointCloudVertexShader.vs",
+                             "../src/shader/PointCloudFragmentShader.fs");
     shaderSettings(pcShader);
     // colors / lighting
 //    pcShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
@@ -32,7 +34,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     pcShader.setVec3("lightPos", 0.0f, 100.0f, 0.0f);
     // tree
     GLuint pcVBO, pcVAO;
-    dataStuff(pcVBO, pcVAO, pointCloud);
+    dataStuffPointCloud(pcVBO, pcVAO, pointCloud);
 
     // coordinate system
     // shader
@@ -41,7 +43,16 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     shaderSettings(csShader);
     // tree
     GLuint csVBO, csVAO;
-    dataStuff2(csVBO, csVAO);
+    dataStuffCoordSys(csVBO, csVAO);
+
+    // normals
+    // shader
+    Shader normalsShader("../src/shader/NormalsVertexShader.vs",
+                         "../src/shader/NormalsFragmentShader.fs");
+    shaderSettings(normalsShader);
+    // data
+    GLuint normalsVBO, normalsVAO;
+    dataStuffNormals(normalsVBO, normalsVAO, pointCloud);
 
 
     // Ensure we can capture the escape key being pressed below
@@ -77,11 +88,12 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
 
         if (showInfo) {
+            // coordinate system
             csShader.use();
+            glLineWidth(5.0f);
             // transforms: camera - view space
             glm::mat4 view = camera.GetViewMatrix();
             csShader.setMat4("view", view);
-
 
             // draw coordinate sys lines
             glBindVertexArray(csVAO);
@@ -90,6 +102,15 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
             model = glm::translate(model, pos);
             csShader.setMat4("model", model);
             glDrawArrays(GL_LINES, 0, 6);
+
+            // normals
+            glLineWidth(0.5f);
+            normalsShader.use();
+            // transforms: camera - view space
+            normalsShader.setMat4("view", view);
+            // draw normals
+            glBindVertexArray(normalsVAO);
+            glDrawArrays(GL_LINES, 0, 2 * pointCloud.getVertexCount());
         }
 
 
@@ -121,7 +142,12 @@ void Window::processInput(GLFWwindow *window) {
         glfwSetWindowShouldClose(window, true);
 
     if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
+        f1Pressed = true;
+
+    if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_RELEASE && f1Pressed){
+        f1Pressed = false;
         showInfo = !showInfo;
+    }
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);
@@ -223,15 +249,13 @@ void Window::shaderSettings(Shader &shader) {
     shader.setFloat("pointSize", POINT_SIZE);
 }
 
-void Window::dataStuff(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
-    GLuint normalVBO;
+void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(VAO);
 
     // Generate 1 buffer, put the resulting identifier in vbo
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &normalVBO);
     // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
@@ -251,6 +275,55 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
     glEnableVertexAttribArray(2);
 
 
+    // OPTIONAL: unbind
+    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    glBindVertexArray(0);
+}
+
+
+void Window::dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
+    glGenVertexArrays(1, &VAO);
+    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    glBindVertexArray(VAO);
+
+    // Generate 1 buffer, put the resulting identifier in vbo
+    glGenBuffers(1, &VBO);
+    // jetzt wird der buffer gebindet und immer wenn wir jetzt calls zum GL_ARRAY_BUFFER target machen dann wird der aktuelle gebindete buffer verwendet
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+
+    float lineLength = 0.5f;
+    std::vector<float> coordPoints;
+    float color[3] = {1.0f, 1.0f, 1.0f};
+    auto it = pointCloud.getVertices();
+    for (auto i = 0; i < pointCloud.getVertexCount(); i++) {
+        coordPoints.push_back(it->x);
+        coordPoints.push_back(it->y);
+        coordPoints.push_back(it->z);
+        coordPoints.push_back(color[0]);
+        coordPoints.push_back(color[1]);
+        coordPoints.push_back(color[2]);
+
+        coordPoints.push_back(it->x + it->normal_x * lineLength);
+        coordPoints.push_back(it->y + it->normal_y * lineLength);
+        coordPoints.push_back(it->z + it->normal_z * lineLength);
+        coordPoints.push_back(color[0]);
+        coordPoints.push_back(color[1]);
+        coordPoints.push_back(color[2]);
+
+        it++;
+    }
+    glBufferData(GL_ARRAY_BUFFER, coordPoints.size() * sizeof(float), coordPoints.data(), GL_STATIC_DRAW); //coordPoints.size() * sizeof(float), &coordPoints, GL_STATIC_DRAW);
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
 
     // OPTIONAL: unbind
     // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
@@ -260,7 +333,7 @@ void Window::dataStuff(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
     glBindVertexArray(0);
 }
 
-void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
+void Window::dataStuffCoordSys(GLuint &VBO, GLuint &VAO) {
 
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -298,11 +371,4 @@ void Window::dataStuff2(GLuint &VBO, GLuint &VAO) {
     // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     glBindVertexArray(0);
-}
-
-Shader Window::getPointCloudShader(bool hasColor) {
-
-    return Shader("../src/shader/PointCloudVertexShader.vs",
-                  "../src/shader/PointCloudFragmentShader.fs");
-
 }

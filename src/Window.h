@@ -30,6 +30,8 @@ private:
     const std::string TITLE;
     const float POINT_SIZE;
 
+    bool f1Pressed = false;
+
     // camera
     Camera camera = Camera(glm::vec3(0.0f, 10.0f, 0.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
 
@@ -64,11 +66,10 @@ private:
     void shaderSettings(Shader &shader);
 
     // pass by ref
-    void dataStuff(GLuint &VBO, GLuint &VAO, DataStructure pointCloud);
+    void dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCloud);
+    void dataStuffCoordSys(GLuint &VBO, GLuint &VAO);
+    void dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure pointCloud);
 
-    void dataStuff2(GLuint &VBO, GLuint &VAO);
-
-    Shader getPointCloudShader(bool color);
 };
 
 
