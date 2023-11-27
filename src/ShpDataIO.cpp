@@ -29,7 +29,7 @@ T swap_endian(T u) {
 ShpDataIO::ShpDataIO(double maxX, double maxY, double minX, double minY): boundsMaxX(maxX), boundsMaxY(maxY), boundsMinX(minX), boundsMinY(minY) {}
 
 // TODO idee: hier direkt bounding box mitgeben und nur die shapes innerhalb speichern
-void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings) {
+void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings, const float& xOffset, const float& zOffset) {
 
     std::cout << TAG << "read shp file..." << std::endl;
 
@@ -113,8 +113,9 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
                     // convert point from w84 to utm zone 32n TODO is precise enough?
                     double utmX, utmZ;
                     LatLonToUTMXY(point.z, point.x, 32, utmX, utmZ);
-                    point.x = utmX;
-                    point.z = utmZ;
+                    // TODO - offset for opengl coord sys
+                    point.x = utmX - xOffset;
+                    point.z = -(utmZ - zOffset); // TODO negative z for opengl coord sys
                     polygon.points.push_back(point);
                 }
 

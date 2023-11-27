@@ -10,7 +10,7 @@
 #include <set>
 #include "util.h"
 #include "DataStructure.h"
-
+#include "UTM.h"
 
 using namespace std;
 
@@ -25,7 +25,9 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
     std::string shpDir = ".." + PATH_SEPARATOR + "shp" + PATH_SEPARATOR;
     ShpDataIO shpIo = ShpDataIO(maxX, maxY, minX, minY);
-    shpIo.readShp(shpDir + shpFile, &buildings);
+    float xOffset2 = 389500;
+    float zOffset2 = 5705500; // TODO get from las file
+    shpIo.readShp(shpDir + shpFile, &buildings, xOffset2, zOffset2);
 
 
     // read las file
@@ -39,7 +41,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     for (const auto& file: lasFiles) {
 
         // get points
-        lasIo.readLas(lasDir + file, cloud, &pointCount);
+        lasIo.readLas(lasDir + file, cloud, &pointCount, xOffset, yOffset, zOffset);
 //        lasIo.random(cloud);
 
         endIdx = pointCount;

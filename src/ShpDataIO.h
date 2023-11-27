@@ -31,7 +31,7 @@ public:
         std::vector<Point> points; // size = numPoints
     };
 
-    void readShp(const std::string& path, std::vector<Polygon>* buildings);
+    void readShp(const std::string& path, std::vector<Polygon>* buildings, const float& xOffset, const float& zOffset);
 
 
 private:

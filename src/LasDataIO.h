@@ -17,7 +17,7 @@ class LasDataIO {
 
 public:
 
-    void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount);
+    void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount, float& xOffset, float& yOffset, float& zOffset);
     bool readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
     void writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
     void random(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
@@ -29,9 +29,6 @@ private:
     int pointRecFormat;
     bool firstFile = true;
 
-    float xOffset;
-    float yOffset;
-    float zOffset;
 
 
 #pragma pack(push, 1) // win - tightly pack the bytes and dont start at new power of two things

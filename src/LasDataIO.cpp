@@ -5,7 +5,8 @@
 #include "LasDataIO.h"
 
 
-void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount) {
+void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount,
+                        float& xOffset, float& yOffset, float& zOffset) {
 
     std::cout << TAG << "read las file..." << std::endl;
 
@@ -51,7 +52,7 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
         } else {
             // following files
             if (header.pointDataRecordFormat != pointRecFormat) {
-                throw std::invalid_argument("All given LAS files need to have the same point tree record format.");
+                throw std::invalid_argument("All given LAS files need to have the same point data record format.");
             }
         }
 
