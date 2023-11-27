@@ -11,6 +11,9 @@
 Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
                                            pointCloud(pointCloud) {
 
+    // set camera pos
+//    camera.position = glm::vec3(pointCloud.xOffset, pointCloud.yOffset + 10, -pointCloud.zOffset);
+
 
     // glfw
     initGLFW();
@@ -32,7 +35,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 //    pcShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
     pcShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
     pcShader.setVec3("lightPos", 0.0f, 100.0f, 0.0f);
-    // tree
+    // data
     GLuint pcVBO, pcVAO;
     dataStuffPointCloud(pcVBO, pcVAO, pointCloud);
 
@@ -41,7 +44,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     Shader csShader("../src/shader/CoordSysVertexShader.vs",
                     "../src/shader/CoordSysFragmentShader.fs");
     shaderSettings(csShader);
-    // tree
+    // data
     GLuint csVBO, csVAO;
     dataStuffCoordSys(csVBO, csVAO);
 

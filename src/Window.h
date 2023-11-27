@@ -34,6 +34,7 @@ private:
 
     // camera
     Camera camera = Camera(glm::vec3(0.0f, 10.0f, 0.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
+//    Camera camera = Camera(glm::vec3(389500.0f, 131.0f, 5705500.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
 
     // mouse input
     bool firstMouse = true;
