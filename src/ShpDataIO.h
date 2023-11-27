@@ -17,7 +17,7 @@ public:
     ShpDataIO(double maxX, double maxY, double minX, double minY);
 
     struct Point {
-        double x, y;
+        double x, z;
     };
 
     /*
@@ -71,7 +71,7 @@ private:
         uint32_t numPoints;
         // those will be handled in vectors
 //        uint32_t parts[numParts];
-//        Point points[numPOints];
+//        Point points[numPoints];
     };
 
 
