@@ -51,8 +51,9 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
         if (!lasIo.readNormalsFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
 //            robustNormalEstimation(startIdx, endIdx);
-            kdTreePcaNormalEstimation(startIdx, endIdx);
-            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
+            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
+            normalOrientation(startIdx, endIdx, treePtr);
+//            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
         startIdx += pointCount;
@@ -61,7 +62,8 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 }
 
 
-void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
+pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr
+DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
 
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start normal calculation" << std::endl;
@@ -85,6 +87,8 @@ void DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const ui
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "finished normal estimation in " << duration.count() << "s" << std::endl;
+
+    return tree;
 }
 
 void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
@@ -499,7 +503,38 @@ pcl::PointXYZRGBNormal* DataStructure::getVertices() {
     return cloud->data();// vertices.data();
 }
 
-void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx) {
-        // TODO use buildings to detect right normal orientation
-        //  maybe also segmentation stuff?
+void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr) {
+    // TODO use buildings to detect right normal orientation
+    //  maybe also segmentation stuff?
+
+    for (auto building: buildings) {
+        // ignore parts/rings because all walls are treated the same
+        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
+//            std::cout << "yrah " << pointIdx << std::endl;
+
+            const auto& wallPoint1 = building.points[pointIdx];
+            const auto& wallPoint2 = building.points[pointIdx + 1];
+
+            float wallHeight = 60; // mathe tower ist 60m hoch TODO
+
+            // detect (and color) alle points on this wall
+            pcl::PointXYZRGBNormal mid;
+            mid.x = (wallPoint1.x + wallPoint2.x) / 2;
+            mid.y = wallHeight / 2;
+            mid.z = (wallPoint1.z + wallPoint2.z) / 2;
+
+            // p2 = wp2.x wallHeight wp2.z
+            // p1 = mid
+            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
+
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            treePtr->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+
+            if(pointIdxRadiusSearch.size() != 0) {
+                std::cout << "yrah " << pointIdxRadiusSearch.size() << std::endl;
+            }
+
+        }
+    }
 }
