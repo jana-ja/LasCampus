@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include "ShpDataIO.h"
+#include "UTM.h"
 
 #include <climits>
 
@@ -109,6 +110,11 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
                 for (auto i = 0; i < polygonRecContent.numPoints; i++) {
                     inf.read((char*) &point, sizeof(Point));
                     bytesRead += sizeof(Point);
+                    // convert point from w84 to utm zone 32n TODO is precise enough?
+                    double utmX, utmZ;
+                    LatLonToUTMXY(point.z, point.x, 32, utmX, utmZ);
+                    point.x = utmX;
+                    point.z = utmZ;
                     polygon.points.push_back(point);
                 }
 
