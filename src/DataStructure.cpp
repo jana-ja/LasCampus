@@ -506,16 +506,30 @@ pcl::PointXYZRGBNormal* DataStructure::getVertices() {
 void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr) {
     // TODO use buildings to detect right normal orientation
     //  maybe also segmentation stuff?
-    float thresholdDelta = 0.5f; // TODO find good value
+    float thresholdDelta = 1.0f; // TODO find good value
 
     for (auto building: buildings) {
-        // ignore parts/rings because all walls are treated the same
+        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        auto partIdx = building.parts.begin();
+        uint32_t nextPartIndex = *partIdx;
+        partIdx++;
+        if (partIdx != building.parts.end()) {
+            nextPartIndex = *partIdx;
+        }
         for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
 //            std::cout << "yrah " << pointIdx << std::endl;
 
 //            const auto& wallPoint1 = building.points[pointIdx];
 //            const auto& wallPoint2 = building.points[pointIdx + 1];
 
+            // if reached end of part/ring -> skip this "wall"
+            if (pointIdx + 1 == nextPartIndex){
+                partIdx++;
+                if (partIdx != building.parts.end()) {
+                    nextPartIndex = *partIdx;
+                }
+                continue;
+            }
 
             float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
             float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
@@ -551,10 +565,15 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
                 int randB = rand() % (255 - 0 + 1) + 0;
 
 
-                std::cout << "yrah " << pointIdxRadiusSearch.size() << std::endl;
+//                std::cout << "yrah " << pointIdxRadiusSearch.size() << std::endl;
 
                 for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
                     // TODO implement direct calculation test if point lies inside wall rectangle
+//                    if(building.points.size() == 5){
+//                        randR = 255;
+//                        randG = 0;
+//                        randB = 0;
+//                    }
                     if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
                         continue;
                     }
