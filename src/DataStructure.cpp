@@ -517,20 +517,20 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
 //            const auto& wallPoint2 = building.points[pointIdx + 1];
 
 
-            float wallHeight = 60; // mathe tower ist 60m hoch TODO aus daten nehmen und ist das überhaupt ab boden = 0?
-
+            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+            float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
             pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
             wallPoint1.x = building.points[pointIdx].x;
-            wallPoint1.y = wallHeight;
+            wallPoint1.y = ground + wallHeight;
             wallPoint1.z = building.points[pointIdx].z;
             wallPoint2.x = building.points[pointIdx + 1].x;
-            wallPoint2.y = wallHeight;
+            wallPoint2.y = ground + wallHeight;
             wallPoint2.z = building.points[pointIdx + 1].z;
 
             // detect (and color) alle points on this wall
             pcl::PointXYZRGBNormal mid;
             mid.x = (wallPoint1.x + wallPoint2.x) / 2;
-            mid.y = wallHeight / 2;
+            mid.y = (ground + wallHeight) / 2;
             mid.z = (wallPoint1.z + wallPoint2.z) / 2;
 
 
