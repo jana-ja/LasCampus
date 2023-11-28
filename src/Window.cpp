@@ -93,7 +93,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
         if (showInfo) {
             // coordinate system
             csShader.use();
-            glLineWidth(5.0f);
+            glLineWidth(2.0f);
             // transforms: camera - view space
             glm::mat4 view = camera.GetViewMatrix();
             csShader.setMat4("view", view);
