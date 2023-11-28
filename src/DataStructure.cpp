@@ -506,22 +506,35 @@ pcl::PointXYZRGBNormal* DataStructure::getVertices() {
 void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr) {
     // TODO use buildings to detect right normal orientation
     //  maybe also segmentation stuff?
+    float thresholdDelta = 0.5f; // TODO find good value
 
     for (auto building: buildings) {
         // ignore parts/rings because all walls are treated the same
         for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
 //            std::cout << "yrah " << pointIdx << std::endl;
 
-            const auto& wallPoint1 = building.points[pointIdx];
-            const auto& wallPoint2 = building.points[pointIdx + 1];
+//            const auto& wallPoint1 = building.points[pointIdx];
+//            const auto& wallPoint2 = building.points[pointIdx + 1];
 
-            float wallHeight = 60; // mathe tower ist 60m hoch TODO
+
+            float wallHeight = 60; // mathe tower ist 60m hoch TODO aus daten nehmen und ist das überhaupt ab boden = 0?
+
+            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
+            wallPoint1.x = building.points[pointIdx].x;
+            wallPoint1.y = wallHeight;
+            wallPoint1.z = building.points[pointIdx].z;
+            wallPoint2.x = building.points[pointIdx + 1].x;
+            wallPoint2.y = wallHeight;
+            wallPoint2.z = building.points[pointIdx + 1].z;
 
             // detect (and color) alle points on this wall
             pcl::PointXYZRGBNormal mid;
             mid.x = (wallPoint1.x + wallPoint2.x) / 2;
             mid.y = wallHeight / 2;
             mid.z = (wallPoint1.z + wallPoint2.z) / 2;
+
+
+            Plane wallPlane = {wallPoint1, wallPoint2, mid};
 
             // p2 = wp2.x wallHeight wp2.z
             // p1 = mid
@@ -532,7 +545,39 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
             treePtr->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
 
             if(pointIdxRadiusSearch.size() != 0) {
+
+                int randR = rand() % (255 - 0 + 1) + 0;
+                int randG = rand() % (255 - 0 + 1) + 0;
+                int randB = rand() % (255 - 0 + 1) + 0;
+
+
                 std::cout << "yrah " << pointIdxRadiusSearch.size() << std::endl;
+
+                for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+                    // TODO implement direct calculation test if point lies inside wall rectangle
+                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
+                        continue;
+                    }
+                    auto minX = min(wallPoint1.x, wallPoint2.x);
+                    auto maxX = max(wallPoint1.x, wallPoint2.x);
+                    auto minZ = min(wallPoint1.z, wallPoint2.z);
+                    auto maxZ = max(wallPoint1.z, wallPoint2.z);
+
+                    const auto& x = (*cloud)[*nIdxIt].x;
+                    const auto& z = (*cloud)[*nIdxIt].z;
+                    if (x > maxX || x < minX || z > maxZ || z < minZ) {
+                        continue;
+                    }
+                    const auto& y = (*cloud)[*nIdxIt].y;
+
+                    cloud->points[*nIdxIt].b = randB;
+                    (*cloud)[*nIdxIt].g = randG;
+                    (*cloud)[*nIdxIt].r = randR;
+
+                }
+                // TODO filter points, keep only those that belong to the wall
+                //  check distance to wall plane first
+                //  then check if point is on wall part of plane
             }
 
         }

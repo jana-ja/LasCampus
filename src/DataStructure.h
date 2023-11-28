@@ -67,6 +67,10 @@ private:
 
     void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr);
 
+    static float isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
+        float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
+    }
+
     static float pointPlaneDistance(pcl::PointXYZRGBNormal point, Plane plane) {
         // calc normal for plane points
         auto vec1 = vectorSubtract(plane[0], plane[1]);
