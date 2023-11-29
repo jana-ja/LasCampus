@@ -79,7 +79,7 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     ne.setSearchMethod(tree);
 
-    ne.setKSearch(6);
+    ne.setKSearch(13);
 
     // Compute the features
     ne.compute(*cloud);
