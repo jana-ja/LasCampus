@@ -300,7 +300,7 @@ void Window::dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure pointCloud
 
     float lineLength = 0.5f;
     std::vector<float> coordPoints;
-    float color[3] = {1.0f, 1.0f, 1.0f};
+    float color[3] = {0.7f, 0.7f, 0.7f};
     auto it = pointCloud.getVertices();
     for (auto i = 0; i < pointCloud.getVertexCount(); i++) {
         coordPoints.push_back(it->x);
