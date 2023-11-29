@@ -574,6 +574,8 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
 //                        randG = 0;
 //                        randB = 0;
 //                    }
+                    const auto& point = (*cloud)[*nIdxIt];
+
                     if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
                         continue;
                     }
@@ -582,16 +584,31 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
                     auto minZ = min(wallPoint1.z, wallPoint2.z);
                     auto maxZ = max(wallPoint1.z, wallPoint2.z);
 
-                    const auto& x = (*cloud)[*nIdxIt].x;
-                    const auto& z = (*cloud)[*nIdxIt].z;
+                    const auto& x = point.x;
+                    const auto& z = point.z;
                     if (x > maxX || x < minX || z > maxZ || z < minZ) {
                         continue;
                     }
-                    const auto& y = (*cloud)[*nIdxIt].y;
+                    const auto& y = point.y;
 
                     cloud->points[*nIdxIt].b = randB;
                     (*cloud)[*nIdxIt].g = randG;
                     (*cloud)[*nIdxIt].r = randR;
+
+                    pcl::PointXYZRGBNormal normalPoint;
+                    normalPoint.x = point.x + point.normal_x;
+                    normalPoint.y = point.y + point.normal_y;
+                    normalPoint.z = point.z + point.normal_z;
+                    // TODO check if normal is waagerecht
+                    auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
+                    auto vertLen = point.normal_y;
+                    if (horLen > vertLen) {
+                        if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) { // TODO check sign richtig
+                            (*cloud)[*nIdxIt].normal_x *= -1;
+                            (*cloud)[*nIdxIt].normal_y *= -1;
+                            (*cloud)[*nIdxIt].normal_z *= -1;
+                        }
+                    }
 
                 }
                 // TODO filter points, keep only those that belong to the wall

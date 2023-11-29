@@ -71,7 +71,19 @@ private:
         float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
     }
 
-    static float pointPlaneDistance(pcl::PointXYZRGBNormal point, Plane plane) {
+    static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
+        // calc normal for plane points
+        auto vec1 = vectorSubtract(plane[0], plane[1]);
+        auto vec2 = vectorSubtract(plane[0], plane[2]);
+
+        auto planeNormal = normalize(crossProduct(vec1, vec2));
+
+        float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
+
+        return dist;
+    }
+
+    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
         // calc normal for plane points
         auto vec1 = vectorSubtract(plane[0], plane[1]);
         auto vec2 = vectorSubtract(plane[0], plane[2]);
@@ -93,7 +105,7 @@ private:
         return result;
     }
 
-    static float dotProduct(pcl::PointXYZ a, pcl::PointXYZ b) {
+    static float dotProduct(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
 
         return a.x * b.x + a.y * b.y + a.z * b.z;
     }
@@ -106,7 +118,7 @@ private:
         return result;
     }
 
-    static pcl::PointXYZ vectorSubtract(pcl::PointXYZRGBNormal a, pcl::PointXYZRGBNormal b) {
+    static pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
         pcl::PointXYZ result;
         result.x = (a.x - b.x);
         result.y = (a.y - b.y);
