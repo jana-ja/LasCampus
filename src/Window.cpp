@@ -32,9 +32,8 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
                              "../src/shader/PointCloudFragmentShader.fs");
     shaderSettings(pcShader);
     // colors / lighting
-//    pcShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
-    pcShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-    pcShader.setVec3("lightPos", 0.0f, 100.0f, 0.0f);
+    pcShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
+    pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f);
     // data
     GLuint pcVBO, pcVAO;
     dataStuffPointCloud(pcVBO, pcVAO, pointCloud);
@@ -80,9 +79,9 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
         pcShader.use();
         // transforms: camera - view space
         glm::mat4 view = camera.GetViewMatrix();
-        pcShader.setMat4("view", view);
+        pcShader.setMat4("view_matrix", view);
         // update cameraPos in pcShader for dynamic point size
-        pcShader.setVec3("cameraPos", camera.position);
+        pcShader.setVec3("camera_pos", camera.position);
 
 
         // draw point cloud
@@ -96,21 +95,21 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
             glLineWidth(2.0f);
             // transforms: camera - view space
             glm::mat4 view = camera.GetViewMatrix();
-            csShader.setMat4("view", view);
+            csShader.setMat4("view_matrix", view);
 
             // draw coordinate sys lines
             glBindVertexArray(csVAO);
             auto pos = glm::vec3(camera.position + camera.front);
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, pos);
-            csShader.setMat4("model", model);
+            csShader.setMat4("model_matrix", model);
             glDrawArrays(GL_LINES, 0, 6);
 
             // normals
             glLineWidth(0.5f);
             normalsShader.use();
             // transforms: camera - view space
-            normalsShader.setMat4("view", view);
+            normalsShader.setMat4("view_matrix", view);
             // draw normals
             glBindVertexArray(normalsVAO);
             glDrawArrays(GL_LINES, 0, 2 * pointCloud.getVertexCount());
@@ -248,8 +247,8 @@ void Window::initGlew() {
 void Window::shaderSettings(Shader &shader) {
     shader.use();
     glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, 0.1f, 100.0f);
-    shader.setMat4("projection", projection);
-    shader.setFloat("pointSize", POINT_SIZE);
+    shader.setMat4("projection_matrix", projection);
+    shader.setFloat("point_size", POINT_SIZE);
 }
 
 void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {

@@ -1,15 +1,14 @@
 #version 330 core
-layout(location = 0) in vec3 worldPos;
-layout(location = 1) in vec3 vertColor;
+layout(location = 0) in vec3 v_world_pos;
+layout(location = 1) in vec3 v_color;
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-uniform float pointSize;
+uniform mat4 model_matrix;
+uniform mat4 view_matrix;
+uniform mat4 projection_matrix;
 
-out vec3 vertexColor;
+out vec3 v2f_color;
 
 void main(){
-    gl_Position = projection * view * model * vec4(worldPos, 1.0);
-    vertexColor = vertColor;
+    gl_Position = projection_matrix * view_matrix * model_matrix * vec4(v_world_pos, 1.0);
+    v2f_color = v_color;
 }

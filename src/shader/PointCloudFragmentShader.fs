@@ -1,32 +1,31 @@
 #version 330 core
 
-// uniform vec3 objectColor;
-uniform vec3 lightColor;
-uniform vec3 lightPos;
-uniform vec3 cameraPos;
+uniform vec3 light_color;
+uniform vec3 light_pos;
+uniform vec3 camera_pos;
 
-in vec3 objectColor;
-in vec3 normal;
-in vec3 fragPos;
+in vec3 v2f_color;
+in vec3 v2f_normal;
+in vec3 v2f_pos;
 
-out vec4 color;
+out vec4 f_color;
 
 
 void main(){
-    float ambientStrength = 0.4;//0.1;
-    vec3 ambient = ambientStrength * lightColor;
+    float ambient_strength = 0.4;//0.1;
+    vec3 ambient_color = ambient_strength * light_color;
 
-    vec3 norm = normalize(normal);
-    vec3 lightDir = normalize(lightPos - fragPos);
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
+    vec3 normal = normalize(v2f_normal);
+    vec3 light_dir = normalize(light_pos - v2f_pos);
+    float diffuse = max(dot(normal, light_dir), 0.0);
+    vec3 diffuse_color = diffuse * light_color;
 
-    vec3 viewDir = normalize(cameraPos - fragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float specularStrength = 0.5;
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;
+    vec3 view_dir = normalize(camera_pos - v2f_pos);
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float specular_strength = 0.5;
+    float specular = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    vec3 specular_color = specular_strength * specular * light_color;
 
-    vec3 result = (ambient + diffuse + specular) * objectColor;
-    color = vec4(result, 1.0);
+    vec3 result_color = (ambient_color + diffuse_color + specular_color) * v2f_color;
+    f_color = vec4(result_color, 1.0);
 }
