@@ -28,12 +28,26 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    Shader pcShader("../src/shader/PointCloudVertexShader.vs",
-                             "../src/shader/PointCloudFragmentShader.fs");
+    Shader pcShader("../src/shader/SplatVertexShader.vs",
+                             "../src/shader/SplatFragmentShader.fs");
     shaderSettings(pcShader);
     // colors / lighting
     pcShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
-    pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f);
+//    pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
+    pcShader.setVec3("light_dir", 0.0f, -75.0f, -50.0f); // SplatShader
+    float viewport[4];
+    glGetFloatv(GL_VIEWPORT, viewport);
+    float wv = viewport[2];
+    float hv = viewport[3];
+    float hn = 2.0 * Z_NEAR * tan(45.0*M_PI/360.0);
+    float wn = hn/hv*wv;
+    float size_const = 2.0 * Z_NEAR * hv / hn;
+    glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
+    glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
+//    pcShader.setFloat("size_const", size_const);
+    pcShader.setVec4("vp", vp);
+    pcShader.setVec3("zb", zb);
+
     // data
     GLuint pcVBO, pcVAO;
     dataStuffPointCloud(pcVBO, pcVAO, pointCloud);
@@ -246,7 +260,7 @@ void Window::initGlew() {
 
 void Window::shaderSettings(Shader &shader) {
     shader.use();
-    glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, Z_NEAR, Z_FAR);
     shader.setMat4("projection_matrix", projection);
     shader.setFloat("point_size", POINT_SIZE);
 }

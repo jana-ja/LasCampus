@@ -30,6 +30,9 @@ private:
     const std::string TITLE;
     const float POINT_SIZE;
 
+    const float Z_NEAR = 0.1f;
+    const float Z_FAR = 100.0f;
+
     bool f1Pressed = false;
 
     // camera

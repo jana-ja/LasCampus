@@ -53,7 +53,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 //            robustNormalEstimation(startIdx, endIdx);
             auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
             normalOrientation(startIdx, endIdx, treePtr);
-//            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
+            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
         startIdx += pointCount;
