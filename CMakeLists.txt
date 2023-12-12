@@ -75,4 +75,8 @@ elseif (APPLE)
     include_directories(${GLM_INCLUDE_DIRS})
     target_link_libraries(LasCampus ${GLM_LIBRARY})
 
+    # PCL
+    find_package(PCL CONFIG REQUIRED)
+    target_link_libraries(LasCampus ${PCL_LIBRARIES})
+
 endif ()

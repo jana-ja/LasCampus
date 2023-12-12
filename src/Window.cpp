@@ -284,7 +284,7 @@ void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCl
         // alt: (0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *) 0) and use vec4 in shader, because PointXYZ has 4 floats internally
     glEnableVertexAttribArray(0);
     // normal attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal::normal)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, normal)));
     glEnableVertexAttribArray(1);
     // color attribute
     glVertexAttribPointer(2, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pcl::PointNormal), (void *) (8 * sizeof(float))); // durch GL_TRUE wird unsigned byte richtig erkannnt und zu float konvertiert

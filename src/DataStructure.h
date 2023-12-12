@@ -13,7 +13,7 @@
 #include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
 
 // pcl only instantiates most common use cases, I use PointXYZRGBNormal
-PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)));
+//PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)));
 
 
 
@@ -60,7 +60,7 @@ private:
     };
 
 
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
 
     void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
     static Neighborhood algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
@@ -69,6 +69,7 @@ private:
 
     static float isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
         float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
+        return d;
     }
 
     static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
@@ -126,7 +127,7 @@ private:
         return result;
     }
 
-    ShpDataIO::Point DataStructure::getUtmForWgs(ShpDataIO::Point wgsPoint);
+    ShpDataIO::Point getUtmForWgs(ShpDataIO::Point wgsPoint);
 };
 
 
