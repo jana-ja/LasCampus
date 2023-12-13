@@ -23,7 +23,7 @@ vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, 
     const float  shininess = 100.0;
     //const vec3   light_dir = vec3( 1.0, 1.0, 1.0);
     //const vec3   V         = vec3(0,0,-1); // view direction
-    const vec3   V         = view_dir;
+    vec3   V         = view_dir;
     vec3 L, R, N = normalize(v2f_normal);
     float NL, RV;
 
