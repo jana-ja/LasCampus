@@ -54,7 +54,7 @@ void main()
     if (distance(q, v2f_center) > v2f_radius) discard;
 
     // lighting
-    f_color = vec4( 1.0,1.0,1.0,1.0);//phong_lighting(v2f_normal, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
+    f_color = vec4(phong_lighting(v2f_normal, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
 
     // depth correction
 	gl_FragDepth = zb.y * q.z + zb.x;
