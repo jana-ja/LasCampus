@@ -2,6 +2,7 @@
 layout(location = 0) in vec3 v_world_pos;
 layout(location = 1) in vec3 v_normal;
 layout(location = 2) in vec3 v_color;
+layout(location = 3) in float v_radius;
 
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
@@ -18,7 +19,7 @@ out vec3 v2f_light_dir;
 
 void main(){
 
-    float v_radius = 0.1;
+    // float v_radius = 0.1;
     float size_fac = 1.0;
 
 

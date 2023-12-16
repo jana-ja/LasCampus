@@ -8,6 +8,7 @@
 #include <chrono>
 #include <random>
 #include <set>
+#include <numeric>
 #include "util.h"
 #include "DataStructure.h"
 #include "UTM.h"
@@ -49,11 +50,11 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         // get normals
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
-        if (!lasIo.readNormalsFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
+        if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
 //            robustNormalEstimation(startIdx, endIdx);
             auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
             normalOrientation(startIdx, endIdx, treePtr);
-            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
+            lasIo.writeFeaturesToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
         }
 
         startIdx += pointCount;
@@ -88,11 +89,29 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "finished normal estimation in " << duration.count() << "s" << std::endl;
 
+
+    // compute radii
+    start = std::chrono::high_resolution_clock::now();
+    for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
+        const auto& bla = *it;
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        tree->nearestKSearch(bla, 7, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+        auto const count = static_cast<float>(pointRadiusSquaredDistance.size());
+        auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end()) / count;
+        (*it).curvature = avg;
+
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "finished radius calculation in " << duration.count() << "s" << std::endl;
+
     return tree;
 }
 
 void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
     // TODO wenn das wieder benutzt wird die normalen beim einlesen wieder alle auf (-1, -1, -1) setzen
+    // TODO und die radii bestimmen und in curvature field vom punkt schreiben
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start octree" << std::endl;
 
