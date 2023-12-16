@@ -45,7 +45,6 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
     glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
     pcShader.setFloat("size_const", size_const);
-    pcShader.setFloat("size_fac", 1000);
     pcShader.setVec4("vp", vp);
     pcShader.setVec3("zb", zb);
 

@@ -9,7 +9,6 @@ uniform float point_size;
 uniform vec3 camera_pos;
 uniform vec3 light_dir;
 uniform float size_const;
-uniform float size_fac;
 
 out vec3 v2f_color;
 out vec3 v2f_normal;
@@ -19,7 +18,8 @@ out vec3 v2f_light_dir;
 
 void main(){
 
-    float v_radius = 0.0001;
+    float v_radius = 0.1;
+    float size_fac = 1.0;
 
 
     v2f_normal = (view_matrix * vec4(v_normal, 0.0)).xyz;
@@ -31,8 +31,9 @@ void main(){
 
     gl_Position = projection_matrix * view_matrix * vec4(v_world_pos, 1.0);
     gl_PointSize = (v_radius / -v2f_center.z * size_const * size_fac);
-    //point_size * (100 / distance(camera_pos, v_world_pos.xyz) / 10);
 
     // backface culling
         if (dot(v2f_normal, v2f_center) > 0.0) gl_Position.w = 0.0;
+
+    // TODO blending, sharp corners, phong splatting(?), real radius sizes
 }
