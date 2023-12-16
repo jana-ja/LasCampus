@@ -18,13 +18,15 @@ class LasDataIO {
 public:
 
     void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount, float& xOffset, float& yOffset, float& zOffset);
-    bool readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
-    void writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
+    bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
+    void writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
     void random(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
 private:
 
     const std::string TAG = "LasIO\t";
+
+    const uint8_t FEATURE_CACHE_VERSION = 2;
 
     int pointRecFormat;
     bool firstFile = true;
@@ -97,9 +99,9 @@ private:
         double gpsTime;
     };
 
-    struct NormalHeader {
+    struct FeatureCacheHeader {
         uint32_t numberOfPoints;
-
+        uint8_t version;
     };
 
 };

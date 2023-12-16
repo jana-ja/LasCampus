@@ -131,9 +131,9 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
 }
 
 
-bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx) { // TODO endindex muss exklusiv sein!
+bool LasDataIO::readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx) { // TODO endindex muss exklusiv sein!
 
-    std::cout << TAG << "try to read normals from cache" << std::endl;
+    std::cout << TAG << "try to read features from cache" << std::endl;
 
     std::ifstream inf(normalPath, std::ios::binary);
     if (!inf.good()) {
@@ -145,9 +145,14 @@ bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::P
         std::cout << TAG << "cache file found" << std::endl;
 
         // read header
-        NormalHeader normalHeader;
-        inf.read((char *) (&normalHeader), sizeof(NormalHeader));
+        FeatureCacheHeader normalHeader;
+        inf.read((char *) (&normalHeader), sizeof(FeatureCacheHeader));
 
+
+        // check if right version
+        if (normalHeader.version != FEATURE_CACHE_VERSION) {
+            throw std::runtime_error("Feature Cache File has wrong version");
+        }
 
 
         // read normals
@@ -158,6 +163,11 @@ bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::P
             (*it).normal_x = normal[0];
             (*it).normal_y = normal[1];
             (*it).normal_z = normal[2];
+
+            float radius;
+            inf.read((char *) (&radius), sizeof(float));
+            (*it).curvature = radius;
+
         }
 
         if (!inf.good())
@@ -178,22 +188,24 @@ bool LasDataIO::readNormalsFromCache(const std::string &normalPath, const pcl::P
  * @param startIdx
  * @param endIdx exclusive
  */
-void LasDataIO::writeNormalsToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &cloud, const uint32_t &startIdx,
-                                    const uint32_t &endIdx) { // TODO end index is exclusive
+void LasDataIO::writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr &cloud, const uint32_t &startIdx,
+                                     const uint32_t &endIdx) { // TODO end index is exclusive
     std::ofstream out(normalPath, std::ios::binary);
 
     std::cout << TAG << "writing normals to cache" << std::endl;
 
     if (out.is_open()) {
         // write header
-        NormalHeader normalHeader;
+        FeatureCacheHeader normalHeader;
         normalHeader.numberOfPoints = endIdx - startIdx;
+        normalHeader.version = FEATURE_CACHE_VERSION;
 
-        out.write((char *) (&normalHeader), sizeof(NormalHeader));
+        out.write((char *) (&normalHeader), sizeof(FeatureCacheHeader));
 
-        // write normals
+        // write normals and radii
         for (auto it = cloud->points.begin() + startIdx; it != cloud->points.begin() + endIdx; it++) {
             out.write((char *) (&*it->normal), 3 * sizeof(float));
+            out.write((char *) (&it->curvature), sizeof(float));
         }
 
         if (!out.good())
