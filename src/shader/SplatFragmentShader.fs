@@ -1,16 +1,13 @@
 #version 330 core
 
-//uniform vec3 light_color;
-//uniform vec3 light_dir; // TODO schlecht ist nicht in view space
-
-uniform vec4 vp; // NEW whats dis - view point?
+uniform vec4 vp; // NEW whats dis - view port?
 uniform vec3 zb; // NEW whats dis -
 
 
 in vec3 v2f_color;
 in vec3 v2f_normal;
-in vec3 v2f_center; // bisschen NEW, vorher pos
-in float v2f_radius; // NEW
+in vec3 v2f_center;
+in float v2f_radius;
 in vec3 v2f_light_dir;
 
 out vec4 f_color;
@@ -48,7 +45,7 @@ vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, 
 void main()
 {
     // point on near plane
-    vec3 qn = vec3(gl_FragCoord.xy * vp.xy + vp.zw, zb.z);
+    vec3 qn = vec3(gl_FragCoord.xy * vp.xy + vp.zw, zb.z); // z = -z_near
 
     // point in eye space
     vec3 q = qn * (dot(v2f_center, v2f_normal) / dot(qn, v2f_normal));
