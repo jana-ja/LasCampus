@@ -28,25 +28,34 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    Shader pcShader("../src/shader/SplatVertexShader.vs",
-                             "../src/shader/SplatFragmentShader.fs");
+    auto useSplatShader = true;
+    auto bla1 = "../src/shader/PointCloudVertexShader.vs", bla2 = "../src/shader/PointCloudFragmentShader.fs";
+    if (useSplatShader) {
+        bla1 = "../src/shader/SplatVertexShader.vs";
+        bla2 = "../src/shader/SplatFragmentShader.fs";
+    }
+    Shader pcShader = Shader(bla1, bla2);
     shaderSettings(pcShader);
-    // colors / lighting
-    pcShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
-//    pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
-    pcShader.setVec3("light_dir", 0.0f, -75.0f, -50.0f); // SplatShader
-    float viewport[4];
-    glGetFloatv(GL_VIEWPORT, viewport);
-    float wv = viewport[2];
-    float hv = viewport[3];
-    float hn = 2.0 * Z_NEAR * tan(45.0*M_PI/360.0);
-    float wn = hn/hv*wv;
-    float size_const = 2.0 * Z_NEAR * hv / hn;
-    glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
-    glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
-    pcShader.setFloat("size_const", size_const);
-    pcShader.setVec4("vp", vp);
-    pcShader.setVec3("zb", zb);
+    if (useSplatShader) {
+        // colors / lighting
+        pcShader.setVec3("light_dir", 0.0f, -75.0f, -50.0f); // SplatShader
+        float viewport[4];
+        glGetFloatv(GL_VIEWPORT, viewport);
+        float wv = viewport[2];
+        float hv = viewport[3];
+        float hn = 2.0 * Z_NEAR * tan(45.0*M_PI/360.0);
+        float wn = hn/hv*wv;
+        float size_const = 2.0 * Z_NEAR * hv / hn;
+        glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
+        glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
+        pcShader.setFloat("size_const", size_const);
+        pcShader.setVec4("vp", vp);
+        pcShader.setVec3("zb", zb);
+    } else {
+        // colors / lighting
+        pcShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
+        pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
+    }
 
     // data
     GLuint pcVBO, pcVAO;
@@ -94,8 +103,10 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
         // transforms: camera - view space
         glm::mat4 view = camera.GetViewMatrix();
         pcShader.setMat4("view_matrix", view);
-        // update cameraPos in pcShader for dynamic point size
-        pcShader.setVec3("camera_pos", camera.position);
+        if(!useSplatShader) {
+            // update cameraPos in pcShader for dynamic point size
+            pcShader.setVec3("camera_pos", camera.position);
+        }
 
 
         // draw point cloud

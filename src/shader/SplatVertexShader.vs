@@ -7,7 +7,6 @@ layout(location = 3) in float v_radius;
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
 uniform float point_size;
-uniform vec3 camera_pos;
 uniform vec3 light_dir;
 uniform float size_const;
 
