@@ -52,10 +52,10 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end(), "features");
         if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
-//            robustNormalEstimation(startIdx, endIdx);
-            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
-            normalOrientation(startIdx, endIdx, treePtr);
-            lasIo.writeFeaturesToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
+            robustNormalEstimation(startIdx, endIdx);
+//            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
+//            normalOrientation(startIdx, endIdx, treePtr);
+            lasIo.writeFeaturesToCache(lasDir + normalFile, cloud, startIdx, endIdx);
         }
 
         startIdx += pointCount;
@@ -208,7 +208,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
     // ******  NORMAL OPTIMIZATION ******
 
-    float r = 1.0f; // TODO find good r
+    float r = 5.0f; // TODO find good r
 
     // build map pointIdc -> neighborhoodIdx?
     std::map<int, int> pointNeighborhoodMap{};
@@ -221,52 +221,57 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
 
     // remove non-planar points (ex trees) from cons neighborhoods (c.N.)
+    // TODO problem here: punkte werden entfernt die eigentlich nicht entfernt werden sollen. zB am rand einer runden c.N. und darüber sind nicht klassif. wandpunkte.
 
     // for every c.N.:
     // for every non-planar point in c.N. (sind aktuell insgesamt nur so 230 von 10k... kann ich mir dann vllt grad auch sparen die rauszulassen
     // get r neighborhood (r.N.) from point
     // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
     // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
-    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
-        std::cout << TAG << "remove points in " << cnIdx << std::endl;
-
-        int removeCount = 0;
-
-        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) { // TODO maybe filter only non-planar points
-
-
-            auto pointIdx = *pointIt;
-            const auto& point = (*cloud)[pointIdx];
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-                int insideCount = 0, outsideCount = 0;
-                for (auto npIdx: pointIdxRadiusSearch) {
-                    const auto& nPoint = (*cloud)[npIdx];
-                    if (pointNeighborhoodMap[npIdx] == cnIdx) {
-                        insideCount++;
-                    } else {
-                        outsideCount++;
-                    }
-                }
-
-
-                if (insideCount < outsideCount) {
-//                    std::cout << TAG << "remove point from " << cnIdx << std::endl;
-                    removeCount++;
-
-                    pointNeighborhoodMap.erase(pointIdx);
-                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
-                } else ++pointIt;
-            } else ++pointIt;
-        }
-        std::cout << TAG << "removed " << removeCount << " points from " << cnIdx << std::endl;
-    }
-    std::cout << TAG << "finished remove non planar points " << std::endl;
+//    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
+//        std::cout << TAG << "remove points in " << cnIdx << std::endl;
+//
+//        int removeCount = 0;
+//
+//        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
+//        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) { // TODO maybe filter only non-planar points
+//
+//
+//            auto pointIdx = *pointIt;
+//            const auto& point = (*cloud)[pointIdx];
+//            std::vector<int> pointIdxRadiusSearch;
+//            std::vector<float> pointRadiusSquaredDistance;
+//            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+//                int insideCount = 0, outsideCount = 0;
+//                for (auto npIdx: pointIdxRadiusSearch) {
+//                    const auto& nPoint = (*cloud)[npIdx];
+//                    // lots of points are removed unnecessarily
+//                    //  -> try this check: if most neighbour points have no cN then remove this point
+////                    if (pointNeighborhoodMap[npIdx] == cnIdx) { // [] operator performs insertion if map doesn't contain key!
+//                    if (pointNeighborhoodMap.find(npIdx) != pointNeighborhoodMap.end()) {
+//                        insideCount++;
+//                    } else {
+//                        outsideCount++;
+//                    }
+//                }
+//
+//
+//                if (insideCount < outsideCount) {
+////                    std::cout << TAG << "remove point from " << cnIdx << std::endl;
+//                    removeCount++;
+//
+//                    pointNeighborhoodMap.erase(pointIdx);
+//                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
+//                } else ++pointIt;
+//            } else ++pointIt;
+//        }
+//        std::cout << TAG << "removed " << removeCount << " points from " << cnIdx << std::endl;
+//    }
+//    std::cout << TAG << "finished remove non planar points " << std::endl;
 
 
     // move points to better fitting c.N.
+    // TODO problem hier: auf großen flächen sind die c.N.s sehr ähnlich und punkte werden relativ willkürlich dazwischen rumgeschoben. die c.N.s sind dann viel kleinere fransigere patch work dinger als vorher.
 
     // for every c.N.
     // for every planar point in c.N. (glaube nach step 1 sind da nur noch planar points drin)
@@ -274,77 +279,251 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
     // for all c.N.s that contain at least one point from r's neighborhood (including that from the outermost loop)
     // check distance of point to plane of the neighborhood, find c.N. with the smallest distance
     // if c.N. with smallest distance is not the curretn one, move point.
-    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
-        std::cout << TAG << "move points from " << cnIdx << std::endl;
+//    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
+//        std::cout << TAG << "move points from " << cnIdx << std::endl;
+//
+//        int moveCount = 0;
+//
+//        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
+//        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) {
+//
+//            auto pointIdx = *pointIt;
+//            const auto& point = (*cloud)[pointIdx];
+//            std::vector<int> pointIdxRadiusSearch;
+//            std::vector<float> pointRadiusSquaredDistance;
+//            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+//                // TODO bis hier ist alle same wie oben -> optimieren möglich? oben werden ja noch punkt verschoben
+//                std::set<int> neighborhoodIdc = {};
+//                // find all neighborhoods from neighbors
+//                for (auto npIdx: pointIdxRadiusSearch) {
+//                    neighborhoodIdc.insert(pointNeighborhoodMap[npIdx]);
+//                }
+//                // test if they are closer to point
+//                double minDist = INFINITY;
+//                int minDistIdx = -1;
+//                for (auto neighborhoodIdx: neighborhoodIdc) {
+//                    auto dist = pointPlaneDistance(point, consNeighborhoods[neighborhoodIdx].plane);
+//                    if (dist < minDist) {
+//                        minDist = dist;
+//                        minDistIdx = neighborhoodIdx;
+//                    }
+//                }
+//                if (minDistIdx != cnIdx) {
+////                    std::cout << TAG << "move point from " << cnIdx << " to " << minDistIdx << std::endl;
+//                    moveCount++;
+//
+//                    // move point
+//                    pointNeighborhoodMap[pointIdx] = minDistIdx;
+//
+//                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
+//                    consNeighborhoods[minDistIdx].pointIdc.push_back(pointIdx);
+//                } else ++pointIt;
+//            } else ++pointIt;
+//        }
+//        std::cout << TAG << "moved " << moveCount << " points from " << cnIdx << std::endl;
+//    }
+//    std::cout << TAG << "finished other thing " << std::endl;
 
-        int moveCount = 0;
-
-        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) {
-
-            auto pointIdx = *pointIt;
-            const auto& point = (*cloud)[pointIdx];
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-                // TODO bis hier ist alle same wie oben -> optimieren möglich? oben werden ja noch punkt verschoben
-                std::set<int> neighborhoodIdc = {};
-                // find all neighborhoods from neighbors
-                for (auto npIdx: pointIdxRadiusSearch) {
-                    neighborhoodIdc.insert(pointNeighborhoodMap[npIdx]);
-                }
-                // test if they are closer to point
-                double minDist = INFINITY;
-                int minDistIdx = -1;
-                for (auto neighborhoodIdx: neighborhoodIdc) {
-                    auto dist = pointPlaneDistance(point, consNeighborhoods[neighborhoodIdx].plane);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        minDistIdx = neighborhoodIdx;
-                    }
-                }
-                if (minDistIdx != cnIdx) {
-//                    std::cout << TAG << "move point from " << cnIdx << " to " << minDistIdx << std::endl;
-                    moveCount++;
-
-                    // move point
-                    pointNeighborhoodMap[pointIdx] = minDistIdx;
-
-                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
-                    consNeighborhoods[minDistIdx].pointIdc.push_back(pointIdx);
-                } else ++pointIt;
-            } else ++pointIt;
-        }
-        std::cout << TAG << "moved " << moveCount << " points from " << cnIdx << std::endl;
-    }
-    std::cout << TAG << "finished other thing " << std::endl;
 
 
 
     // for each c.N.
     // calculate normal (formula 3 with covariance matrix)
     // TODO
-
-
-    // all remaining points with no c.N. get uniform normal
-    // TODO
-
-
-    // add colors
     for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
         // color debug
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
+        int randR = 100;//rand() % (255 - 0 + 1) + 0;
+        int randG = 100;//rand() % (255 - 0 + 1) + 0;
+        int randB = 100;//rand() % (255 - 0 + 1) + 0;
+
+        // normal
+        const auto& plane = consNeighborhoods[cnIdx].plane;
+        auto vec1 = vectorSubtract(plane[0], plane[1]);
+        auto vec2 = vectorSubtract(plane[0], plane[2]);
+        auto planeNormal = normalize(crossProduct(vec1, vec2));
+        // if vertical make sure normal is oriented up
+        auto horLen = sqrt(pow(planeNormal.x, 2) + pow(planeNormal.z, 2));
+        auto vertLen = abs(planeNormal.y);
+        if (horLen < vertLen) {
+            randR = 255;
+            randG = 0;
+            randB = 0;
+            // alle senkrechten nach oben orientieren
+            if (planeNormal.y < 0) {
+//                randR = 255;
+//                randG = 255;
+//                randB = 0;
+                planeNormal.x *= -1;
+                planeNormal.y *= -1;
+                planeNormal.z *= -1;
+            }
+        } else {
+            randR = 0;
+            randG = 0;
+            randB = 255;
+        }
+
         for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
              pointIt != consNeighborhoods[cnIdx].pointIdc.end(); pointIt++) {
             auto pointIdx = *pointIt;
+            // normal
+            (*cloud)[pointIdx].normal_x = planeNormal.x;
+            (*cloud)[pointIdx].normal_y = planeNormal.y;
+            (*cloud)[pointIdx].normal_z = planeNormal.z;
+            // color
             (*cloud)[pointIdx].b = randB;
             (*cloud)[pointIdx].g = randG;
             (*cloud)[pointIdx].r = randR;
         }
     }
-    std::cout << TAG << "finished adding colors " << std::endl;
+    std::cout << TAG << "finished calculating normal per consistent neighbourhood " << std::endl;
+
+
+    // all remaining points with no c.N. get uniform normal
+    // TODO
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+        if (pointNeighborhoodMap.find(pointIdx) == pointNeighborhoodMap.end()) {
+            // point has no neighboorhood
+            // check with maps data and give a good normal if it lies on wall
+        }
+    }
+
+
+    // *****************************************************************
+
+    // TODO use buildings to detect right normal orientation
+    //  maybe also segmentation stuff?
+    float thresholdDelta = 1.5f; // TODO find good value
+
+    for (auto building: buildings) {
+        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        auto partIdx = building.parts.begin();
+        uint32_t nextPartIndex = *partIdx;
+        partIdx++;
+        if (partIdx != building.parts.end()) {
+            nextPartIndex = *partIdx;
+        }
+        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
+//            std::cout << "yrah " << pointIdx << std::endl;
+
+//            const auto& wallPoint1 = building.points[pointIdx];
+//            const auto& wallPoint2 = building.points[pointIdx + 1];
+
+            // if reached end of part/ring -> skip this "wall"
+            if (pointIdx + 1 == nextPartIndex){
+                partIdx++;
+                if (partIdx != building.parts.end()) {
+                    nextPartIndex = *partIdx;
+                }
+                continue;
+            }
+
+            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+            float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
+            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
+            wallPoint1.x = building.points[pointIdx].x;
+            wallPoint1.y = ground + wallHeight;
+            wallPoint1.z = building.points[pointIdx].z;
+            wallPoint2.x = building.points[pointIdx + 1].x;
+            wallPoint2.y = ground + wallHeight;
+            wallPoint2.z = building.points[pointIdx + 1].z;
+
+            // detect (and color) alle points on this wall
+            pcl::PointXYZRGBNormal mid;
+            mid.x = (wallPoint1.x + wallPoint2.x) / 2;
+            mid.y = (ground + wallHeight) / 2;
+            mid.z = (wallPoint1.z + wallPoint2.z) / 2;
+
+
+            Plane wallPlane = {wallPoint1, wallPoint2, mid};
+
+            // p2 = wp2.x wallHeight wp2.z
+            // p1 = mid
+            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
+
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            octree.radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+
+            if(pointIdxRadiusSearch.size() != 0) {
+
+                int randR = rand() % (255 - 0 + 1) + 0;
+                int randG = rand() % (255 - 0 + 1) + 0;
+                int randB = rand() % (255 - 0 + 1) + 0;
+
+
+//                std::cout << "yrah " << pointIdxRadiusSearch.size() << std::endl;
+
+                for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+                    // TODO implement direct calculation test if point lies inside wall rectangle
+//                    if(building.points.size() == 5){
+//                        randR = 255;
+//                        randG = 0;
+//                        randB = 0;
+//                    }
+                    const auto& point = (*cloud)[*nIdxIt];
+
+                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
+                        continue;
+                    }
+
+                    auto minX = min(wallPoint1.x, wallPoint2.x);
+                    auto maxX = max(wallPoint1.x, wallPoint2.x);
+                    auto minZ = min(wallPoint1.z, wallPoint2.z);
+                    auto maxZ = max(wallPoint1.z, wallPoint2.z);
+
+                    const auto& x = point.x;
+                    const auto& z = point.z;
+                    if (x > maxX || x < minX || z > maxZ || z < minZ) {
+                        continue;
+                    }
+                    const auto& y = point.y;
+//
+                    cloud->points[*nIdxIt].b = randB;
+                    (*cloud)[*nIdxIt].g = randG;
+                    (*cloud)[*nIdxIt].r = randR;
+
+                    // check if point doesn't belong to a c.N. -> assign a normal
+                    if (pointNeighborhoodMap.find(*nIdxIt) == pointNeighborhoodMap.end()) {
+                        // TODO assign normal of this wall
+
+                        auto vec1 = vectorSubtract(wallPlane[0], wallPlane[1]);
+                        auto vec2 = vectorSubtract(wallPlane[0], wallPlane[2]);
+                        auto planeNormal = normalize(crossProduct(vec1, vec2));
+
+                        (*cloud)[*nIdxIt].normal_x = planeNormal.x;
+                        (*cloud)[*nIdxIt].normal_y = planeNormal.y;
+                        (*cloud)[*nIdxIt].normal_z = planeNormal.z;
+
+                        (*cloud)[*nIdxIt].r = 255;
+                        (*cloud)[*nIdxIt].g = 255;
+                        (*cloud)[*nIdxIt].b = 255;
+
+                    } else {
+                        // check if normal has to be flipped
+
+                        pcl::PointXYZRGBNormal normalPoint;
+                        normalPoint.x = point.x + point.normal_x;
+                        normalPoint.y = point.y + point.normal_y;
+                        normalPoint.z = point.z + point.normal_z;
+                        // check if normal is waagerecht
+                        auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
+                        auto vertLen = point.normal_y;
+                        if (horLen > vertLen) { // to avoid ground and roof
+                            if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) { // TODO check sign richtig
+                                (*cloud)[*nIdxIt].normal_x *= -1;
+                                (*cloud)[*nIdxIt].normal_y *= -1;
+                                (*cloud)[*nIdxIt].normal_z *= -1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // *****************************************************************
+
 
 
 }
@@ -385,7 +564,7 @@ DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vect
         for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
             const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
 
-            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
+            if (point.normal_x == -10) { // normale wur
                 continue;
             }
 
@@ -419,55 +598,22 @@ DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vect
         std::memcpy(neighborhood.plane, bestPlane, sizeof(Plane));
 
         // set normal, functions as unavailability detection too
-        auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
-        auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
-
-        auto planeNormal = normalize(crossProduct(vec1, vec2));
+//        auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
+//        auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
+//
+//        auto planeNormal = normalize(crossProduct(vec1, vec2));
 
 //        // color debug
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
 
-//    switch (level) {
-//        case 0:
-//            randR = 255;
-//            randG = 0;
-//            randB = 0;
-//            break;
-//        case 1:
-//            randR = 0;
-//            randG = 255;
-//            randB = 0;
-//            break;
-//        case 2:
-//            randR = 0;
-//            randG = 0;
-//            randB = 255;
-//            break;
-//        case 3:
-//            randR = 255;
-//            randG = 255;
-//            randB = 0;
-//            break;
-//        case 4:
-//            randR = 0;
-//            randG = 255;
-//            randB = 255;
-//            break;
-//        case 5:
-//            randR = 255;
-//            randG = 0;
-//            randB = 255;
-//            break;
-//
-//    }
 
 //        std::cout << randR << " " << randG << " " << randB << std::endl;
         for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
 
             const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
-            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
+            if (point.normal_x == -10 ) { // this point already belongs to a c.N.
                 continue;
             }
             auto dist = pointPlaneDistance(point, bestPlane);
@@ -475,9 +621,10 @@ DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vect
                 neighborhood.pointIdc.push_back(pointIdxRadiusSearch[p]);
 
 
-                (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
+                (*cloud)[pointIdxRadiusSearch[p]].normal_x = -10; // mark as visited
+//                (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
+//                (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
+
 
 //                (*cloud)[pointIdxRadiusSearch[p]].b = randB;
 //                (*cloud)[pointIdxRadiusSearch[p]].g = randG;

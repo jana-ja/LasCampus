@@ -28,7 +28,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    auto useSplatShader = true;
+    auto useSplatShader = false;
     auto bla1 = "../src/shader/PointCloudVertexShader.vs", bla2 = "../src/shader/PointCloudFragmentShader.fs";
     if (useSplatShader) {
         bla1 = "../src/shader/SplatVertexShader.vs";
