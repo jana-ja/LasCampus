@@ -36,5 +36,5 @@ void main(){
     // backface culling
         if (dot(v2f_normal, v2f_center) > 0.0) gl_Position.w = 0.0;
 
-    // TODO blending, sharp corners, phong splatting(?), real radius sizes
+    // TODO blending, sharp corners, phong splatting(?)
 }

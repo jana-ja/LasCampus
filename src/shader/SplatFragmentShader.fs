@@ -1,8 +1,7 @@
 #version 330 core
 
-uniform vec4 vp; // NEW whats dis - view port?
-uniform vec3 zb; // NEW whats dis -
-
+uniform vec4 vp;
+uniform vec3 zb;
 
 in vec3 v2f_color;
 in vec3 v2f_normal;
