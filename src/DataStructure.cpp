@@ -50,7 +50,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
         // get normals
         std::string normalFile = file;
-        normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
+        normalFile.replace(normalFile.end() - 3, normalFile.end(), "features");
         if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
 //            robustNormalEstimation(startIdx, endIdx);
             auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
