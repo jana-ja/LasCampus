@@ -20,7 +20,7 @@ out vec3 v2f_light_dir;
 void main(){
 
     // float v_radius = 0.1;
-    float size_fac = 1.0;
+    float size_fac = 2.2;
 
 
     v2f_normal = (view_matrix * vec4(v_normal, 0.0)).xyz;

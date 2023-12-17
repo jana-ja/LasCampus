@@ -81,7 +81,7 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     ne.setSearchMethod(tree);
 
-    ne.setKSearch(13);
+    ne.setKSearch(16);
 
     // Compute the features
     ne.compute(*cloud);
@@ -97,10 +97,10 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
         const auto& bla = *it;
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
-        tree->radiusSearch(bla, 2, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+        tree->radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
         auto const count = static_cast<float>(pointRadiusSquaredDistance.size());
 
-        auto diff = std::max((count - 6.0f), 0.0f);
+        auto diff = std::max((count - 7.0f), 0.0f);
 
         auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end() - diff) / (count - diff);
         (*it).curvature = avg;
