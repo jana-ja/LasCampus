@@ -332,9 +332,9 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
     // TODO
     for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
         // color debug
-        int randR = 100;//rand() % (255 - 0 + 1) + 0;
-        int randG = 100;//rand() % (255 - 0 + 1) + 0;
-        int randB = 100;//rand() % (255 - 0 + 1) + 0;
+        int randR = rand() % (255 - 0 + 1) + 0;//100;//rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (255 - 0 + 1) + 0;//100;//rand() % (255 - 0 + 1) + 0;
+        int randB = rand() % (255 - 0 + 1) + 0;//100;//rand() % (255 - 0 + 1) + 0;
 
         // normal
         const auto& plane = consNeighborhoods[cnIdx].plane;
@@ -345,9 +345,9 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
         auto horLen = sqrt(pow(planeNormal.x, 2) + pow(planeNormal.z, 2));
         auto vertLen = abs(planeNormal.y);
         if (horLen < vertLen) {
-            randR = 255;
-            randG = 0;
-            randB = 0;
+//            randR = 255;
+//            randG = 0;
+//            randB = 0;
             // alle senkrechten nach oben orientieren
             if (planeNormal.y < 0) {
 //                randR = 255;
@@ -358,9 +358,9 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                 planeNormal.z *= -1;
             }
         } else {
-            randR = 0;
-            randG = 0;
-            randB = 255;
+//            randR = 0;
+//            randG = 0;
+//            randB = 255;
         }
 
         for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
@@ -396,6 +396,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
     float thresholdDelta = 1.5f; // TODO find good value
     // TODO vllt zum flippen großen threshold, zum normal assignen bei kleineren threshold??
 
+    std::vector<bool> cnVisited(consNeighborhoods.size(), false);
     for (auto building: buildings) {
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
         auto partIdx = building.parts.begin();
@@ -467,7 +468,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                     if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
                         continue;
                     }
-
+                    // point is on plane of wall
                     auto minX = min(wallPoint1.x, wallPoint2.x);
                     auto maxX = max(wallPoint1.x, wallPoint2.x);
                     auto minZ = min(wallPoint1.z, wallPoint2.z);
@@ -478,11 +479,12 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                     if (x > maxX || x < minX || z > maxZ || z < minZ) {
                         continue;
                     }
+                    // point is on wall rectangle
                     const auto& y = point.y;
 //
-                    cloud->points[*nIdxIt].b = randB;
-                    (*cloud)[*nIdxIt].g = randG;
-                    (*cloud)[*nIdxIt].r = randR;
+//                    cloud->points[*nIdxIt].b = randB;
+//                    (*cloud)[*nIdxIt].g = randG;
+//                    (*cloud)[*nIdxIt].r = randR;
 
                     // check if point doesn't belong to a c.N. -> assign a normal
                     if (pointNeighborhoodMap.find(*nIdxIt) == pointNeighborhoodMap.end()) {
@@ -512,9 +514,23 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                         auto vertLen = point.normal_y;
                         if (horLen > vertLen) { // to avoid ground and roof
                             if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) { // TODO check sign richtig
-                                (*cloud)[*nIdxIt].normal_x *= -1;
-                                (*cloud)[*nIdxIt].normal_y *= -1;
-                                (*cloud)[*nIdxIt].normal_z *= -1;
+                                // TODO flip normal of all points of this c.N. and mark as visited
+
+                                const auto& cnIdx = pointNeighborhoodMap[*nIdxIt];
+                                // TODO check if this cn was already visited
+                                if(cnVisited[cnIdx]){ // TODO diesen check weiter nach oben packen
+                                    // this cN was already visited
+                                } else {
+                                    const auto& cN = *(consNeighborhoods.begin() + cnIdx);
+                                    for (auto cnPointIdxIt = cN.pointIdc.begin();
+                                         cnPointIdxIt != cN.pointIdc.end(); cnPointIdxIt++) {
+                                        (*cloud)[*cnPointIdxIt].normal_x *= -1;
+                                        (*cloud)[*cnPointIdxIt].normal_y *= -1;
+                                        (*cloud)[*cnPointIdxIt].normal_z *= -1;
+                                    }
+                                    // TODO mark as visited
+                                    cnVisited[cnIdx] = true;
+                                }
                             }
                         }
                     }
