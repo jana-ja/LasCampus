@@ -537,18 +537,27 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
     // *****************************************************************
 
+
     // compute radii
     for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
         const auto& bla = *it;
-        std::vector<int> pointIdxRadiusSearch;
-        std::vector<float> pointRadiusSquaredDistance;
-        octree.radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
-        auto const count = static_cast<float>(pointRadiusSquaredDistance.size()); // TODO warum sidn die radii hier plötzlich so groß (im vergleih zu bei dem kd tree dings verfahren)
+        // if point has no normal assigned, give small radius
+        if(bla.normal_x == -10 || bla.normal_x == -1) {
+            (*it).curvature = 0.3;
+        } else {
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            octree.radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+            // for reasons unknown octrees radius search does not return the results ordered by distance (which kdTree does)
+            std::sort(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end());
+            auto const count = static_cast<float>(pointRadiusSquaredDistance.size()); // TODO warum sidn die radii hier plötzlich so groß (im vergleih zu bei dem kd tree dings verfahren)
 
-        auto diff = std::max((count - 7.0f), 0.0f);
+            auto diff = std::max((count - 7.0f), 0.0f);
 
-        auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end() - diff) / (count - diff);
-        (*it).curvature = avg;
+            auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end() - diff) /
+                       (count - diff);
+            (*it).curvature = avg;
+        }
     }
 
 }
