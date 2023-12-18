@@ -394,6 +394,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
     // TODO use buildings to detect right normal orientation
     //  maybe also segmentation stuff?
     float thresholdDelta = 1.5f; // TODO find good value
+    // TODO vllt zum flippen großen threshold, zum normal assignen bei kleineren threshold??
 
     for (auto building: buildings) {
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
@@ -524,7 +525,19 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
 
     // *****************************************************************
 
+    // compute radii
+    for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
+        const auto& bla = *it;
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        octree.radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+        auto const count = static_cast<float>(pointRadiusSquaredDistance.size()); // TODO warum sidn die radii hier plötzlich so groß (im vergleih zu bei dem kd tree dings verfahren)
 
+        auto diff = std::max((count - 7.0f), 0.0f);
+
+        auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end() - diff) / (count - diff);
+        (*it).curvature = avg;
+    }
 
 }
 
