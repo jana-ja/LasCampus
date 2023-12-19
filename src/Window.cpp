@@ -28,7 +28,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    auto useSplatShader = false;
+    auto useSplatShader = true;
     auto bla1 = "../src/shader/PointCloudVertexShader.vs", bla2 = "../src/shader/PointCloudFragmentShader.fs";
     if (useSplatShader) {
         bla1 = "../src/shader/SplatVertexShader.vs";
@@ -38,7 +38,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     shaderSettings(pcShader);
     if (useSplatShader) {
         // colors / lighting
-        pcShader.setVec3("light_dir", 0.0f, -75.0f, -50.0f); // SplatShader
+        pcShader.setVec3("light_dir", -25.0f, -75.0f, -50.0f); // SplatShader
         float viewport[4];
         glGetFloatv(GL_VIEWPORT, viewport);
         float wv = viewport[2];
@@ -273,7 +273,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.use();
     glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, Z_NEAR, Z_FAR);
     shader.setMat4("projection_matrix", projection);
-    shader.setFloat("point_size", POINT_SIZE);
+    shader.setFloat("point_size", POINT_SIZE); // TODO weg?
 }
 
 void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
