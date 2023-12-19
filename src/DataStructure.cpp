@@ -544,6 +544,10 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
         // if point has no normal assigned, give small radius
         if(bla.normal_x == -10 || bla.normal_x == -1) {
             (*it).curvature = 0.3;
+            (*it).normal_x = 0;
+            (*it).normal_y = 1;
+            (*it).normal_z = 0;
+
         } else {
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
