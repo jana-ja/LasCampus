@@ -345,9 +345,9 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
         auto horLen = sqrt(pow(planeNormal.x, 2) + pow(planeNormal.z, 2));
         auto vertLen = abs(planeNormal.y);
         if (horLen < vertLen) {
-//            randR = 255;
-//            randG = 0;
-//            randB = 0;
+            randR = 255;
+            randG = 0;
+            randB = 0;
             // alle senkrechten nach oben orientieren
             if (planeNormal.y < 0) {
 //                randR = 255;
@@ -358,9 +358,9 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                 planeNormal.z *= -1;
             }
         } else {
-//            randR = 0;
-//            randG = 0;
-//            randB = 255;
+            randR = 0;
+            randG = 0;
+            randB = 255;
         }
 
         for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
@@ -484,9 +484,9 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
                     }
                     // -> point is on wall rectangle
 //
-//                    cloud->points[*nIdxIt].b = randB;
-//                    (*cloud)[*nIdxIt].g = randG;
-//                    (*cloud)[*nIdxIt].r = randR;
+                    cloud->points[*nIdxIt].b = randB;
+                    (*cloud)[*nIdxIt].g = randG;
+                    (*cloud)[*nIdxIt].r = randR;
 
                     // check if point doesn't belong to a c.N. -> assign a normal
                     if (pointNeighborhoodMap.find(*nIdxIt) == pointNeighborhoodMap.end()) {
@@ -554,7 +554,7 @@ void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint3
             octree.radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
             // for reasons unknown octrees radius search does not return the results ordered by distance (which kdTree does)
             std::sort(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end());
-            auto const count = static_cast<float>(pointRadiusSquaredDistance.size()); // TODO warum sidn die radii hier plötzlich so groß (im vergleih zu bei dem kd tree dings verfahren)
+            auto const count = static_cast<float>(pointRadiusSquaredDistance.size());
 
             auto diff = std::max((count - 7.0f), 0.0f);
 
