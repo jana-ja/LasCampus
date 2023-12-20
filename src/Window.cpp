@@ -28,17 +28,17 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    auto useSplatShader = true;
-    auto bla1 = "../src/shader/PointCloudVertexShader.vs", bla2 = "../src/shader/PointCloudFragmentShader.fs";
-    if (useSplatShader) {
-        bla1 = "../src/shader/SplatVertexShader.vs";
-        bla2 = "../src/shader/SplatFragmentShader.fs";
-    }
-    Shader pcShader = Shader(bla1, bla2);
-    shaderSettings(pcShader);
-    if (useSplatShader) {
+
+    Shader pointShader = Shader("../src/shader/PointCloudVertexShader.vs", "../src/shader/PointCloudFragmentShader.fs");
+    shaderSettings(pointShader);
+    // colors / lighting
+    pointShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
+    pointShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
+
+    Shader splatShader = Shader("../src/shader/SplatVertexShader.vs", "../src/shader/SplatFragmentShader.fs");
+    shaderSettings(splatShader);
         // colors / lighting
-        pcShader.setVec3("light_dir", -25.0f, -75.0f, -50.0f); // SplatShader
+        splatShader.setVec3("light_dir", -25.0f, -75.0f, -50.0f); // SplatShader
         float viewport[4];
         glGetFloatv(GL_VIEWPORT, viewport);
         float wv = viewport[2];
@@ -48,14 +48,10 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
         float size_const = 2.0 * Z_NEAR * hv / hn;
         glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
         glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
-        pcShader.setFloat("size_const", size_const);
-        pcShader.setVec4("vp", vp);
-        pcShader.setVec3("zb", zb);
-    } else {
-        // colors / lighting
-        pcShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
-        pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
-    }
+        splatShader.setFloat("size_const", size_const);
+        splatShader.setVec4("vp", vp);
+        splatShader.setVec3("zb", zb);
+
 
     // data
     GLuint pcVBO, pcVAO;
@@ -99,13 +95,20 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        pcShader.use();
-        // transforms: camera - view space
-        glm::mat4 view = camera.GetViewMatrix();
-        pcShader.setMat4("view_matrix", view);
-        if(!useSplatShader) {
-            // update cameraPos in pcShader for dynamic point size
-            pcShader.setVec3("camera_pos", camera.position);
+
+        if(useSplatShader) {
+            splatShader.use();
+            // transforms: camera - view space
+            glm::mat4 view = camera.GetViewMatrix();
+            splatShader.setMat4("view_matrix", view);
+            splatShader.setBool("backface_culling", backfaceCulling);
+        } else {
+            pointShader.use();
+            // transforms: camera - view space
+            glm::mat4 view = camera.GetViewMatrix();
+            pointShader.setMat4("view_matrix", view);
+            // update cameraPos in pointShader for dynamic point size
+            pointShader.setVec3("camera_pos", camera.position);
         }
 
 
@@ -158,7 +161,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     glDeleteVertexArrays(1, &csVAO);
     glDeleteBuffers(1, &csVBO);
     glDeleteProgram(csShader.ID);
-    glDeleteProgram(pcShader.ID);
+    glDeleteProgram(pointShader.ID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -174,6 +177,22 @@ void Window::processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_RELEASE && f1Pressed){
         f1Pressed = false;
         showInfo = !showInfo;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS)
+        f2Pressed = true;
+
+    if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_RELEASE && f2Pressed){
+        f2Pressed = false;
+        useSplatShader = !useSplatShader;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS)
+        f3Pressed = true;
+
+    if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_RELEASE && f3Pressed){
+        f3Pressed = false;
+        backfaceCulling = !backfaceCulling;
     }
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)

@@ -34,6 +34,8 @@ private:
     const float Z_FAR = 100.0f;
 
     bool f1Pressed = false;
+    bool f2Pressed = false;
+    bool f3Pressed = false;
 
     // camera
     Camera camera = Camera(glm::vec3(0.0f, 10.0f, 0.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
@@ -52,6 +54,8 @@ private:
     DataStructure pointCloud;
 
     bool showInfo = false;
+    bool useSplatShader = false;
+    bool backfaceCulling = false;
 
     void processInput(GLFWwindow *window);
 

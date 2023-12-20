@@ -9,6 +9,7 @@ uniform mat4 projection_matrix;
 uniform float point_size;
 uniform vec3 light_dir;
 uniform float size_const;
+uniform bool backface_culling;
 
 out vec3 v2f_color;
 out vec3 v2f_normal;
@@ -19,7 +20,7 @@ out vec3 v2f_light_dir;
 void main(){
 
     // float v_radius = 0.1;
-    float size_fac = 2.2;
+    float size_fac = 1.8;
 
 
     v2f_normal = (view_matrix * vec4(v_normal, 0.0)).xyz;
@@ -33,7 +34,7 @@ void main(){
     gl_PointSize = (v_radius / -v2f_center.z * size_const * size_fac);
 
     // backface culling
-        if (dot(v2f_normal, v2f_center) > 0.0) gl_Position.w = 0.0;
+    if (backface_culling && dot(v2f_normal, v2f_center) > 0.0) gl_Position.w = 0.0;
 
     // TODO blending, sharp corners, phong splatting(?)
 }
