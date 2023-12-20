@@ -62,9 +62,6 @@ private:
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
 
-    void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
-    static Neighborhood algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
-
     void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr);
 
     static float isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
