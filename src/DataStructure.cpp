@@ -73,89 +73,14 @@ void DataStructure::adaSplats() {
     float alpha = 0.2;
     float wallThreshold = 1.0;
     float radiusErrorEpsilon = 4; // TODO ich rate das hier jetzt erstmal,
-    //  habe den code so umgestellt dass ich pro punkt normale mit buildings orientieren kann, damit ich die ganzen nachbarschaften der punkt nicht speichern muss,
-    //  muss ich aber doch weil man mit allen dieses epsilon berechnen muss
     std::vector<bool> discardPoint(cloud->points.size());
-
-    // preprocessing of buildings
-    // save all walls (min, mid, max point & radius)
-    // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
-    float maxR = 0;
-    for (auto building: buildings) {
-        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
-        auto partIdx = building.parts.begin();
-        uint32_t nextPartIndex = *partIdx;
-        partIdx++;
-        if (partIdx != building.parts.end()) {
-            nextPartIndex = *partIdx;
-        }
-        // for all walls
-        float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
-        float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
-        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
-
-            // if reached end of part/ring -> skip this "wall"
-            if (pointIdx + 1 == nextPartIndex) {
-                partIdx++;
-                if (partIdx != building.parts.end()) {
-                    nextPartIndex = *partIdx;
-                }
-                continue;
-            }
-
-            Wall wall;
-
-
-            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
-            wallPoint1.x = building.points[pointIdx].x;
-            wallPoint1.y = ground;
-            wallPoint1.z = building.points[pointIdx].z;
-            wallPoint2.x = building.points[pointIdx + 1].x;
-            wallPoint2.y = ground + wallHeight;
-            wallPoint2.z = building.points[pointIdx + 1].z;
-
-            // detect (and color) alle points on this wall
-            pcl::PointXYZRGBNormal mid;
-            wall.mid.x = (wallPoint1.x + wallPoint2.x) / 2;
-            wall.mid.y = (ground + wallHeight) / 2;
-            wall.mid.z = (wallPoint1.z + wallPoint2.z) / 2;
-
-            auto vec1 = vectorSubtract(wallPoint1, wallPoint2);
-            auto vec2 = vectorSubtract(wallPoint1, wall.mid);
-            auto planeNormal = normalize(crossProduct(vec1, vec2));
-
-            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
-            if (r > maxR) {
-                maxR = r;
-            }
-
-            wall.minX = min(wallPoint1.x, wallPoint2.x);
-            wall.maxX = max(wallPoint1.x, wallPoint2.x);
-            wall.minZ = min(wallPoint1.z, wallPoint2.z);
-            wall.maxZ = max(wallPoint1.z, wallPoint2.z);
-
-            walls.push_back(wall);
-            wallMidPoints->push_back(wall.mid);
-
-
-        }
-    }
-
-    float resolution = 8.0f; // TODO find good value
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
-            resolution);
-    wallOctree.setInputCloud(wallMidPoints);
-    wallOctree.defineBoundingBox();
-    wallOctree.addPointsFromInputCloud();
-
+    std::vector<pcl::Indices*> pointNeighbourhoods(cloud->points.size());
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
-    // compute avg radius of kNN for all points
-//    for (auto pointIt = cloud->points.begin(); pointIt != cloud->points.end(); pointIt++) {
+    // ********** knn and pca normal **********
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-
         pcl::Indices neighboursPointIdx(k);
         std::vector<float> neighboursSquaredDistance;
         if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
@@ -168,121 +93,93 @@ void DataStructure::adaSplats() {
             // find border index
             int lastNeighbour = findIndex(avgRadius, neighboursSquaredDistance);
             // do stuff
-//            pcl::Indices neighbours(neighboursPointIdx.begin(), neighboursPointIdx.begin()+lastNeighbour);
-            pcl::IndicesPtr neighbours2 = make_shared<pcl::Indices>(pcl::Indices(neighboursPointIdx.begin(),
-                                                                                 neighboursPointIdx.begin() +
-                                                                                 lastNeighbour));// = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+            auto neighbours = pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour);
+            pcl::IndicesPtr neighboursPtr = make_shared<pcl::Indices>(
+                    neighbours); //pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour));// = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
             // pca on the neighbours
             pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
             pca.setInputCloud(cloud);
-            pca.setIndices(neighbours2);
+            pca.setIndices(neighboursPtr);
             Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
             Eigen::Vector3f eigenValues = pca.getEigenValues();
             cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
             cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
             cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
 
+            auto bla = neighboursPtr.get()[0];
 
-            // ********** normal orientation **********
-            const auto& point = cloud->points[pointIdx];
-            auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
-            auto vertLen = abs(point.normal_y);
-            if (horLen < vertLen) {
-                // check if vertical normal is oriented up
-                if (point.normal_y < 0) {
-                    (*cloud)[pointIdx].normal_x *= -1;
-                    (*cloud)[pointIdx].normal_y *= -1;
-                    (*cloud)[pointIdx].normal_z *= -1;
+            pointNeighbourhoods.push_back(&neighbours);
+
+        }
+    }
+
+    // TODO ********** normal orientation **********
+
+
+    // TODO ********** compute epsilon **********
+
+
+    // ********** compute splats **********
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+
+        auto const& point = cloud->points[pointIdx];
+        auto const& neighbourhood = *pointNeighbourhoods[pointIdx];
+
+        (*cloud)[pointIdx].curvature = 0; // this is radius
+        float epsilonSum = 0;
+        int epsilonCount = 0;
+        int lastEpsilonNeighbourIdx = 0;
+        pcl::PointXYZ normal;
+        normal.x = point.normal_x;
+        normal.y = point.normal_y;
+        normal.z = point.normal_z;
+        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
+
+            if (!discardPoint[neighbourhood[nIdx]]) {
+                auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
+                epsilonSum += eps;
+                epsilonCount++;
+                lastEpsilonNeighbourIdx = nIdx;
+
+
+                if (abs(eps) > radiusErrorEpsilon) {
+                    // stop growing this neighbourhood
+                    // point nIdx does NOT belong to neighbourhood
+                    break;
                 }
-            } else {
-                // horizontal normal, check with walls
-                std::vector<int> wallIdxRadiusSearch;
-                std::vector<float> wallRadiusSquaredDistance;
-                if (wallOctree.radiusSearch(point, maxR, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
-
-                    pcl::PointXYZRGBNormal normalPoint;
-                    normalPoint.x = point.x + point.normal_x;
-                    normalPoint.y = point.y + point.normal_y;
-                    normalPoint.z = point.z + point.normal_z;
-
-                    for (auto wallIdx = 0; wallIdx < wallIdxRadiusSearch.size(); wallIdx++) {
-                        const auto& wall = walls[wallIdx];
-
-                        if (pointPlaneDistance(point, wall.mid) > wallThreshold) {
-                            continue;
-                        }
-                        if (point.x > wall.maxX || point.x < wall.minX || point.z > wall.maxZ || point.z < wall.minZ) {
-                            continue;
-                        }
-
-                        if (signedPointPlaneDistance(normalPoint, wall.mid) < 0) {
-                            (*cloud)[pointIdx].normal_x *= -1;
-                            (*cloud)[pointIdx].normal_y *= -1;
-                            (*cloud)[pointIdx].normal_z *= -1;
-                        }
-
-                    }
-                }
-            }
-            // ********** end normal orientation **********
-
-
-            // ********** compute radius **********
-            (*cloud)[pointIdx].curvature = 0; // this is radius
-            float epsilonSum = 0;
-            int epsilonCount = 0;
-            int lastEpsilonNeighbourIdx = 0;
-            pcl::PointXYZ normal;
-            normal.x = point.normal_x;
-            normal.y = point.normal_y;
-            normal.z = point.normal_z;
-            for (auto nIdx = 0; nIdx < neighbours2->size(); nIdx++) {
-
-                if (!discardPoint[neighboursPointIdx[nIdx]]) {
-                    auto eps = signedPointPlaneDistance(point, cloud->points[neighboursPointIdx[nIdx]], normal);
-                    epsilonSum += eps;
-                    epsilonCount++;
-                    lastEpsilonNeighbourIdx = nIdx;
-
-
-                    if (abs(eps) > radiusErrorEpsilon) {
-                        // stop growing this neighbourhood
-                        // point nIdx does NOT belong to neighbourhood
-                        break;
-                    }
-                }
-            }
-
-            // compute avg of the epsilons
-            float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx + 1);
-
-            // move splat point
-            (*cloud)[pointIdx].x += epsilonAvg * normal.x;
-            (*cloud)[pointIdx].y += epsilonAvg * normal.y;
-            (*cloud)[pointIdx].z += epsilonAvg * normal.z;
-
-
-            // compute splat radius
-            const auto& lastNeighbourPoint = cloud->points[neighboursPointIdx[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
-            auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
-            auto bla = dotProduct(normal, pointToNeighbourVec);
-            pcl::PointXYZ rightSide;
-            rightSide.x = bla * normal.x;
-            rightSide.y = bla * normal.y;
-            rightSide.z = bla * normal.z;
-            float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
-            (*cloud)[pointIdx].curvature = radius;
-
-            // TODO discard all neighbours in alpha * radius from splat generation
-            for (auto nIdx = 0; nIdx < neighbours2->size(); nIdx++) {
-
-                auto eps = signedPointPlaneDistance(point, cloud->points[neighboursPointIdx[nIdx]], normal);
-                if (eps < alpha * radius) {
-                    discardPoint[neighboursPointIdx[nIdx]] = false;
-                }
-
             }
         }
+
+        // compute avg of the epsilons
+        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx + 1);
+
+        // move splat point
+        (*cloud)[pointIdx].x += epsilonAvg * normal.x;
+        (*cloud)[pointIdx].y += epsilonAvg * normal.y;
+        (*cloud)[pointIdx].z += epsilonAvg * normal.z;
+
+
+        // compute splat radius
+        const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
+        auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
+        auto bla = dotProduct(normal, pointToNeighbourVec);
+        pcl::PointXYZ rightSide;
+        rightSide.x = bla * normal.x;
+        rightSide.y = bla * normal.y;
+        rightSide.z = bla * normal.z;
+        float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
+        (*cloud)[pointIdx].curvature = radius;
+
+        // TODO discard all neighbours in alpha * radius from splat generation
+        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
+
+            auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
+            if (eps < alpha * radius) {
+                discardPoint[neighbourhood[nIdx]] = false;
+            }
+
+        }
+
     }
 
     auto stop = std::chrono::high_resolution_clock::now();
