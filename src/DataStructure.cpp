@@ -8,9 +8,12 @@
 #include <chrono>
 #include <random>
 #include <set>
+#include <numeric>
+#include <algorithm>
 #include "util.h"
 #include "DataStructure.h"
 #include "UTM.h"
+#include <pcl/common/pca.h>
 
 using namespace std;
 
@@ -48,17 +51,160 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
         // get normals
         std::string normalFile = file;
-        normalFile.replace(normalFile.end() - 3, normalFile.end() - 1, "normal");
-        if (!lasIo.readNormalsFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
-//            robustNormalEstimation(startIdx, endIdx);
-            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
-            normalOrientation(startIdx, endIdx, treePtr);
-            lasIo.writeNormalsToCache(lasDir + normalFile, cloud, startIdx, endIdx); // TODO temporarily not used
-        }
+        normalFile.replace(normalFile.end() - 3, normalFile.end(), "features");
+        adaSplats();
+//        if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
+//            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
+//            normalOrientation(startIdx, endIdx, treePtr);
+//            lasIo.writeFeaturesToCache(lasDir + normalFile, cloud, startIdx, endIdx);
+//        }
 
         startIdx += pointCount;
     }
     std::cout << TAG << "loading data successful" << std::endl;
+}
+
+
+void DataStructure::adaSplats() {
+    auto start = std::chrono::high_resolution_clock::now();
+    std::cout << TAG << "start ada" << std::endl;
+
+    int k = 40;
+    float alpha = 0.2;
+    float wallThreshold = 1.0;
+    float radiusErrorEpsilon = 4; // TODO ich rate das hier jetzt erstmal,
+    std::vector<bool> discardPoint(cloud->points.size());
+    std::vector<pcl::Indices*> pointNeighbourhoods(cloud->points.size());
+
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    tree->setInputCloud(cloud);
+
+    // ********** knn and pca normal **********
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+        pcl::Indices neighboursPointIdx(k);
+        std::vector<float> neighboursSquaredDistance;
+        if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
+            3) { // need at least 3 points for pca
+
+            auto const count = static_cast<float>(neighboursSquaredDistance.size());
+            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) /
+                             count; // TODO ist der pro punkt oder einer für alle?
+            // define Npi as all points here from knn search but within avg radius?
+            // find border index
+            int lastNeighbour = findIndex(avgRadius, neighboursSquaredDistance);
+            // do stuff
+            auto neighbours = pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour);
+            pcl::IndicesPtr neighboursPtr = make_shared<pcl::Indices>(
+                    neighbours); //pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour));// = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+            // pca on the neighbours
+            pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
+            pca.setInputCloud(cloud);
+            pca.setIndices(neighboursPtr);
+            Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+            Eigen::Vector3f eigenValues = pca.getEigenValues();
+            cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
+            cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
+            cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
+
+            auto bla = neighboursPtr.get()[0];
+
+            pointNeighbourhoods.push_back(&neighbours);
+
+        }
+    }
+
+    // TODO ********** normal orientation **********
+
+
+    // TODO ********** compute epsilon **********
+
+
+    // ********** compute splats **********
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+
+        auto const& point = cloud->points[pointIdx];
+        auto const& neighbourhood = *pointNeighbourhoods[pointIdx];
+
+        (*cloud)[pointIdx].curvature = 0; // this is radius
+        float epsilonSum = 0;
+        int epsilonCount = 0;
+        int lastEpsilonNeighbourIdx = 0;
+        pcl::PointXYZ normal;
+        normal.x = point.normal_x;
+        normal.y = point.normal_y;
+        normal.z = point.normal_z;
+        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
+
+            if (!discardPoint[neighbourhood[nIdx]]) {
+                auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
+                epsilonSum += eps;
+                epsilonCount++;
+                lastEpsilonNeighbourIdx = nIdx;
+
+
+                if (abs(eps) > radiusErrorEpsilon) {
+                    // stop growing this neighbourhood
+                    // point nIdx does NOT belong to neighbourhood
+                    break;
+                }
+            }
+        }
+
+        // compute avg of the epsilons
+        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx + 1);
+
+        // move splat point
+        (*cloud)[pointIdx].x += epsilonAvg * normal.x;
+        (*cloud)[pointIdx].y += epsilonAvg * normal.y;
+        (*cloud)[pointIdx].z += epsilonAvg * normal.z;
+
+
+        // compute splat radius
+        const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
+        auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
+        auto bla = dotProduct(normal, pointToNeighbourVec);
+        pcl::PointXYZ rightSide;
+        rightSide.x = bla * normal.x;
+        rightSide.y = bla * normal.y;
+        rightSide.z = bla * normal.z;
+        float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
+        (*cloud)[pointIdx].curvature = radius;
+
+        // TODO discard all neighbours in alpha * radius from splat generation
+        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
+
+            auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
+            if (eps < alpha * radius) {
+                discardPoint[neighbourhood[nIdx]] = false;
+            }
+
+        }
+
+    }
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "finished ada in " << duration.count() << "s" << std::endl;
+
+    // TODO im datensatz de intensity der punkte ansehen ob ich darüber was filtern kann?= zB bäume raus
+
+
+
+    // splatting nach linsen et al [26]
+    // point cloud mit punkten pi, N ist anzahl der punkte
+    // R ist avg radius of points in knn of every point, k=40
+    // Npi ist smallest neighbourhood of pi zwischen knn und radius R.
+    // auf dieser nachbarschaft pca machen um normale zu bekommen, reorientieren (die machen mit lidar sensor posi)
+
+    // splats bauen: Si hat center normale und radius
+    // init center und normale von punkt pi und radius = 0
+    // radius erhöhen: nach und nach punkte (nach distanz aufsteigend) zu Npi hinzufügen bis signed point-to-plane distance von nächstem kandidat punkt > epsilon ist
+    // splat center anpassen: entlang der normale bewegen um avg signed point-to-plane distance der vewendeten nachbarn
+    // radius setzen auf projected distance zu dem letzten hinzugefügten nachbar punkt
+    // alle verwendeten punkte innerhalb von radius*alpha von splat generation ausschließen
+
+    // vor generation durchschnitt unsigned point-to-plane distance von punkten in allen Npi ausrechnen, das ist error bound
+    // dadurch bekommt man m splats die nen radius > 0 haben. m << N
 }
 
 
@@ -79,7 +225,7 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     ne.setSearchMethod(tree);
 
-    ne.setKSearch(13);
+    ne.setKSearch(16);
 
     // Compute the features
     ne.compute(*cloud);
@@ -88,389 +234,30 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "finished normal estimation in " << duration.count() << "s" << std::endl;
 
+
+    // compute radii
+    start = std::chrono::high_resolution_clock::now();
+    for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
+        const auto& bla = *it;
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        tree->radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+        auto const count = static_cast<float>(pointRadiusSquaredDistance.size());
+
+        auto diff = std::max((count - 7.0f), 0.0f);
+
+        auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end() - diff) /
+                   (count - diff);
+        (*it).curvature = avg;
+
+    }
+    stop = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    std::cout << TAG << "finished radius calculation in " << duration.count() << "s" << std::endl;
+
     return tree;
 }
 
-void DataStructure::robustNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
-    // TODO wenn das wieder benutzt wird die normalen beim einlesen wieder alle auf (-1, -1, -1) setzen
-    auto start = std::chrono::high_resolution_clock::now();
-    std::cout << TAG << "start octree" << std::endl;
-
-
-    // find consistent neighborhoods
-
-    // ****** OCTREE ******
-
-    // minimum scale threshold - specified by referring to the sampling density of P
-    // length of smallest voxel at lowest octree level
-    float resolution = 8.0f; // TODO find good value
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> octree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
-            resolution);
-
-    // assign bounding box to octree
-    octree.setInputCloud(cloud);
-    octree.defineBoundingBox();
-    // octree.defineBoundingBox(minX, minY, minZ, maxX, maxY, maxZ); // TODO get bounding box values, should be easy from las file data, for testing get while reading points from subset
-    octree.addPointsFromInputCloud();
-
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "finished octree in " << duration.count() << "s. " << "depth: " << octree.getTreeDepth()
-              << std::endl;
-    start = std::chrono::high_resolution_clock::now();
-    std::cout << TAG << "start normal calculation" << std::endl;
-
-
-    // ****** NORMAL ESTIMATION ******
-
-    vector<Neighborhood> consNeighborhoods;
-
-    int okay[10]{0};
-    int spur[10]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-
-    // depth first traversal
-    for (auto it = octree.breadth_begin(); it != octree.breadth_end(); it++) {
-
-        // get bounds for voxel
-        Eigen::Vector3f voxel_min, voxel_max;
-        octree.getVoxelBounds(it, voxel_min, voxel_max);
-
-        // calc voxel center from bounds
-        pcl::PointXYZRGBNormal voxel_center;
-        voxel_center.x = (voxel_max[0] + voxel_min[0]) / 2.0f;
-        voxel_center.y = (voxel_max[1] + voxel_min[1]) / 2.0f;
-        voxel_center.z = (voxel_max[2] + voxel_min[2]) / 2.0f;
-
-
-        // calc search radius r from bounds
-        float voxelSize = abs(voxel_max[0] - voxel_min[0]); // voxel is a cube
-        float r = sqrt(2.0) * (voxelSize / 2.0);
-
-        double minX, minY, minZ, maxX, maxY, maxZ;
-        octree.getBoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
-
-        // radius search
-        std::vector<int> pointIdxRadiusSearch;
-        std::vector<float> pointRadiusSquaredDistance;
-        if (octree.radiusSearch(voxel_center, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-            // algorithm 1
-            auto bla = *this;
-            Neighborhood neighborhood = DataStructure::algo1(r, pointIdxRadiusSearch, cloud,
-                                                             it.getCurrentOctreeDepth(), spur, okay);
-            if (!neighborhood.pointIdc.empty()) {
-                // found a consistent neighborhood, points have already been
-                consNeighborhoods.push_back(neighborhood);
-            }
-        }
-    }
-
-    int okaySum = 0, spurSum = 0;
-
-    for (auto i = 0; i <=
-                     octree.getTreeDepth(); i++) { // TODO treedepth = 5, aber okay und spur sind gefüllt bis index 5, der kommt oben von getCurrentOctreeDepth... also <=
-        std::cout << i << ": okay - " << okay[i] << ". spur - " << spur[i] << std::endl;
-        okaySum += okay[i];
-        spurSum += spur[i];
-    }
-    std::cout << ": okay - " << okaySum << ". spur - " << spurSum << std::endl;
-
-
-    stop = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "finished normal calculation in " << duration.count() << "s" << std::endl;
-
-
-
-
-    // ******  NORMAL OPTIMIZATION ******
-
-    float r = 1.0f; // TODO find good r
-
-    // build map pointIdc -> neighborhoodIdx?
-    std::map<int, int> pointNeighborhoodMap{};
-    for (auto i = 0; i < consNeighborhoods.size(); i++) {
-        for (auto pointIdx: consNeighborhoods[i].pointIdc) {
-            pointNeighborhoodMap[pointIdx] = i;
-        }
-    }
-    std::cout << TAG << "finished building map " << std::endl;
-
-
-    // remove non-planar points (ex trees) from cons neighborhoods (c.N.)
-
-    // for every c.N.:
-    // for every non-planar point in c.N. (sind aktuell insgesamt nur so 230 von 10k... kann ich mir dann vllt grad auch sparen die rauszulassen
-    // get r neighborhood (r.N.) from point
-    // check set of points from r.N. that are in the same c.N. and set of those who are not in the same c.N.
-    // if less of neighbouring points are inside c.N. than outside -> point is non-planar, remove from c.N.
-    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
-        std::cout << TAG << "remove points in " << cnIdx << std::endl;
-
-        int removeCount = 0;
-
-        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) { // TODO maybe filter only non-planar points
-
-
-            auto pointIdx = *pointIt;
-            const auto& point = (*cloud)[pointIdx];
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-                int insideCount = 0, outsideCount = 0;
-                for (auto npIdx: pointIdxRadiusSearch) {
-                    const auto& nPoint = (*cloud)[npIdx];
-                    if (pointNeighborhoodMap[npIdx] == cnIdx) {
-                        insideCount++;
-                    } else {
-                        outsideCount++;
-                    }
-                }
-
-
-                if (insideCount < outsideCount) {
-//                    std::cout << TAG << "remove point from " << cnIdx << std::endl;
-                    removeCount++;
-
-                    pointNeighborhoodMap.erase(pointIdx);
-                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
-                } else ++pointIt;
-            } else ++pointIt;
-        }
-        std::cout << TAG << "removed " << removeCount << " points from " << cnIdx << std::endl;
-    }
-    std::cout << TAG << "finished remove non planar points " << std::endl;
-
-
-    // move points to better fitting c.N.
-
-    // for every c.N.
-    // for every planar point in c.N. (glaube nach step 1 sind da nur noch planar points drin)
-    // get r neighborhood from point
-    // for all c.N.s that contain at least one point from r's neighborhood (including that from the outermost loop)
-    // check distance of point to plane of the neighborhood, find c.N. with the smallest distance
-    // if c.N. with smallest distance is not the curretn one, move point.
-    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
-        std::cout << TAG << "move points from " << cnIdx << std::endl;
-
-        int moveCount = 0;
-
-        auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-        while (pointIt != consNeighborhoods[cnIdx].pointIdc.end()) {
-
-            auto pointIdx = *pointIt;
-            const auto& point = (*cloud)[pointIdx];
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-            if (octree.radiusSearch(point, r, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-                // TODO bis hier ist alle same wie oben -> optimieren möglich? oben werden ja noch punkt verschoben
-                std::set<int> neighborhoodIdc = {};
-                // find all neighborhoods from neighbors
-                for (auto npIdx: pointIdxRadiusSearch) {
-                    neighborhoodIdc.insert(pointNeighborhoodMap[npIdx]);
-                }
-                // test if they are closer to point
-                double minDist = INFINITY;
-                int minDistIdx = -1;
-                for (auto neighborhoodIdx: neighborhoodIdc) {
-                    auto dist = pointPlaneDistance(point, consNeighborhoods[neighborhoodIdx].plane);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        minDistIdx = neighborhoodIdx;
-                    }
-                }
-                if (minDistIdx != cnIdx) {
-//                    std::cout << TAG << "move point from " << cnIdx << " to " << minDistIdx << std::endl;
-                    moveCount++;
-
-                    // move point
-                    pointNeighborhoodMap[pointIdx] = minDistIdx;
-
-                    pointIt = consNeighborhoods[cnIdx].pointIdc.erase(pointIt);
-                    consNeighborhoods[minDistIdx].pointIdc.push_back(pointIdx);
-                } else ++pointIt;
-            } else ++pointIt;
-        }
-        std::cout << TAG << "moved " << moveCount << " points from " << cnIdx << std::endl;
-    }
-    std::cout << TAG << "finished other thing " << std::endl;
-
-
-
-    // for each c.N.
-    // calculate normal (formula 3 with covariance matrix)
-    // TODO
-
-
-    // all remaining points with no c.N. get uniform normal
-    // TODO
-
-
-    // add colors
-    for (auto cnIdx = 0; cnIdx < consNeighborhoods.size(); cnIdx++) {
-        // color debug
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
-        for (auto pointIt = consNeighborhoods[cnIdx].pointIdc.begin();
-             pointIt != consNeighborhoods[cnIdx].pointIdc.end(); pointIt++) {
-            auto pointIdx = *pointIt;
-            (*cloud)[pointIdx].b = randB;
-            (*cloud)[pointIdx].g = randG;
-            (*cloud)[pointIdx].r = randR;
-        }
-    }
-    std::cout << TAG << "finished adding colors " << std::endl;
-
-
-}
-
-DataStructure::Neighborhood DataStructure::algo1(const float& r, const std::vector<int>& pointIdxRadiusSearch,
-                                                 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level,
-                                                 int (& spur)[10], int (& okay)[10]) {
-
-    // check if voxel/radius search is "empty"
-    if (pointIdxRadiusSearch.size() < 3) {
-        std::cout << "skipping empty voxel on level " << level << std::endl;
-        return {};
-    }
-
-    float thresholdDelta = 0.3f; // TODO find good threshold
-
-    Plane bestPlane;
-    long bestPlaneInSum = 0;
-    long bestPlaneOutSum = 0;
-    // find best plane
-    for (auto i = 0; i < 3 * r; i++) { // TODO wie viele random ebenen testen?? abhängig von voxel point count machen
-        long inSum = 0;
-        long outSum = 0;
-
-        std::vector<int> randSample;
-        size_t nelems = 3;
-        std::sample(
-                pointIdxRadiusSearch.begin(),
-                pointIdxRadiusSearch.end(),
-                std::back_inserter(randSample),
-                nelems,
-                std::mt19937{std::random_device{}()}
-        );
-
-
-        Plane currPlane = {(*cloud)[randSample[0]], (*cloud)[randSample[1]], (*cloud)[randSample[2]]};
-
-        for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
-            const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
-
-            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
-                continue;
-            }
-
-            if (pointPlaneDistance(point, currPlane) > thresholdDelta) {
-                outSum++;
-                // TODO bei der suche nach möglicher bester ebene: wenn ouside points > als bei aktuell bester direkt skip
-//                        if(outSum > bestPlaneOutSum)
-//                            break;
-            } else {
-                inSum++;
-            }
-        }
-
-        // TODO testen wie es ist zwei/drei best planes abzuchecken
-        // check if currPlane is bestPlane
-        if (inSum > bestPlaneInSum) {
-            std::memcpy(bestPlane, currPlane, sizeof(pcl::PointXYZRGBNormal[3]));
-            bestPlaneInSum = inSum;
-            bestPlaneOutSum = outSum;
-        }
-    }
-
-    Neighborhood neighborhood;
-    // is best plane "spurious"?
-    if (bestPlaneInSum > bestPlaneOutSum) {
-        // plane is not "spurious"
-        // found consistent neighborhood of voxelCenter
-        // voxelCenter is considered as a planar point
-        // TODO ist es wohl schneller die in points oben immer neu hinzuzufügen oder hier nochmal alle zu durchlaufen einmal?
-
-        std::memcpy(neighborhood.plane, bestPlane, sizeof(Plane));
-
-        // set normal, functions as unavailability detection too
-        auto vec1 = vectorSubtract(bestPlane[0], bestPlane[1]);
-        auto vec2 = vectorSubtract(bestPlane[0], bestPlane[2]);
-
-        auto planeNormal = normalize(crossProduct(vec1, vec2));
-
-//        // color debug
-//        int randR = rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (255 - 0 + 1) + 0;
-//        int randB = rand() % (255 - 0 + 1) + 0;
-
-//    switch (level) {
-//        case 0:
-//            randR = 255;
-//            randG = 0;
-//            randB = 0;
-//            break;
-//        case 1:
-//            randR = 0;
-//            randG = 255;
-//            randB = 0;
-//            break;
-//        case 2:
-//            randR = 0;
-//            randG = 0;
-//            randB = 255;
-//            break;
-//        case 3:
-//            randR = 255;
-//            randG = 255;
-//            randB = 0;
-//            break;
-//        case 4:
-//            randR = 0;
-//            randG = 255;
-//            randB = 255;
-//            break;
-//        case 5:
-//            randR = 255;
-//            randG = 0;
-//            randB = 255;
-//            break;
-//
-//    }
-
-//        std::cout << randR << " " << randG << " " << randB << std::endl;
-        for (std::size_t p = 0; p < pointIdxRadiusSearch.size(); ++p) {
-
-            const auto& point = (*cloud)[pointIdxRadiusSearch[p]];
-            if (point.normal_x != -1 || point.normal_y != -1 || point.normal_z != -1) { // normale wur
-                continue;
-            }
-            auto dist = pointPlaneDistance(point, bestPlane);
-            if (dist <= thresholdDelta) {
-                neighborhood.pointIdc.push_back(pointIdxRadiusSearch[p]);
-
-
-                (*cloud)[pointIdxRadiusSearch[p]].normal_x = planeNormal.x;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_y = planeNormal.y;
-                (*cloud)[pointIdxRadiusSearch[p]].normal_z = planeNormal.z;
-
-//                (*cloud)[pointIdxRadiusSearch[p]].b = randB;
-//                (*cloud)[pointIdxRadiusSearch[p]].g = randG;
-//                (*cloud)[pointIdxRadiusSearch[p]].r = randR;
-
-            }
-        }
-//        std::cout << "best plane okay on level " << level << std::endl;
-        okay[level]++;
-
-    } else {
-//        std::cout << "best plane is spurious on level " << level << std::endl;
-        spur[level]++;
-    }
-    return neighborhood;
-}
 
 // TODO später in util
 
@@ -503,7 +290,8 @@ pcl::PointXYZRGBNormal* DataStructure::getVertices() {
     return cloud->data();// vertices.data();
 }
 
-void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr) {
+void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx,
+                                      pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr) {
     // TODO use buildings to detect right normal orientation
     //  maybe also segmentation stuff?
     float thresholdDelta = 1.0f; // TODO find good value
@@ -523,7 +311,7 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
 //            const auto& wallPoint2 = building.points[pointIdx + 1];
 
             // if reached end of part/ring -> skip this "wall"
-            if (pointIdx + 1 == nextPartIndex){
+            if (pointIdx + 1 == nextPartIndex) {
                 partIdx++;
                 if (partIdx != building.parts.end()) {
                     nextPartIndex = *partIdx;
@@ -558,7 +346,7 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
             std::vector<float> pointRadiusSquaredDistance;
             treePtr->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
 
-            if(pointIdxRadiusSearch.size() != 0) {
+            if (pointIdxRadiusSearch.size() != 0) {
 
                 int randR = rand() % (255 - 0 + 1) + 0;
                 int randG = rand() % (255 - 0 + 1) + 0;
@@ -619,3 +407,33 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
         }
     }
 }
+
+/**
+ * returns index of first element greater then border
+ * returns lastIndex+1 if all elements are smaller
+ * @param border
+ * @param vector1
+ * @return
+ */
+int DataStructure::findIndex(float border, std::vector<float> vector1) {
+    auto begin = vector1.begin();
+    auto end = vector1.end();
+    auto mid = begin + (end - begin) / 2;
+    int index = (end - begin);
+    while (begin <= end) {
+
+        // check mid
+        mid = begin + (end - begin) / 2;
+        if (*mid < border) {
+            //search right side
+            begin = mid + 1;
+        } else {
+            // search left side
+            // mid element is current border candidate
+            index = mid - vector1.begin();
+            end = mid - 1;
+        }
+    }
+    return index;
+}
+

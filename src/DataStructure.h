@@ -11,6 +11,7 @@
 #include <pcl/impl/instantiate.hpp>  // defines the PCL_INSTANTIATE_PRODUCT macro
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
+#include <tuple>
 
 // pcl only instantiates most common use cases, I use PointXYZRGBNormal
 //PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)));
@@ -59,17 +60,47 @@ private:
         std::vector<int> pointIdc;
     };
 
+    struct Wall {
+        pcl::PointXYZRGBNormal mid;
+        float minX, maxX;
+        float minZ, maxZ;
+
+    };
+
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    std::vector<Wall> walls;
+
+
+    void adaSplats();
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
-
-    void robustNormalEstimation(const uint32_t &startIdx, const uint32_t &endIdx);
-    static Neighborhood algo1(const float &r, const std::vector<int> &pointIdxRadiusSearch, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, int level, int (&spur)[10], int (&okay)[10]);
 
     void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr);
 
     static float isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
         float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
         return d;
+    }
+
+    static float vectorLength(const pcl::PointXYZRGBNormal vector) {
+        return sqrt(pow(vector.x, 2) + pow(vector.y, 2) + pow(vector.z, 2));
+    }
+
+    static float vectorLength(const pcl::PointXYZ vector) {
+        return sqrt(pow(vector.x, 2) + pow(vector.y, 2) + pow(vector.z, 2));
+    }
+
+    static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return dotProduct(normal, (vectorSubtract(planePoint, point)));
+
+    }
+
+    static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
+
+        return dotProduct(normal, (vectorSubtract(neighbourPoint, point)));
+
     }
 
     static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
@@ -82,6 +113,19 @@ private:
         float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
 
         return dist;
+    }
+
+    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
+
+    }
+
+    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
+
+        return abs(dotProduct(normal, (vectorSubtract(neighbourPoint, point))));
+
     }
 
     static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
@@ -127,7 +171,18 @@ private:
         return result;
     }
 
+    static pcl::PointXYZ vectorSubtract(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
+        pcl::PointXYZ result;
+        result.x = (a.x - b.x);
+        result.y = (a.y - b.y);
+        result.z = (a.z - b.z);
+        return result;
+    }
+
     ShpDataIO::Point getUtmForWgs(ShpDataIO::Point wgsPoint);
+
+    int findIndex(float border, std::vector<float> vector1);
+
 };
 
 

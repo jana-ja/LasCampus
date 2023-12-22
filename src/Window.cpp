@@ -28,25 +28,30 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
     // point cloud
     // shader
-    Shader pcShader("../src/shader/SplatVertexShader.vs",
-                             "../src/shader/SplatFragmentShader.fs");
-    shaderSettings(pcShader);
+
+    Shader pointShader = Shader("../src/shader/PointCloudVertexShader.vs", "../src/shader/PointCloudFragmentShader.fs");
+    shaderSettings(pointShader);
     // colors / lighting
-    pcShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
-//    pcShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
-    pcShader.setVec3("light_dir", 0.0f, -75.0f, -50.0f); // SplatShader
-    float viewport[4];
-    glGetFloatv(GL_VIEWPORT, viewport);
-    float wv = viewport[2];
-    float hv = viewport[3];
-    float hn = 2.0 * Z_NEAR * tan(45.0*M_PI/360.0);
-    float wn = hn/hv*wv;
-    float size_const = 2.0 * Z_NEAR * hv / hn;
-    glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
-    glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
-//    pcShader.setFloat("size_const", size_const);
-    pcShader.setVec4("vp", vp);
-    pcShader.setVec3("zb", zb);
+    pointShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
+    pointShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
+
+    Shader splatShader = Shader("../src/shader/SplatVertexShader.vs", "../src/shader/SplatFragmentShader.fs");
+    shaderSettings(splatShader);
+        // colors / lighting
+        splatShader.setVec3("light_dir", -25.0f, -75.0f, -50.0f); // SplatShader
+        float viewport[4];
+        glGetFloatv(GL_VIEWPORT, viewport);
+        float wv = viewport[2];
+        float hv = viewport[3];
+        float hn = 2.0 * Z_NEAR * tan(45.0*M_PI/360.0);
+        float wn = hn/hv*wv;
+        float size_const = 2.0 * Z_NEAR * hv / hn;
+        glm::vec4  vp(wn/wv, hn/hv, -0.5*wn,  -0.5*hn);
+        glm::vec3  zb(Z_NEAR/(Z_NEAR-Z_FAR),	1.0/(Z_NEAR-Z_FAR), -Z_NEAR);
+        splatShader.setFloat("size_const", size_const);
+        splatShader.setVec4("vp", vp);
+        splatShader.setVec3("zb", zb);
+
 
     // data
     GLuint pcVBO, pcVAO;
@@ -90,12 +95,21 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        pcShader.use();
-        // transforms: camera - view space
-        glm::mat4 view = camera.GetViewMatrix();
-        pcShader.setMat4("view_matrix", view);
-        // update cameraPos in pcShader for dynamic point size
-        pcShader.setVec3("camera_pos", camera.position);
+
+        if(useSplatShader) {
+            splatShader.use();
+            // transforms: camera - view space
+            glm::mat4 view = camera.GetViewMatrix();
+            splatShader.setMat4("view_matrix", view);
+            splatShader.setBool("backface_culling", backfaceCulling);
+        } else {
+            pointShader.use();
+            // transforms: camera - view space
+            glm::mat4 view = camera.GetViewMatrix();
+            pointShader.setMat4("view_matrix", view);
+            // update cameraPos in pointShader for dynamic point size
+            pointShader.setVec3("camera_pos", camera.position);
+        }
 
 
         // draw point cloud
@@ -147,7 +161,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     glDeleteVertexArrays(1, &csVAO);
     glDeleteBuffers(1, &csVBO);
     glDeleteProgram(csShader.ID);
-    glDeleteProgram(pcShader.ID);
+    glDeleteProgram(pointShader.ID);
 
     // Terminate GLFW
     glfwTerminate();
@@ -163,6 +177,22 @@ void Window::processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_RELEASE && f1Pressed){
         f1Pressed = false;
         showInfo = !showInfo;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS)
+        f2Pressed = true;
+
+    if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_RELEASE && f2Pressed){
+        f2Pressed = false;
+        useSplatShader = !useSplatShader;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS)
+        f3Pressed = true;
+
+    if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_RELEASE && f3Pressed){
+        f3Pressed = false;
+        backfaceCulling = !backfaceCulling;
     }
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -262,7 +292,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.use();
     glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, Z_NEAR, Z_FAR);
     shader.setMat4("projection_matrix", projection);
-    shader.setFloat("point_size", POINT_SIZE);
+    shader.setFloat("point_size", POINT_SIZE); // TODO weg?
 }
 
 void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
@@ -289,6 +319,9 @@ void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCl
     // color attribute
     glVertexAttribPointer(2, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pcl::PointNormal), (void *) (8 * sizeof(float))); // durch GL_TRUE wird unsigned byte richtig erkannnt und zu float konvertiert
     glEnableVertexAttribArray(2);
+    // radius atribute
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal::curvature)));
+    glEnableVertexAttribArray(3);
 
 
     // OPTIONAL: unbind

@@ -1,23 +1,19 @@
 #version 330 core
 
-//uniform vec3 light_color;
-//uniform vec3 light_dir; // TODO schlecht ist nicht in view space
-
-uniform vec4 vp; // NEW whats dis - view point?
-uniform vec3 zb; // NEW whats dis -
-
+uniform vec4 vp;
+uniform vec3 zb;
 
 in vec3 v2f_color;
 in vec3 v2f_normal;
-in vec3 v2f_center; // bisschen NEW, vorher pos
-in float v2f_radius; // NEW
+in vec3 v2f_center;
+in float v2f_radius;
 in vec3 v2f_light_dir;
 
 out vec4 f_color;
 
 vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, const vec3 light_dir)
 {
-    const float  ambient   = 0.9; // 0.1
+    const float  ambient   = 0.1; // 0.1
     const float  diffuse   = 0.8;
     const float  specular  = 0.6;
     const float  shininess = 100.0;
@@ -27,7 +23,7 @@ vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, 
     vec3 L, R, N = normalize(v2f_normal);
     float NL, RV;
 
-    vec3 result = ambient * 0.1 * color; // 0.1 weg?
+    vec3 result = ambient *  color; // 0.1 weg?
 
     L = normalize(light_dir);
     NL = dot(N, -L);
@@ -48,7 +44,7 @@ vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, 
 void main()
 {
     // point on near plane
-    vec3 qn = vec3(gl_FragCoord.xy * vp.xy + vp.zw, zb.z);
+    vec3 qn = vec3(gl_FragCoord.xy * vp.xy + vp.zw, zb.z); // z = -z_near
 
     // point in eye space
     vec3 q = qn * (dot(v2f_center, v2f_normal) / dot(qn, v2f_normal));
@@ -57,7 +53,7 @@ void main()
     if (distance(q, v2f_center) > v2f_radius) discard;
 
     // lighting
-    f_color = vec4( 1.0,1.0,1.0,1.0);//phong_lighting(v2f_normal, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
+    f_color = vec4(phong_lighting(v2f_normal, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
 
     // depth correction
 	gl_FragDepth = zb.y * q.z + zb.x;
