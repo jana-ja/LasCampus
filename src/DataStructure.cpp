@@ -69,17 +69,17 @@ void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
-    int k = 40;
-    float alpha = 0.2;
-    float wallThreshold = 1.0;
-    float radiusErrorEpsilon = 4; // TODO ich rate das hier jetzt erstmal,
-    std::vector<bool> discardPoint(cloud->points.size());
-    std::vector<pcl::Indices*> pointNeighbourhoods(cloud->points.size());
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
-    // ********** knn and pca normal **********
+
+    int k = 40;
+    std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
+    std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
+
+    // ********** knn and compute avgRadius **********
+    float avgRadiusSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
         pcl::Indices neighboursPointIdx(k);
         std::vector<float> neighboursSquaredDistance;
@@ -87,43 +87,78 @@ void DataStructure::adaSplats() {
             3) { // need at least 3 points for pca
 
             auto const count = static_cast<float>(neighboursSquaredDistance.size());
-            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) /
-                             count; // TODO ist der pro punkt oder einer für alle?
+            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / count;
+            avgRadiusSumNeighbourhoods += avgRadius;
+
+            pointNeighbourhoods[pointIdx] = neighboursPointIdx;
+            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance; // TODO die distance is squared, ist das im paper auch????
+        } else {// TODO was mach ich bei else?? dann hab ich an dem index bei pointNeighbourhoods nichts gesetzt
+            pointNeighbourhoods[pointIdx] = pcl::Indices();
+            pointNeighbourhoodsDistance[pointIdx] = vector<float>();
+        }
+    }
+    float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / cloud->points.size();
+
+    // ********** pca normal **********
+    float uPtpDistSumNeighbourhoods = 0;
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+
+        if (pointNeighbourhoods[pointIdx].size() >= 3) { // need at least 3 points for pca
+
             // define Npi as all points here from knn search but within avg radius?
             // find border index
-            int lastNeighbour = findIndex(avgRadius, neighboursSquaredDistance);
+            int lastNeighbour = findIndex(avgRadiusNeighbourhoods, pointNeighbourhoodsDistance[pointIdx]);
             // do stuff
-            auto neighbours = pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour);
-            pcl::IndicesPtr neighboursPtr = make_shared<pcl::Indices>(
-                    neighbours); //pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour));// = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-            // pca on the neighbours
-            pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
-            pca.setInputCloud(cloud);
-            pca.setIndices(neighboursPtr);
-            Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-            Eigen::Vector3f eigenValues = pca.getEigenValues();
-            cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
-            cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
-            cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
+            auto neighbours = pcl::Indices(pointNeighbourhoods[pointIdx].begin(),
+                                           pointNeighbourhoods[pointIdx].begin() + lastNeighbour);
+            if (neighbours.size() >= 3) {
+                pcl::IndicesPtr neighboursPtr = make_shared<pcl::Indices>(
+                        neighbours); //pcl::Indices(neighboursPointIdx.begin(), neighboursPointIdx.begin() + lastNeighbour));// = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+                // pca on the neighbours
+                pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
+                pca.setInputCloud(cloud);
+                pca.setIndices(neighboursPtr);
+                Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                Eigen::Vector3f eigenValues = pca.getEigenValues();
+                cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
+                cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
+                cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
 
-            pointNeighbourhoods.push_back(&neighbours);
+                pointNeighbourhoods[pointIdx] = neighbours;
+                // TODO destroy pointNeighbourhoodsDistance here?
 
-            const auto& point = cloud->points[pointIdx];
-            auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
-            auto vertLen = abs(point.normal_y);
-            if (horLen < vertLen) {
-                // check if vertical normal is oriented up
-                if (point.normal_y < 0) {
-                    (*cloud)[pointIdx].normal_x *= -1;
-                    (*cloud)[pointIdx].normal_y *= -1;
-                    (*cloud)[pointIdx].normal_z *= -1;
+                // compute avg unsigned point to plane distance for splat grow epsilon
+                float uPtpDistSum = 0;
+                for (auto nPointIdx = 0; nPointIdx < neighbours.size(); nPointIdx++) {
+                    uPtpDistSum += pointPlaneDistance((*cloud)[nPointIdx], (*cloud)[pointIdx]);
                 }
+                float uPtpDistAvg = uPtpDistSum / neighbours.size();
+                uPtpDistSumNeighbourhoods += uPtpDistAvg;
+
+
+                const auto& point = cloud->points[pointIdx];
+                auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
+                auto vertLen = abs(point.normal_y);
+                if (horLen < vertLen) {
+                    // check if vertical normal is oriented up
+                    if (point.normal_y < 0) {
+                        (*cloud)[pointIdx].normal_x *= -1;
+                        (*cloud)[pointIdx].normal_y *= -1;
+                        (*cloud)[pointIdx].normal_z *= -1;
+                    }
+                }
+            } else {
+                // TODO what?
+                pointNeighbourhoods[pointIdx] = pcl::Indices();
             }
         }
     }
 
-    // TODO ********** normal orientation **********
-    float thresholdDelta = 1.0f; // TODO find good value
+    // ********** compute epsilon **********
+    float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
+
+    // ********** normal orientation **********
+    float wallThreshold = 1.0;
 
     for (auto building: buildings) {
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
@@ -183,7 +218,7 @@ void DataStructure::adaSplats() {
 
                     const auto& point = (*cloud)[*nIdxIt];
 
-                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
+                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > wallThreshold) {
                         continue;
                     }
                     if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) {
@@ -209,14 +244,18 @@ void DataStructure::adaSplats() {
         }
     }
 
-    // TODO ********** compute epsilon **********
+
 
 
     // ********** compute splats **********
+    float alpha = 0.2;
+    std::vector<bool> discardPoint(cloud->points.size());
+    fill(discardPoint.begin(), discardPoint.end(), false);
+
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
         auto const& point = cloud->points[pointIdx];
-        auto const& neighbourhood = *pointNeighbourhoods[pointIdx];
+        auto const& neighbourhood = pointNeighbourhoods[pointIdx];
 
         (*cloud)[pointIdx].curvature = 0; // this is radius
         float epsilonSum = 0;
@@ -226,6 +265,7 @@ void DataStructure::adaSplats() {
         normal.x = point.normal_x;
         normal.y = point.normal_y;
         normal.z = point.normal_z;
+
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
             if (!discardPoint[neighbourhood[nIdx]]) {
@@ -235,12 +275,21 @@ void DataStructure::adaSplats() {
                 lastEpsilonNeighbourIdx = nIdx;
 
 
-                if (abs(eps) > radiusErrorEpsilon) {
+                if (abs(eps) > splatGrowEpsilon) {
                     // stop growing this neighbourhood
                     // point nIdx does NOT belong to neighbourhood
                     break;
                 }
             }
+        }
+
+        if (epsilonSum == 0) {
+            // no valid neighbours (all have been discarded)
+            float radius = 0;
+            (*cloud)[pointIdx].curvature = radius;
+            continue;
+            // TODO regelmäßige streifen in der pointcoud bekommen keine farbe, werden also hier continued, warum?
+
         }
 
         // compute avg of the epsilons
@@ -268,10 +317,18 @@ void DataStructure::adaSplats() {
 
             auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
             if (eps < alpha * radius) {
-                discardPoint[neighbourhood[nIdx]] = false;
+                discardPoint[neighbourhood[nIdx]] = true;
             }
 
         }
+
+        // color debug
+        int randR = rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (255 - 0 + 1) + 0;
+        int randB = rand() % (255 - 0 + 1) + 0;
+        (*cloud)[pointIdx].r = randR;
+        (*cloud)[pointIdx].g = randG;
+        (*cloud)[pointIdx].b = randB;
 
     }
 
@@ -517,6 +574,10 @@ int DataStructure::findIndex(float border, std::vector<float> vector1) {
 
         // check mid
         mid = begin + (end - begin) / 2;
+        if (mid == vector1.end()) {
+            // all elements are smaller then border
+            return vector1.size();
+        }
         if (*mid < border) {
             //search right side
             begin = mid + 1;
