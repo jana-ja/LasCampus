@@ -296,10 +296,9 @@ void DataStructure::adaSplats() {
 
         if (epsilonSum == 0) {
             // no valid neighbours (all have been discarded)
-            float radius = 0;
-            (*cloud)[pointIdx].curvature = radius;
+//            float radius = 0;
+//            (*cloud)[pointIdx].curvature = radius;
             continue;
-            // TODO regelmäßige streifen in der pointcoud bekommen keine farbe, werden also hier continued, warum?
 
         }
 
@@ -323,12 +322,13 @@ void DataStructure::adaSplats() {
         float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
         (*cloud)[pointIdx].curvature = radius;
 
+        auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
         // TODO discard all neighbours in alpha * radius from splat generation
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
-            auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
-            if (eps < alpha * radius) {
-                discardPoint[neighbourhood[nIdx]] = true;
+            auto dist = neighbourhoodDistances[nIdx];
+            if (dist < alpha * radius) {
+                discardPoint[neighbourhood[nIdx]] = true; // TODO only the point itself gets discarded, is radius too small?
             }
 
         }
