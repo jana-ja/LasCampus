@@ -85,13 +85,17 @@ void DataStructure::adaSplats() {
         std::vector<float> neighboursSquaredDistance;
         if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
             3) { // need at least 3 points for pca
+            // i need not squared distance
+            for (auto& item: neighboursSquaredDistance){
+                item = sqrt(item);
+            }
 
             auto const count = static_cast<float>(neighboursSquaredDistance.size());
             auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / count;
             avgRadiusSumNeighbourhoods += avgRadius;
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
-            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance; // TODO die distance is squared, ist das im paper auch????
+            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
         } else {// TODO was mach ich bei else?? dann hab ich an dem index bei pointNeighbourhoods nichts gesetzt
             pointNeighbourhoods[pointIdx] = pcl::Indices();
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
