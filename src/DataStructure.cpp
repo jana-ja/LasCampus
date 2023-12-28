@@ -103,7 +103,7 @@ void DataStructure::adaSplats() {
     }
     float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / cloud->points.size();
 
-    // ********** pca normal **********
+    // ********** get neighbourhood with radius and pca normal **********
     float uPtpDistSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
@@ -134,7 +134,8 @@ void DataStructure::adaSplats() {
                 // compute avg unsigned point to plane distance for splat grow epsilon
                 float uPtpDistSum = 0;
                 for (auto nPointIdx = 0; nPointIdx < neighbours.size(); nPointIdx++) {
-                    uPtpDistSum += pointPlaneDistance((*cloud)[nPointIdx], (*cloud)[pointIdx]);
+                    auto ppd = pointPlaneDistance((*cloud)[neighbours[nPointIdx]], (*cloud)[pointIdx]);
+                    uPtpDistSum += ppd;
                 }
                 float uPtpDistAvg = uPtpDistSum / neighbours.size();
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
