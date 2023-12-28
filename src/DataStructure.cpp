@@ -155,7 +155,13 @@ void DataStructure::adaSplats() {
             } else {
                 // TODO what?
                 pointNeighbourhoods[pointIdx] = pcl::Indices();
+                // color debug
+                (*cloud)[pointIdx].r = 255;
+                (*cloud)[pointIdx].g = 255;
+                (*cloud)[pointIdx].b = 255;
             }
+        } else {
+            pointNeighbourhoods[pointIdx] = pcl::Indices();
         }
     }
 
