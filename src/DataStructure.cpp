@@ -155,10 +155,10 @@ void DataStructure::adaSplats() {
             } else {
                 // TODO what?
                 pointNeighbourhoods[pointIdx] = pcl::Indices();
-                // color debug
-                (*cloud)[pointIdx].r = 255;
-                (*cloud)[pointIdx].g = 255;
-                (*cloud)[pointIdx].b = 255;
+//                // color debug
+//                (*cloud)[pointIdx].r = 255;
+//                (*cloud)[pointIdx].g = 255;
+//                (*cloud)[pointIdx].b = 255;
             }
         } else {
             pointNeighbourhoods[pointIdx] = pcl::Indices();
@@ -329,17 +329,21 @@ void DataStructure::adaSplats() {
             auto dist = neighbourhoodDistances[nIdx];
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true; // TODO only the point itself gets discarded, is radius too small?
+                // color debug
+                (*cloud)[pointIdx].r = 255;
+                (*cloud)[pointIdx].g = 255;
+                (*cloud)[pointIdx].b = 255;
             }
 
         }
 
-        // color debug
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
-        (*cloud)[pointIdx].r = randR;
-        (*cloud)[pointIdx].g = randG;
-        (*cloud)[pointIdx].b = randB;
+//        // color debug
+//        int randR = rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (255 - 0 + 1) + 0;
+//        int randB = rand() % (255 - 0 + 1) + 0;
+//        (*cloud)[pointIdx].r = randR;
+//        (*cloud)[pointIdx].g = randG;
+//        (*cloud)[pointIdx].b = randB;
 
     }
 
