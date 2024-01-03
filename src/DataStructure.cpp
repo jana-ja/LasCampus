@@ -265,6 +265,10 @@ void DataStructure::adaSplats() {
 
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
+        if (discardPoint[pointIdx]) {
+            continue;
+        }
+
         auto const& point = cloud->points[pointIdx];
         auto const& neighbourhood = pointNeighbourhoods[pointIdx];
 
