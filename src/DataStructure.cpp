@@ -144,16 +144,6 @@ void DataStructure::adaSplats() {
                 float uPtpDistAvg = uPtpDistSum / (neighbours.size() - 1);
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
 
-                size_t n = bla2.size() / 2;
-                nth_element(bla2.begin(), bla2.begin() + n, bla2.end());
-                float nMedian = bla2[n];
-                // TODO nur 32k von 200k median größer
-                if (nMedian > uPtpDistAvg) {
-                    biggerCOunt++;
-                }
-//                uPtpDistVector[pointIdx] = nMedian;
-                uPtpDistVector[pointIdx] = uPtpDistAvg;
-
                 const auto& point = cloud->points[pointIdx];
                 auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
                 auto vertLen = abs(point.normal_y);
@@ -179,11 +169,7 @@ void DataStructure::adaSplats() {
     }
 
     // ********** compute epsilon **********
-    float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size(); // TODO testen ob median besser ist
-    size_t n = uPtpDistVector.size() / 2;
-    nth_element(uPtpDistVector.begin(), uPtpDistVector.begin() + n, uPtpDistVector.end());
-    float splatGrowEpsilonMedian = uPtpDistVector[n];
-    splatGrowEpsilon = splatGrowEpsilonMedian;
+    float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
