@@ -320,7 +320,7 @@ void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCl
     glVertexAttribPointer(2, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pcl::PointNormal), (void *) (8 * sizeof(float))); // durch GL_TRUE wird unsigned byte richtig erkannnt und zu float konvertiert
     glEnableVertexAttribArray(2);
     // radius atribute
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal::curvature)));
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, curvature)));
     glEnableVertexAttribArray(3);
 
 
