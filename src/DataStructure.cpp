@@ -277,7 +277,7 @@ void DataStructure::adaSplats() {
         normal.y = point.normal_y;
         normal.z = point.normal_z;
 
-        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
+        for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
             if (!discardPoint[neighbourhood[nIdx]]) {
                 auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
