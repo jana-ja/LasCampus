@@ -170,6 +170,7 @@ void DataStructure::adaSplats() {
 
     // ********** compute epsilon **********
     float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
+    splatGrowEpsilon *= 10; // TODO ist dieser radius am anfang vllt schon einfach zu klein und machent zu kleine neighbourhoods??
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
