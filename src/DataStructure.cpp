@@ -281,16 +281,15 @@ void DataStructure::adaSplats() {
 
             if (!discardPoint[neighbourhood[nIdx]]) {
                 auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
-                epsilonSum += eps;
-                epsilonCount++;
-                lastEpsilonNeighbourIdx = nIdx;
-
-
                 if (abs(eps) > splatGrowEpsilon) {
                     // stop growing this neighbourhood
                     // point nIdx does NOT belong to neighbourhood
                     break;
                 }
+
+                epsilonSum += eps;
+                epsilonCount++;
+                lastEpsilonNeighbourIdx = nIdx;
             }
         }
 
@@ -303,7 +302,7 @@ void DataStructure::adaSplats() {
         }
 
         // compute avg of the epsilons
-        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx + 1);
+        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx);
 
         // move splat point
         (*cloud)[pointIdx].x += epsilonAvg * normal.x;
