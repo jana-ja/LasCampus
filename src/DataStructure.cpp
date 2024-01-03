@@ -133,13 +133,26 @@ void DataStructure::adaSplats() {
 
                 // compute avg unsigned point to plane distance for splat grow epsilon
                 float uPtpDistSum = 0;
-                for (auto nPointIdx = 0; nPointIdx < neighbours.size(); nPointIdx++) {
+                // first neighbour is the point itself
+                auto bla2 = std::vector<float>(neighbours.size());
+                for (auto nPointIdx = 1; nPointIdx < neighbours.size(); nPointIdx++) {
                     auto ppd = pointPlaneDistance((*cloud)[neighbours[nPointIdx]], (*cloud)[pointIdx]);
                     uPtpDistSum += ppd;
+
+                    bla2[nPointIdx] = ppd;
                 }
-                float uPtpDistAvg = uPtpDistSum / neighbours.size();
+                float uPtpDistAvg = uPtpDistSum / (neighbours.size() - 1);
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
 
+                size_t n = bla2.size() / 2;
+                nth_element(bla2.begin(), bla2.begin() + n, bla2.end());
+                float nMedian = bla2[n];
+                // TODO nur 32k von 200k median größer
+                if (nMedian > uPtpDistAvg) {
+                    biggerCOunt++;
+                }
+//                uPtpDistVector[pointIdx] = nMedian;
+                uPtpDistVector[pointIdx] = uPtpDistAvg;
 
                 const auto& point = cloud->points[pointIdx];
                 auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
@@ -166,7 +179,11 @@ void DataStructure::adaSplats() {
     }
 
     // ********** compute epsilon **********
-    float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
+    float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size(); // TODO testen ob median besser ist
+    size_t n = uPtpDistVector.size() / 2;
+    nth_element(uPtpDistVector.begin(), uPtpDistVector.begin() + n, uPtpDistVector.end());
+    float splatGrowEpsilonMedian = uPtpDistVector[n];
+    splatGrowEpsilon = splatGrowEpsilonMedian;
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
@@ -259,7 +276,7 @@ void DataStructure::adaSplats() {
 
 
     // ********** compute splats **********
-    float alpha = 0.2;
+    float alpha = 0.2; // TODO die hatten 0.2
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
 
@@ -325,9 +342,9 @@ void DataStructure::adaSplats() {
 
         auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
         // TODO discard all neighbours in alpha * radius from splat generation
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
+//        int randR = rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (255 - 0 + 1) + 0;
+//        int randB = rand() % (255 - 0 + 1) + 0;
 
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
@@ -336,11 +353,11 @@ void DataStructure::adaSplats() {
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true; // TODO only the point itself gets discarded, is radius too small?
                 // color debug - discarded points
-                if (nIdx != 0) {
-                    (*cloud)[neighbourhood[nIdx]].r = randR;
-                    (*cloud)[neighbourhood[nIdx]].g = randG;
-                    (*cloud)[neighbourhood[nIdx]].b = randB;
-                }
+//                if (nIdx != 0) {
+//                    (*cloud)[neighbourhood[nIdx]].r = randR;
+//                    (*cloud)[neighbourhood[nIdx]].g = randG;
+//                    (*cloud)[neighbourhood[nIdx]].b = randB;
+//                }
             } else {
                 // dist values are ascending
                 break;
@@ -349,12 +366,12 @@ void DataStructure::adaSplats() {
         }
 
 //        // color debug - random color for every point
-//        int randR = rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (255 - 0 + 1) + 0;
-//        int randB = rand() % (255 - 0 + 1) + 0;
-//        (*cloud)[pointIdx].r = randR;
-//        (*cloud)[pointIdx].g = randG;
-//        (*cloud)[pointIdx].b = randB;
+        int randR = rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (255 - 0 + 1) + 0;
+        int randB = rand() % (255 - 0 + 1) + 0;
+        (*cloud)[pointIdx].r = randR;
+        (*cloud)[pointIdx].g = randG;
+        (*cloud)[pointIdx].b = randB;
 
     }
 
