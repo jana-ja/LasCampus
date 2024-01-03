@@ -155,7 +155,7 @@ void DataStructure::adaSplats() {
             } else {
                 // TODO what?
                 pointNeighbourhoods[pointIdx] = pcl::Indices();
-//                // color debug
+//                // color debug - less then 3 in neighbourhood
 //                (*cloud)[pointIdx].r = 255;
 //                (*cloud)[pointIdx].g = 255;
 //                (*cloud)[pointIdx].b = 255;
@@ -295,10 +295,7 @@ void DataStructure::adaSplats() {
 
         if (epsilonSum == 0) {
             // no valid neighbours (all have been discarded)
-//            float radius = 0;
-//            (*cloud)[pointIdx].curvature = radius;
             continue;
-
         }
 
         // compute avg of the epsilons
@@ -313,6 +310,7 @@ void DataStructure::adaSplats() {
         // compute splat radius
         const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
         auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
+        auto test = vectorLength(pointToNeighbourVec);
         auto bla = dotProduct(normal, pointToNeighbourVec);
         pcl::PointXYZ rightSide;
         rightSide.x = bla * normal.x;
@@ -323,20 +321,30 @@ void DataStructure::adaSplats() {
 
         auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
         // TODO discard all neighbours in alpha * radius from splat generation
+        int randR = rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (255 - 0 + 1) + 0;
+        int randB = rand() % (255 - 0 + 1) + 0;
+
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
             auto dist = neighbourhoodDistances[nIdx];
+            auto ble = alpha * radius;
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true; // TODO only the point itself gets discarded, is radius too small?
-                // color debug
-                (*cloud)[pointIdx].r = 255;
-                (*cloud)[pointIdx].g = 255;
-                (*cloud)[pointIdx].b = 255;
+                // color debug - discarded points
+                if (nIdx != 0) {
+                    (*cloud)[neighbourhood[nIdx]].r = randR;
+                    (*cloud)[neighbourhood[nIdx]].g = randG;
+                    (*cloud)[neighbourhood[nIdx]].b = randB;
+                }
+            } else {
+                // dist values are ascending
+                break;
             }
 
         }
 
-//        // color debug
+//        // color debug - random color for every point
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
