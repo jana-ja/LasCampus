@@ -185,6 +185,7 @@ private:
     int findIndex(float border, std::vector<float> vector1);
 
     float adaKnnAndAvgRadius(int k, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
+    float adaNeigbourhoods(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
 };
 
 
