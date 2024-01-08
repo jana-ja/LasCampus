@@ -157,7 +157,6 @@ void DataStructure::adaSplats() {
                     }
                 }
             } else {
-                // TODO what?
                 pointNeighbourhoods[pointIdx] = pcl::Indices();
 //                // color debug - less then 3 in neighbourhood
 //                (*cloud)[pointIdx].r = 255;
@@ -171,7 +170,6 @@ void DataStructure::adaSplats() {
 
     // ********** compute epsilon **********
     float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
-//    splatGrowEpsilon *= 20; // TODO ist dieser radius am anfang vllt schon einfach zu klein und machent zu kleine neighbourhoods??
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
@@ -214,8 +212,6 @@ void DataStructure::adaSplats() {
 
             Plane wallPlane = {wallPoint1, wallPoint2, mid};
 
-            // p2 = wp2.x wallHeight wp2.z
-            // p1 = mid
             float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
 
             std::vector<int> pointIdxRadiusSearch;
@@ -245,7 +241,7 @@ void DataStructure::adaSplats() {
                     normalPoint.x = point.x + point.normal_x;
                     normalPoint.y = point.y + point.normal_y;
                     normalPoint.z = point.z + point.normal_z;
-                    // TODO check if normal is waagerecht
+                    // check if normal is horizontal
                     auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
                     auto vertLen = point.normal_y;
                     if (horLen > vertLen) {
@@ -264,7 +260,7 @@ void DataStructure::adaSplats() {
 
 
     // ********** compute splats **********
-    float alpha = 0.2; // TODO die hatten 0.2
+    float alpha = 0.2;
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
 
@@ -329,7 +325,6 @@ void DataStructure::adaSplats() {
         (*cloud)[pointIdx].curvature = radius;
 
         auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
-        // TODO discard all neighbours in alpha * radius from splat generation
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
@@ -339,7 +334,7 @@ void DataStructure::adaSplats() {
             auto dist = neighbourhoodDistances[nIdx];
             auto ble = alpha * radius;
             if (dist < alpha * radius) {
-                discardPoint[neighbourhood[nIdx]] = true; // TODO only the point itself gets discarded, is radius too small?
+                discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
                 if (nIdx != 0) {
                     (*cloud)[neighbourhood[nIdx]].r = 255;
@@ -350,8 +345,6 @@ void DataStructure::adaSplats() {
                 // dist values are ascending
                 break;
             }
-// TODO radius von splats ist auch mit allen dingen auf groß gesetzt  so 1.8 1.7 meistens, iwas war über 2.
-// war das mit den normalen werten auch so? ist das legitim????
         }
 
         // TODO problem mit squared distances?
