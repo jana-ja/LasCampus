@@ -68,7 +68,7 @@ void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
-
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
     int k = 40;
@@ -76,7 +76,7 @@ void DataStructure::adaSplats() {
     std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
 
     // ********** knn and compute avgRadius **********
-    float avgRadiusNeighbourhoods = adaKnnAndAvgRadius(k, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    float avgRadiusNeighbourhoods = adaKnnAndAvgRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
 //    avgRadiusNeighbourhoods *= 3;
 
     // ********** get neighbourhood with radius and pca normal **********
@@ -84,7 +84,7 @@ void DataStructure::adaSplats() {
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
-    adaNormalOrientation(wallThreshold);
+    adaNormalOrientation(wallThreshold, tree);
 
     // ********** compute splats **********
     float alpha = 0.2;
@@ -100,7 +100,7 @@ void DataStructure::adaSplats() {
 }
 
 float
-DataStructure::adaKnnAndAvgRadius(int k, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance){
+DataStructure::adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance){
 
     // ********** knn and compute avgRadius **********
     float avgRadiusSumNeighbourhoods = 0;
@@ -196,7 +196,7 @@ DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::ve
     return uPtpDistSumNeighbourhoods / static_cast<float>(pointNeighbourhoods.size());
 }
 
-void DataStructure::adaNormalOrientation(float wallThreshold) {
+void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
 
     for (auto building: buildings) {
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
