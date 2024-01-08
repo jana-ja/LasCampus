@@ -74,13 +74,18 @@ void DataStructure::adaSplats() {
     int k = 40;
     std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
     std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
+    std::vector<int> pointClasses(cloud->points.size());
+    fill(pointClasses.begin(), pointClasses.end(), 2);
 
-    // ********** knn and compute avgRadius **********
-    float avgRadiusNeighbourhoods = adaKnnAndAvgRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    // ********** knn and compute avgRadius, get neighbourhood with radius and use pca for classification **********
+    float avgRadiusNeighbourhoods = adaKnnRadiusNeighbourhoodsClassification(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
+
+//     ********** knn and compute avgRadius **********
+//    float avgRadiusNeighbourhoods = adaKnnAndAvgRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
 //    avgRadiusNeighbourhoods *= 3;
 
-    // ********** get neighbourhood with radius and pca normal **********
-    float splatGrowEpsilon = adaNeigbourhoodsAndNormals(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    // ********** get new neighbourhood with new radius (classification) and pca normal **********
+    float splatGrowEpsilon = adaNeigbourhoodsAndNormals(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
@@ -88,7 +93,7 @@ void DataStructure::adaSplats() {
 
     // ********** compute splats **********
     float alpha = 0.2;
-    adaComputeSplats(alpha, splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    adaComputeSplats(alpha, splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
 
 
     auto stop = std::chrono::high_resolution_clock::now();
@@ -100,9 +105,9 @@ void DataStructure::adaSplats() {
 }
 
 float
-DataStructure::adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods,
-                                  std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
-
+DataStructure::adaKnnRadiusNeighbourhoodsClassification(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
+                                                        std::vector<pcl::Indices>& pointNeighbourhoods,
+                                                        std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
     // ********** knn and compute avgRadius **********
     float avgRadiusSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
@@ -110,10 +115,6 @@ DataStructure::adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNor
         auto neighboursSquaredDistance = std::vector<float>(k);
         if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
             3) { // need at least 3 points for pca
-            // i need not squared distance
-//            for (auto& item: neighboursSquaredDistance){
-//                item = sqrt(item);
-//            }
 
             auto const count = static_cast<float>(neighboursSquaredDistance.size());
             auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) /
@@ -127,13 +128,10 @@ DataStructure::adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNor
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
         }
     }
-    return avgRadiusSumNeighbourhoods / static_cast<float>(cloud->points.size());
-}
+    float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / static_cast<float>(cloud->points.size());
 
-float
-DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
-                                          std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
 
+    // build neighbourhoods and compute normals
     float uPtpDistSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
@@ -142,6 +140,124 @@ DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::ve
             // define Npi as all points here from knn search but within avg radius?
             // find border index
             int lastNeighbour = findIndex(avgRadiusNeighbourhoods, pointNeighbourhoodsDistance[pointIdx]);
+            // do stuff
+            auto neighbourhood = pcl::Indices(pointNeighbourhoods[pointIdx].begin(),
+                                              pointNeighbourhoods[pointIdx].begin() + lastNeighbour);
+            if (neighbourhood.size() >= 3) {
+                pcl::IndicesPtr neighboursPtr = make_shared<pcl::Indices>(neighbourhood);
+                // pca on the neighbourhood
+                pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
+                pca.setInputCloud(cloud);
+                pca.setIndices(neighboursPtr);
+                Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                Eigen::Vector3f eigenValues = pca.getEigenValues();
+                // TODO diese normale nehmen oder später nochmal pca?
+//                cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
+//                cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
+//                cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
+
+                // local descriptors
+                const auto& l1 = eigenValues(0);
+                const auto& l2 = eigenValues(1);
+                const auto& l3 = eigenValues(2);
+                float linearity = (l1 - l2) / l1;
+                float planarity = (l2 - l3) / l1;
+                float sphericity = l3 / l1;
+                std::array bla = {linearity, planarity, sphericity};
+                int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
+
+                // TODO use this for avgRadius too (but how?)
+                // TODO use this for splatGrowEpsilon
+                // TODO use this for k
+                switch (mainDings) {
+                    case 0:
+                        pointClasses[pointIdx] = 0;
+                        // linearity is main
+                        (*cloud)[pointIdx].r = 255;
+                        (*cloud)[pointIdx].g = 0;
+                        (*cloud)[pointIdx].b = 0;
+                        break;
+                    case 1:
+                        pointClasses[pointIdx] = 1;
+                        // planarity is main
+                        (*cloud)[pointIdx].r = 0;
+                        (*cloud)[pointIdx].g = 255;
+                        (*cloud)[pointIdx].b = 0;
+                        break;
+                    default:
+                        pointClasses[pointIdx] = 2;
+                        // sphericity is main
+                        (*cloud)[pointIdx].r = 0;
+                        (*cloud)[pointIdx].g = 0;
+                        (*cloud)[pointIdx].b = 255;
+                        break;
+                }
+
+
+            }
+        }
+    }
+    return avgRadiusNeighbourhoods;
+}
+
+//float
+//DataStructure::adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods,
+//                                  std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
+//
+//    // ********** knn and compute avgRadius **********
+//    float avgRadiusSumNeighbourhoods = 0;
+//    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+//        pcl::Indices neighboursPointIdx(k);
+//        auto neighboursSquaredDistance = std::vector<float>(k);
+//        if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
+//            3) { // need at least 3 points for pca
+//            // i need not squared distance
+////            for (auto& item: neighboursSquaredDistance){
+////                item = sqrt(item);
+////            }
+//
+//            auto const count = static_cast<float>(neighboursSquaredDistance.size());
+//            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) /
+//                             (count - 1); // count - 1, weil die erste distance immer 0 ist
+//            avgRadiusSumNeighbourhoods += avgRadius;
+//
+//            pointNeighbourhoods[pointIdx] = neighboursPointIdx;
+//            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
+//        } else {
+//            pointNeighbourhoods[pointIdx] = pcl::Indices();
+//            pointNeighbourhoodsDistance[pointIdx] = vector<float>();
+//        }
+//    }
+//    return avgRadiusSumNeighbourhoods / static_cast<float>(cloud->points.size());
+//}
+
+float
+DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
+                                          std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
+
+    float currentAvgRadius = avgRadiusNeighbourhoods;
+    float uPtpDistSumNeighbourhoods = 0;
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+
+
+
+        if (pointNeighbourhoods[pointIdx].size() >= 3) { // need at least 3 points for pca
+
+            switch (pointClasses[pointIdx]) {
+                case 0: // linearity is main
+                    currentAvgRadius = avgRadiusNeighbourhoods * 0.33;
+                    break;
+                case 1: // planarity is main
+                    currentAvgRadius = avgRadiusNeighbourhoods * 2;
+                    break;
+                default: // sphericity is main
+                    currentAvgRadius = avgRadiusNeighbourhoods * 0.25;
+                    break;
+            }
+
+            // define Npi as all points here from knn search but within avg radius?
+            // find border index
+            int lastNeighbour = findIndex(currentAvgRadius, pointNeighbourhoodsDistance[pointIdx]);
             // do stuff
             auto neighbours = pcl::Indices(pointNeighbourhoods[pointIdx].begin(),
                                            pointNeighbourhoods[pointIdx].begin() + lastNeighbour);
@@ -285,10 +401,12 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 
 void
 DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
-                                std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
+                                std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
+
+    float currentSplatGrowEpsilon = splatGrowEpsilon;
 
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
@@ -298,6 +416,18 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         if (discardPoint[pointIdx]) {
             continue;
+        }
+
+        switch (pointClasses[pointIdx]) {
+            case 0: // linearity is main
+                currentSplatGrowEpsilon = splatGrowEpsilon * 0.33;
+                break;
+            case 1: // planarity is main
+                currentSplatGrowEpsilon = splatGrowEpsilon * 2;
+                break;
+            default: // sphericity is main
+                currentSplatGrowEpsilon = splatGrowEpsilon * 0.25;
+                break;
         }
 
         auto const& point = cloud->points[pointIdx];
@@ -318,8 +448,13 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                 continue;
             }
 
+            // TODO stop growing when neighbour has different class
+            if(pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]){
+                break;
+            }
+
             auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
-            if (abs(eps) > splatGrowEpsilon) {
+            if (abs(eps) > currentSplatGrowEpsilon) {
                 // stop growing this neighbourhood
                 // point nIdx does NOT belong to neighbourhood
 //                    if (nIdx == 1){
@@ -381,11 +516,11 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
-                if (nIdx != 0) {
-                    (*cloud)[neighbourhood[nIdx]].r = 255;
-                    (*cloud)[neighbourhood[nIdx]].g = 255;
-                    cloud->points[neighbourhood[nIdx]].b = 0;
-                }
+//                if (nIdx != 0) {
+//                    (*cloud)[neighbourhood[nIdx]].r = 255;
+//                    (*cloud)[neighbourhood[nIdx]].g = 255;
+//                    cloud->points[neighbourhood[nIdx]].b = 0;
+//                }
             } else {
                 // dist values are ascending
                 break;
@@ -399,9 +534,9 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
-        (*cloud)[pointIdx].r = 0;
-        (*cloud)[pointIdx].g = 255;
-        (*cloud)[pointIdx].b = 255;
+//        (*cloud)[pointIdx].r = 0;
+//        (*cloud)[pointIdx].g = 255;
+//        (*cloud)[pointIdx].b = 255;
 
     }
 }
