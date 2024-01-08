@@ -69,12 +69,12 @@ void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
+
     tree->setInputCloud(cloud);
 
     int k = 40;
     std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
     std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
-
 
     // ********** knn and compute avgRadius **********
     float avgRadiusNeighbourhoods = adaKnnAndAvgRadius(k, pointNeighbourhoods, pointNeighbourhoodsDistance);
@@ -83,114 +83,14 @@ void DataStructure::adaSplats() {
     // ********** get neighbourhood with radius and pca normal **********
     float splatGrowEpsilon = adaNeigbourhoods(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance);
 
-
     // ********** normal orientation **********
     float wallThreshold = 1.0;
     adaNormalOrientation(wallThreshold);
 
-
-
-
     // ********** compute splats **********
     float alpha = 0.2;
-    std::vector<bool> discardPoint(cloud->points.size());
-    fill(discardPoint.begin(), discardPoint.end(), false);
+    adaComputeSplats(alpha, splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance);
 
-    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-
-        if (discardPoint[pointIdx]) {
-            continue;
-        }
-
-        auto const& point = cloud->points[pointIdx];
-        auto const& neighbourhood = pointNeighbourhoods[pointIdx];
-
-        (*cloud)[pointIdx].curvature = 0; // this is radius
-        float epsilonSum = 0;
-        int epsilonCount = 0;
-        int lastEpsilonNeighbourIdx = 0;
-        pcl::PointXYZ normal;
-        normal.x = point.normal_x;
-        normal.y = point.normal_y;
-        normal.z = point.normal_z;
-
-        for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
-
-            if (!discardPoint[neighbourhood[nIdx]]) {
-                auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
-                if (abs(eps) > splatGrowEpsilon) {
-                    // stop growing this neighbourhood
-                    // point nIdx does NOT belong to neighbourhood
-                    break;
-                }
-
-                epsilonSum += eps;
-                epsilonCount++;
-                lastEpsilonNeighbourIdx = nIdx;
-            }
-        }
-
-        if (epsilonSum == 0) {
-            // no valid neighbours (all have been discarded)
-            continue;
-        }
-
-        // compute avg of the epsilons
-        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx);
-
-        // move splat point
-        (*cloud)[pointIdx].x += epsilonAvg * normal.x;
-        (*cloud)[pointIdx].y += epsilonAvg * normal.y;
-        (*cloud)[pointIdx].z += epsilonAvg * normal.z;
-
-
-        // compute splat radius
-        const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
-        auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
-        auto test = vectorLength(pointToNeighbourVec);
-        auto bla = dotProduct(normal, pointToNeighbourVec);
-        pcl::PointXYZ rightSide;
-        rightSide.x = bla * normal.x;
-        rightSide.y = bla * normal.y;
-        rightSide.z = bla * normal.z;
-        float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
-        (*cloud)[pointIdx].curvature = radius;
-
-        auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
-//        int randR = rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (255 - 0 + 1) + 0;
-//        int randB = rand() % (255 - 0 + 1) + 0;
-
-        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
-
-            auto dist = neighbourhoodDistances[nIdx];
-            auto ble = alpha * radius;
-            if (dist < alpha * radius) {
-                discardPoint[neighbourhood[nIdx]] = true;
-                // color debug - discarded points
-                if (nIdx != 0) {
-                    (*cloud)[neighbourhood[nIdx]].r = 255;
-                    (*cloud)[neighbourhood[nIdx]].g = 255;
-                    cloud->points[neighbourhood[nIdx]].b = 0;
-                }
-            } else {
-                // dist values are ascending
-                break;
-            }
-        }
-
-        // TODO problem mit squared distances?
-        // TODO einen splat einzeln ansehen am pc radius undso ob 20 prozent
-
-////        // color debug - random color for every point
-//        int randR = rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (255 - 0 + 1) + 0;
-//        int randB = rand() % (255 - 0 + 1) + 0;
-        (*cloud)[pointIdx].r = 0;
-        (*cloud)[pointIdx].g = 255;
-        (*cloud)[pointIdx].b = 255;
-
-    }
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
@@ -198,23 +98,6 @@ void DataStructure::adaSplats() {
 
     // TODO im datensatz de intensity der punkte ansehen ob ich darüber was filtern kann?= zB bäume raus
 
-
-
-    // splatting nach linsen et al [26]
-    // point cloud mit punkten pi, N ist anzahl der punkte
-    // R ist avg radius of points in knn of every point, k=40
-    // Npi ist smallest neighbourhood of pi zwischen knn und radius R.
-    // auf dieser nachbarschaft pca machen um normale zu bekommen, reorientieren (die machen mit lidar sensor posi)
-
-    // splats bauen: Si hat center normale und radius
-    // init center und normale von punkt pi und radius = 0
-    // radius erhöhen: nach und nach punkte (nach distanz aufsteigend) zu Npi hinzufügen bis signed point-to-plane distance von nächstem kandidat punkt > epsilon ist
-    // splat center anpassen: entlang der normale bewegen um avg signed point-to-plane distance der vewendeten nachbarn
-    // radius setzen auf projected distance zu dem letzten hinzugefügten nachbar punkt
-    // alle verwendeten punkte innerhalb von radius*alpha von splat generation ausschließen
-
-    // vor generation durchschnitt unsigned point-to-plane distance von punkten in allen Npi ausrechnen, das ist error bound
-    // dadurch bekommt man m splats die nen radius > 0 haben. m << N
 }
 
 float
@@ -399,6 +282,107 @@ void DataStructure::adaNormalOrientation(float wallThreshold) {
                 }
             }
         }
+    }
+}
+
+void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
+    std::vector<bool> discardPoint(cloud->points.size());
+    fill(discardPoint.begin(), discardPoint.end(), false);
+
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+
+        if (discardPoint[pointIdx]) {
+            continue;
+        }
+
+        auto const& point = cloud->points[pointIdx];
+        auto const& neighbourhood = pointNeighbourhoods[pointIdx];
+
+        (*cloud)[pointIdx].curvature = 0; // this is radius
+        float epsilonSum = 0;
+        int epsilonCount = 0;
+        int lastEpsilonNeighbourIdx = 0;
+        pcl::PointXYZ normal;
+        normal.x = point.normal_x;
+        normal.y = point.normal_y;
+        normal.z = point.normal_z;
+
+        for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
+
+            if (!discardPoint[neighbourhood[nIdx]]) {
+                auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
+                if (abs(eps) > splatGrowEpsilon) {
+                    // stop growing this neighbourhood
+                    // point nIdx does NOT belong to neighbourhood
+                    break;
+                }
+
+                epsilonSum += eps;
+                epsilonCount++;
+                lastEpsilonNeighbourIdx = nIdx;
+            }
+        }
+
+        if (epsilonSum == 0) {
+            // no valid neighbours (all have been discarded)
+            continue;
+        }
+
+        // compute avg of the epsilons
+        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx);
+
+        // move splat point
+        (*cloud)[pointIdx].x += epsilonAvg * normal.x;
+        (*cloud)[pointIdx].y += epsilonAvg * normal.y;
+        (*cloud)[pointIdx].z += epsilonAvg * normal.z;
+
+
+        // compute splat radius
+        const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
+        auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
+        auto test = vectorLength(pointToNeighbourVec);
+        auto bla = dotProduct(normal, pointToNeighbourVec);
+        pcl::PointXYZ rightSide;
+        rightSide.x = bla * normal.x;
+        rightSide.y = bla * normal.y;
+        rightSide.z = bla * normal.z;
+        float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
+        (*cloud)[pointIdx].curvature = radius;
+
+        auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
+//        int randR = rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (255 - 0 + 1) + 0;
+//        int randB = rand() % (255 - 0 + 1) + 0;
+
+        for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
+
+            auto dist = neighbourhoodDistances[nIdx];
+            auto ble = alpha * radius;
+            if (dist < alpha * radius) {
+                discardPoint[neighbourhood[nIdx]] = true;
+                // color debug - discarded points
+                if (nIdx != 0) {
+                    (*cloud)[neighbourhood[nIdx]].r = 255;
+                    (*cloud)[neighbourhood[nIdx]].g = 255;
+                    cloud->points[neighbourhood[nIdx]].b = 0;
+                }
+            } else {
+                // dist values are ascending
+                break;
+            }
+        }
+
+        // TODO problem mit squared distances?
+        // TODO einen splat einzeln ansehen am pc radius undso ob 20 prozent
+
+////        // color debug - random color for every point
+//        int randR = rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (255 - 0 + 1) + 0;
+//        int randB = rand() % (255 - 0 + 1) + 0;
+        (*cloud)[pointIdx].r = 0;
+        (*cloud)[pointIdx].g = 255;
+        (*cloud)[pointIdx].b = 255;
+
     }
 }
 
@@ -635,6 +619,3 @@ int DataStructure::findIndex(float border, std::vector<float> vector1) {
     }
     return index;
 }
-
-
-
