@@ -82,13 +82,13 @@ void DataStructure::adaSplats() {
     float avgRadiusSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
         pcl::Indices neighboursPointIdx(k);
-        std::vector<float> neighboursSquaredDistance;
+        auto neighboursSquaredDistance = std::vector<float>(k);
         if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
             3) { // need at least 3 points for pca
             // i need not squared distance
-            for (auto& item: neighboursSquaredDistance){
-                item = sqrt(item);
-            }
+//            for (auto& item: neighboursSquaredDistance){
+//                item = sqrt(item);
+//            }
 
             auto const count = static_cast<float>(neighboursSquaredDistance.size());
             auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / (count - 1); // count - 1, weil die erste distance immer 0 ist
@@ -96,7 +96,7 @@ void DataStructure::adaSplats() {
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
             pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
-        } else {// TODO was mach ich bei else?? dann hab ich an dem index bei pointNeighbourhoods nichts gesetzt
+        } else {
             pointNeighbourhoods[pointIdx] = pcl::Indices();
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
         }
