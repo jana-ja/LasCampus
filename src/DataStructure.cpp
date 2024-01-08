@@ -282,6 +282,9 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 }
 
 void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
+    // TODO problem: some discarded points become splats,
+    //  some points dont have valid neighbourhoods that should have one (check)
+
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
 
@@ -310,6 +313,11 @@ void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::v
                 if (abs(eps) > splatGrowEpsilon) {
                     // stop growing this neighbourhood
                     // point nIdx does NOT belong to neighbourhood
+//                    if (nIdx == 1){
+//                        (*cloud)[pointIdx].r = 0;
+//                        (*cloud)[pointIdx].g = 255;
+//                        (*cloud)[pointIdx].b = 0;
+//                    }
                     break;
                 }
 
@@ -319,11 +327,13 @@ void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::v
             }
         }
 
-        if (epsilonSum == 0) {
-            // no valid neighbours (all have been discarded)
-            (*cloud)[pointIdx].r = 0;
-            (*cloud)[pointIdx].g = 255;
-            (*cloud)[pointIdx].b = 0;
+        if (epsilonCount == 0) {
+            // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
+//            if((*cloud)[pointIdx].g != 255) {
+//                (*cloud)[pointIdx].r = 255;
+//                (*cloud)[pointIdx].g = 0;
+//                (*cloud)[pointIdx].b = 0;
+//            }
             continue;
         }
 
