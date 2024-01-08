@@ -86,88 +86,7 @@ void DataStructure::adaSplats() {
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
-
-    for (auto building: buildings) {
-        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
-        auto partIdx = building.parts.begin();
-        uint32_t nextPartIndex = *partIdx;
-        partIdx++;
-        if (partIdx != building.parts.end()) {
-            nextPartIndex = *partIdx;
-        }
-        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
-
-            // if reached end of part/ring -> skip this "wall"
-            if (pointIdx + 1 == nextPartIndex) {
-                partIdx++;
-                if (partIdx != building.parts.end()) {
-                    nextPartIndex = *partIdx;
-                }
-                continue;
-            }
-
-            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
-            float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
-            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
-            wallPoint1.x = building.points[pointIdx].x;
-            wallPoint1.y = ground + wallHeight;
-            wallPoint1.z = building.points[pointIdx].z;
-            wallPoint2.x = building.points[pointIdx + 1].x;
-            wallPoint2.y = ground + wallHeight;
-            wallPoint2.z = building.points[pointIdx + 1].z;
-
-            // detect (and color) alle points on this wall
-            pcl::PointXYZRGBNormal mid;
-            mid.x = (wallPoint1.x + wallPoint2.x) / 2;
-            mid.y = (ground + wallHeight) / 2;
-            mid.z = (wallPoint1.z + wallPoint2.z) / 2;
-
-
-            Plane wallPlane = {wallPoint1, wallPoint2, mid};
-
-            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
-
-            std::vector<int> pointIdxRadiusSearch;
-            std::vector<float> pointRadiusSquaredDistance;
-            tree->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
-
-            if (pointIdxRadiusSearch.size() != 0) {
-
-                auto minX = min(wallPoint1.x, wallPoint2.x);
-                auto maxX = max(wallPoint1.x, wallPoint2.x);
-                auto minZ = min(wallPoint1.z, wallPoint2.z);
-                auto maxZ = max(wallPoint1.z, wallPoint2.z);
-
-                for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
-                    // TODO implement direct calculation test if point lies inside wall rectangle
-
-                    const auto& point = (*cloud)[*nIdxIt];
-
-                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > wallThreshold) {
-                        continue;
-                    }
-                    if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) {
-                        continue;
-                    }
-
-                    pcl::PointXYZRGBNormal normalPoint;
-                    normalPoint.x = point.x + point.normal_x;
-                    normalPoint.y = point.y + point.normal_y;
-                    normalPoint.z = point.z + point.normal_z;
-                    // check if normal is horizontal
-                    auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
-                    auto vertLen = point.normal_y;
-                    if (horLen > vertLen) {
-                        if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) {
-                            (*cloud)[*nIdxIt].normal_x *= -1;
-                            (*cloud)[*nIdxIt].normal_y *= -1;
-                            (*cloud)[*nIdxIt].normal_z *= -1;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    adaNormalOrientation(wallThreshold);
 
 
 
@@ -397,6 +316,92 @@ DataStructure::adaNeigbourhoods(float avgRadiusNeighbourhoods, std::vector<pcl::
     // ********** compute epsilon **********
     return uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
 }
+
+void DataStructure::adaNormalOrientation(float wallThreshold) {
+
+    for (auto building: buildings) {
+        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        auto partIdx = building.parts.begin();
+        uint32_t nextPartIndex = *partIdx;
+        partIdx++;
+        if (partIdx != building.parts.end()) {
+            nextPartIndex = *partIdx;
+        }
+        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
+
+            // if reached end of part/ring -> skip this "wall"
+            if (pointIdx + 1 == nextPartIndex) {
+                partIdx++;
+                if (partIdx != building.parts.end()) {
+                    nextPartIndex = *partIdx;
+                }
+                continue;
+            }
+
+            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+            float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
+            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
+            wallPoint1.x = building.points[pointIdx].x;
+            wallPoint1.y = ground + wallHeight;
+            wallPoint1.z = building.points[pointIdx].z;
+            wallPoint2.x = building.points[pointIdx + 1].x;
+            wallPoint2.y = ground + wallHeight;
+            wallPoint2.z = building.points[pointIdx + 1].z;
+
+            // detect (and color) alle points on this wall
+            pcl::PointXYZRGBNormal mid;
+            mid.x = (wallPoint1.x + wallPoint2.x) / 2;
+            mid.y = (ground + wallHeight) / 2;
+            mid.z = (wallPoint1.z + wallPoint2.z) / 2;
+
+
+            Plane wallPlane = {wallPoint1, wallPoint2, mid};
+
+            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
+
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            tree->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+
+            if (pointIdxRadiusSearch.size() != 0) {
+
+                auto minX = min(wallPoint1.x, wallPoint2.x);
+                auto maxX = max(wallPoint1.x, wallPoint2.x);
+                auto minZ = min(wallPoint1.z, wallPoint2.z);
+                auto maxZ = max(wallPoint1.z, wallPoint2.z);
+
+                for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+                    // TODO implement direct calculation test if point lies inside wall rectangle
+
+                    const auto& point = (*cloud)[*nIdxIt];
+
+                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > wallThreshold) {
+                        continue;
+                    }
+                    if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) {
+                        continue;
+                    }
+
+                    pcl::PointXYZRGBNormal normalPoint;
+                    normalPoint.x = point.x + point.normal_x;
+                    normalPoint.y = point.y + point.normal_y;
+                    normalPoint.z = point.z + point.normal_z;
+                    // check if normal is horizontal
+                    auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
+                    auto vertLen = point.normal_y;
+                    if (horLen > vertLen) {
+                        if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) {
+                            (*cloud)[*nIdxIt].normal_x *= -1;
+                            (*cloud)[*nIdxIt].normal_y *= -1;
+                            (*cloud)[*nIdxIt].normal_z *= -1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr
 DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices

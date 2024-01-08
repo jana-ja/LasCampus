@@ -186,6 +186,8 @@ private:
 
     float adaKnnAndAvgRadius(int k, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
     float adaNeigbourhoods(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
+    void adaNormalOrientation(float wallThreshold);
+    void adaComputeSplats(float wallThreshold);
 };
 
 
