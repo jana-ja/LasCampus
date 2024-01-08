@@ -69,39 +69,15 @@ void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
-
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
-
 
     int k = 40;
     std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
     std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
 
+
     // ********** knn and compute avgRadius **********
-    float avgRadiusSumNeighbourhoods = 0;
-    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-        pcl::Indices neighboursPointIdx(k);
-        auto neighboursSquaredDistance = std::vector<float>(k);
-        if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
-            3) { // need at least 3 points for pca
-            // i need not squared distance
-//            for (auto& item: neighboursSquaredDistance){
-//                item = sqrt(item);
-//            }
-
-            auto const count = static_cast<float>(neighboursSquaredDistance.size());
-            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / (count - 1); // count - 1, weil die erste distance immer 0 ist
-            avgRadiusSumNeighbourhoods += avgRadius;
-
-            pointNeighbourhoods[pointIdx] = neighboursPointIdx;
-            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
-        } else {
-            pointNeighbourhoods[pointIdx] = pcl::Indices();
-            pointNeighbourhoodsDistance[pointIdx] = vector<float>();
-        }
-    }
-    float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / cloud->points.size();
+    float avgRadiusNeighbourhoods = adaKnnAndAvgRadius(k, pointNeighbourhoods, pointNeighbourhoodsDistance);
 //    avgRadiusNeighbourhoods *= 3;
 
     // ********** get neighbourhood with radius and pca normal **********
@@ -385,6 +361,36 @@ void DataStructure::adaSplats() {
     // dadurch bekommt man m splats die nen radius > 0 haben. m << N
 }
 
+float
+DataStructure::adaKnnAndAvgRadius(int k, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance){
+
+    // ********** knn and compute avgRadius **********
+    float avgRadiusSumNeighbourhoods = 0;
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+        pcl::Indices neighboursPointIdx(k);
+        auto neighboursSquaredDistance = std::vector<float>(k);
+        if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
+            3) { // need at least 3 points for pca
+            // i need not squared distance
+//            for (auto& item: neighboursSquaredDistance){
+//                item = sqrt(item);
+//            }
+
+            auto const count = static_cast<float>(neighboursSquaredDistance.size());
+            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / (count - 1); // count - 1, weil die erste distance immer 0 ist
+            avgRadiusSumNeighbourhoods += avgRadius;
+
+            pointNeighbourhoods[pointIdx] = neighboursPointIdx;
+            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
+        } else {
+            pointNeighbourhoods[pointIdx] = pcl::Indices();
+            pointNeighbourhoodsDistance[pointIdx] = vector<float>();
+        }
+    }
+    float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / cloud->points.size();
+    return avgRadiusSumNeighbourhoods;
+}
+
 
 pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr
 DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
@@ -618,4 +624,6 @@ int DataStructure::findIndex(float border, std::vector<float> vector1) {
     }
     return index;
 }
+
+
 
