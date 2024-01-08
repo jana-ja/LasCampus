@@ -341,11 +341,11 @@ void DataStructure::adaSplats() {
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true; // TODO only the point itself gets discarded, is radius too small?
                 // color debug - discarded points
-//                if (nIdx != 0) {
-//                    (*cloud)[neighbourhood[nIdx]].r = randR;
-//                    (*cloud)[neighbourhood[nIdx]].g = randG;
-//                    (*cloud)[neighbourhood[nIdx]].b = randB;
-//                }
+                if (nIdx != 0) {
+                    (*cloud)[neighbourhood[nIdx]].r = 255;
+                    (*cloud)[neighbourhood[nIdx]].g = 255;
+                    cloud->points[neighbourhood[nIdx]].b = 0;
+                }
             } else {
                 // dist values are ascending
                 break;
@@ -354,13 +354,16 @@ void DataStructure::adaSplats() {
 // war das mit den normalen werten auch so? ist das legitim????
         }
 
-//        // color debug - random color for every point
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
-        (*cloud)[pointIdx].r = randR;
-        (*cloud)[pointIdx].g = randG;
-        (*cloud)[pointIdx].b = randB;
+        // TODO problem mit squared distances?
+        // TODO einen splat einzeln ansehen am pc radius undso ob 20 prozent
+
+////        // color debug - random color for every point
+//        int randR = rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (255 - 0 + 1) + 0;
+//        int randB = rand() % (255 - 0 + 1) + 0;
+        (*cloud)[pointIdx].r = 0;
+        (*cloud)[pointIdx].g = 255;
+        (*cloud)[pointIdx].b = 255;
 
     }
 
