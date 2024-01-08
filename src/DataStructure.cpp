@@ -102,6 +102,7 @@ void DataStructure::adaSplats() {
         }
     }
     float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / cloud->points.size();
+//    avgRadiusNeighbourhoods *= 3;
 
     // ********** get neighbourhood with radius and pca normal **********
     float uPtpDistSumNeighbourhoods = 0;
@@ -170,7 +171,7 @@ void DataStructure::adaSplats() {
 
     // ********** compute epsilon **********
     float splatGrowEpsilon = uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
-    splatGrowEpsilon *= 10; // TODO ist dieser radius am anfang vllt schon einfach zu klein und machent zu kleine neighbourhoods??
+//    splatGrowEpsilon *= 20; // TODO ist dieser radius am anfang vllt schon einfach zu klein und machent zu kleine neighbourhoods??
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
@@ -349,7 +350,8 @@ void DataStructure::adaSplats() {
                 // dist values are ascending
                 break;
             }
-
+// TODO radius von splats ist auch mit allen dingen auf groß gesetzt  so 1.8 1.7 meistens, iwas war über 2.
+// war das mit den normalen werten auch so? ist das legitim????
         }
 
 //        // color debug - random color for every point
