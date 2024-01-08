@@ -99,13 +99,6 @@ void DataStructure::adaSplats() {
 
     // TODO im datensatz de intensity der punkte ansehen ob ich darüber was filtern kann?= zB bäume raus
 
-    for (int pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-        const auto& point = (*cloud)[pointIdx];
-        if(point.curvature != 0 && (*cloud)[pointIdx].r == 255){
-            int k = 3;
-        } // 7, 18, 20
-    }
-
 }
 
 float
@@ -298,8 +291,6 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 void
 DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
-    // TODO problem: some discarded points become splats (check),
-    //  some points dont have valid neighbourhoods that should have one (check)
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
