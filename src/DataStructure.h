@@ -34,9 +34,9 @@ public:
 //
 //    Vertex getWGSForOpenGL(Vertex* vertex);
 
-    float xOffset;
-    float yOffset;
-    float zOffset;
+    float xOffset{};
+    float yOffset{};
+    float zOffset{};
 
 private:
 

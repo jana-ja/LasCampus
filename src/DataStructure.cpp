@@ -9,7 +9,6 @@
 #include <random>
 #include <set>
 #include <numeric>
-#include <algorithm>
 #include "util.h"
 #include "DataStructure.h"
 #include "UTM.h"
@@ -126,7 +125,7 @@ DataStructure::adaKnnAndAvgRadius(int k, std::vector<pcl::Indices>& pointNeighbo
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
         }
     }
-    return avgRadiusSumNeighbourhoods / cloud->points.size();
+    return avgRadiusSumNeighbourhoods / static_cast<float>(cloud->points.size());
 }
 
 float
@@ -168,7 +167,7 @@ DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::ve
 
                     bla2[nPointIdx] = ppd;
                 }
-                float uPtpDistAvg = uPtpDistSum / (neighbours.size() - 1);
+                float uPtpDistAvg = uPtpDistSum / static_cast<float>(neighbours.size() - 1);
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
 
                 const auto& point = cloud->points[pointIdx];
@@ -194,7 +193,7 @@ DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::ve
         }
     }
     // ********** compute epsilon **********
-    return uPtpDistSumNeighbourhoods / pointNeighbourhoods.size();
+    return uPtpDistSumNeighbourhoods / static_cast<float>(pointNeighbourhoods.size());
 }
 
 void DataStructure::adaNormalOrientation(float wallThreshold) {
@@ -221,12 +220,12 @@ void DataStructure::adaNormalOrientation(float wallThreshold) {
             float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
             float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
             pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
-            wallPoint1.x = building.points[pointIdx].x;
+            wallPoint1.x = static_cast<float>(building.points[pointIdx].x);
             wallPoint1.y = ground + wallHeight;
-            wallPoint1.z = building.points[pointIdx].z;
-            wallPoint2.x = building.points[pointIdx + 1].x;
+            wallPoint1.z = static_cast<float>(building.points[pointIdx].z);
+            wallPoint2.x = static_cast<float>(building.points[pointIdx + 1].x);
             wallPoint2.y = ground + wallHeight;
-            wallPoint2.z = building.points[pointIdx + 1].z;
+            wallPoint2.z = static_cast<float>(building.points[pointIdx + 1].z);
 
             // detect (and color) alle points on this wall
             pcl::PointXYZRGBNormal mid;
@@ -237,13 +236,13 @@ void DataStructure::adaNormalOrientation(float wallThreshold) {
 
             Plane wallPlane = {wallPoint1, wallPoint2, mid};
 
-            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
+            auto r = static_cast<float>(sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2)));
 
             std::vector<int> pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
             tree->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
 
-            if (pointIdxRadiusSearch.size() != 0) {
+            if (!pointIdxRadiusSearch.empty()) {
 
                 auto minX = min(wallPoint1.x, wallPoint2.x);
                 auto maxX = max(wallPoint1.x, wallPoint2.x);
@@ -322,11 +321,14 @@ void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::v
 
         if (epsilonSum == 0) {
             // no valid neighbours (all have been discarded)
+            (*cloud)[pointIdx].r = 0;
+            (*cloud)[pointIdx].g = 255;
+            (*cloud)[pointIdx].b = 0;
             continue;
         }
 
         // compute avg of the epsilons
-        float epsilonAvg = epsilonSum / (lastEpsilonNeighbourIdx);
+        float epsilonAvg = epsilonSum / static_cast<float>(lastEpsilonNeighbourIdx);
 
         // move splat point
         (*cloud)[pointIdx].x += epsilonAvg * normal.x;
@@ -337,7 +339,6 @@ void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::v
         // compute splat radius
         const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]]; // TODO out of bounds check
         auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
-        auto test = vectorLength(pointToNeighbourVec);
         auto bla = dotProduct(normal, pointToNeighbourVec);
         pcl::PointXYZ rightSide;
         rightSide.x = bla * normal.x;
@@ -354,7 +355,6 @@ void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::v
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
             auto dist = neighbourhoodDistances[nIdx];
-            auto ble = alpha * radius;
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
@@ -467,7 +467,7 @@ pcl::PointXYZRGBNormal* DataStructure::getVertices() {
 }
 
 void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx,
-                                      pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr treePtr) {
+                                      pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr) {
     // TODO use buildings to detect right normal orientation
     //  maybe also segmentation stuff?
     float thresholdDelta = 1.0f; // TODO find good value
