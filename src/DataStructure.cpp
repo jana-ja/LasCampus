@@ -81,7 +81,7 @@ void DataStructure::adaSplats() {
 //    avgRadiusNeighbourhoods *= 3;
 
     // ********** get neighbourhood with radius and pca normal **********
-    float splatGrowEpsilon = adaNeigbourhoods(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    float splatGrowEpsilon = adaNeigbourhoodsAndNormals(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance);
 
     // ********** normal orientation **********
     float wallThreshold = 1.0;
@@ -126,14 +126,12 @@ DataStructure::adaKnnAndAvgRadius(int k, std::vector<pcl::Indices>& pointNeighbo
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
         }
     }
-    float avgRadiusNeighbourhoods = avgRadiusSumNeighbourhoods / cloud->points.size();
-    return avgRadiusSumNeighbourhoods;
+    return avgRadiusSumNeighbourhoods / cloud->points.size();
 }
 
 float
-DataStructure::adaNeigbourhoods(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
+DataStructure::adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
 
-// ********** get neighbourhood with radius and pca normal **********
     float uPtpDistSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
@@ -159,7 +157,6 @@ DataStructure::adaNeigbourhoods(float avgRadiusNeighbourhoods, std::vector<pcl::
                 cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
 
                 pointNeighbourhoods[pointIdx] = neighbours;
-                // TODO destroy pointNeighbourhoodsDistance here?
 
                 // compute avg unsigned point to plane distance for splat grow epsilon
                 float uPtpDistSum = 0;
@@ -375,7 +372,7 @@ void DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::v
         // TODO problem mit squared distances?
         // TODO einen splat einzeln ansehen am pc radius undso ob 20 prozent
 
-////        // color debug - random color for every point
+        // color debug - random color for every point
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
