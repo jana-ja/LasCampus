@@ -91,7 +91,7 @@ void DataStructure::adaSplats() {
             }
 
             auto const count = static_cast<float>(neighboursSquaredDistance.size());
-            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / count;
+            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) / (count - 1); // count - 1, weil die erste distance immer 0 ist
             avgRadiusSumNeighbourhoods += avgRadius;
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
