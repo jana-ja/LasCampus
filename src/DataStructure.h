@@ -183,11 +183,13 @@ private:
 
     int findIndex(float border, std::vector<float> vector1);
 
-    float adaKnnRadiusNeighbourhoodsClassification(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
+    float adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
+    float adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
+    //    void adaUpdateNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
     // update neighbourhoods with classification
 //    float adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
-    float adaNeigbourhoodsAndNormals(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
-    void adaNormalOrientation(float wallThreshold, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr);
+    void adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
+    void adaNormalOrientation(float wallThreshold, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treeP);
     void adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
 };
 
