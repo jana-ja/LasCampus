@@ -40,6 +40,11 @@ public:
 
 private:
 
+    bool colorClasses = true;
+    bool colorSplats = false;
+    bool colorInvalid = false;
+    bool colorDiscarded = false;
+
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
 
     const char *TAG = "PC\t";

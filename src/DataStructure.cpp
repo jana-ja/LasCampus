@@ -79,9 +79,11 @@ void DataStructure::adaSplats() {
 
     // ********** knn and compute avgRadius **********
     float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
 
     // ********** get neighbourhood with radius, use pca for classification and compute epsilon **********
     float splatGrowEpsilon = adaNeighbourhoodsClassificationAndEpsilon(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
+    std::cout << TAG << "splat grow epsilon is: " << splatGrowEpsilon << std::endl;
 
     // ********** get new neighbourhood with new k and new radius (depending on classification) and use pca for normal **********
     adaNewNeighbourhoods(k, tree, avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
@@ -186,23 +188,29 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                     case 0:
                         pointClasses[pointIdx] = 0;
                         // linearity is main
-                        (*cloud)[pointIdx].r = 255;
-                        (*cloud)[pointIdx].g = 0;
-                        (*cloud)[pointIdx].b = 0;
+                        if (colorClasses) {
+                            (*cloud)[pointIdx].r = 255;
+                            (*cloud)[pointIdx].g = 0;
+                            (*cloud)[pointIdx].b = 0;
+                        }
                         break;
                     case 1:
                         pointClasses[pointIdx] = 1;
                         // planarity is main
-                        (*cloud)[pointIdx].r = 0;
-                        (*cloud)[pointIdx].g = 255;
-                        (*cloud)[pointIdx].b = 0;
+                        if (colorClasses) {
+                            (*cloud)[pointIdx].r = 0;
+                            (*cloud)[pointIdx].g = 255;
+                            (*cloud)[pointIdx].b = 0;
+                        }
                         break;
                     default:
                         pointClasses[pointIdx] = 2;
                         // sphericity is main
-                        (*cloud)[pointIdx].r = 0;
-                        (*cloud)[pointIdx].g = 0;
-                        (*cloud)[pointIdx].b = 255;
+                        if (colorClasses) {
+                            (*cloud)[pointIdx].r = 0;
+                            (*cloud)[pointIdx].g = 0;
+                            (*cloud)[pointIdx].b = 255;
+                        }
                         break;
                 }
 
@@ -229,6 +237,13 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
     return uPtpDistSumNeighbourhoods / static_cast<float>(pointNeighbourhoods.size());
 }
 
+// TODO resampling? inspiration durch ada paper
+// TODO datensatz filtern anschauen: bäume raus. nochmal den "schlechteren" datensatz ansehen, da müssten dann auch noch die autos undso rausgefiltert werden aber falls das nicht schwer ist wäre das vllt ne gute option weil aufgefüllte böden unter den gebäuden undso brauche ich ja eh nicht.
+// TODO uv eliptical splats ansehen
+// TODO das ada paper nochmal zu ende lesen und schauen ob noch was relevantes kommt
+
+// farbwerte von jpeg2000 nehmen
+
 void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
                                     std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
 
@@ -240,7 +255,7 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
         // get new k-neighbourhood with adjusted k
         switch (pointClasses[pointIdx]) {
             case 0: // linearity is main
-                currentK = k * 0.33;
+                currentK = k * 2;//0.33;
                 break;
             case 1: // planarity is main
                 currentK = k * 2;
@@ -272,7 +287,7 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
         if (pointNeighbourhoods[pointIdx].size() >= 3) { // need at least 3 points for pca
             switch (pointClasses[pointIdx]) {
                 case 0: // linearity is main
-                    currentAvgRadius = avgRadiusNeighbourhoods * 0.33;
+                    currentAvgRadius = avgRadiusNeighbourhoods * 2;//0.33;
                     break;
                 case 1: // planarity is main
                     currentAvgRadius = avgRadiusNeighbourhoods * 2;
@@ -431,6 +446,8 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 void
 DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
+    // 1 → 0°, 0.6 → 45°, 0 → 90°. i guess: -0.6 → 135°, -1 → 180°. (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
+    float angleThreshold = 0.999; // ~30°
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
@@ -449,7 +466,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         switch (pointClasses[pointIdx]) {
             case 0: // linearity is main
-                currentSplatGrowEpsilon = splatGrowEpsilon * 0.33;
+                currentSplatGrowEpsilon = splatGrowEpsilon * 2;//0.33;
                 break;
             case 1: // planarity is main
                 currentSplatGrowEpsilon = splatGrowEpsilon * 2;
@@ -458,7 +475,6 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                 currentSplatGrowEpsilon = splatGrowEpsilon * 0.25;
                 break;
         }
-// TODO K anpassen nachbarn neu holen
 // TODO vllt kann ich linearity punkte die eig ne fläche sein sollten einfach auch große nachbarschaft  geben und dann endet der splat wenn er auf ne fläche trifft??
         auto const& point = cloud->points[pointIdx];
         auto const& neighbourhood = pointNeighbourhoods[pointIdx];
@@ -474,12 +490,20 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
-            if (discardPoint[neighbourhood[nIdx]]) {
-                continue;
+            // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
+            // stop growing when neighbour has different class
+            if(pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]){
+                break;
             }
 
-            // TODO stop growing when neighbour has different class
-            if(pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]){
+            // stop growing when angle between point normal and neighbour normal is too big
+            pcl::PointXYZ neighbourNormal;
+            neighbourNormal.x = (*cloud)[neighbourhood[nIdx]].normal_x;
+            neighbourNormal.y = (*cloud)[neighbourhood[nIdx]].normal_y;
+            neighbourNormal.z = (*cloud)[neighbourhood[nIdx]].normal_z;
+
+            float angle = dotProduct(normal, neighbourNormal);
+            if (angle < angleThreshold){
                 break;
             }
 
@@ -487,12 +511,18 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             if (abs(eps) > currentSplatGrowEpsilon) {
                 // stop growing this neighbourhood
                 // point nIdx does NOT belong to neighbourhood
-//                    if (nIdx == 1){
-//                        (*cloud)[pointIdx].r = 0;
-//                        (*cloud)[pointIdx].g = 255;
-//                        (*cloud)[pointIdx].b = 0;
-//                    }
+//                if (nIdx == 1) {
+//                    (*cloud)[pointIdx].r = 0;
+//                    (*cloud)[pointIdx].g = 255;
+//                    (*cloud)[pointIdx].b = 0;
+//                }
+
                 break;
+            }
+
+            // skip discarded points
+            if (discardPoint[neighbourhood[nIdx]]) {
+                continue;
             }
 
             epsilonSum += eps;
@@ -503,11 +533,13 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         if (epsilonCount == 0) {
             // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
-//            if((*cloud)[pointIdx].g != 255) {
-//                (*cloud)[pointIdx].r = 255;
-//                (*cloud)[pointIdx].g = 0;
-//                (*cloud)[pointIdx].b = 0;
-//            }
+            if (colorInvalid) {
+                if((*cloud)[pointIdx].g != 255) {
+                    (*cloud)[pointIdx].r = 255;
+                    (*cloud)[pointIdx].g = 0;
+                    (*cloud)[pointIdx].b = 255;
+                }
+            }
             continue;
         }
 
@@ -546,11 +578,13 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
-//                if (nIdx != 0) {
-//                    (*cloud)[neighbourhood[nIdx]].r = 255;
-//                    (*cloud)[neighbourhood[nIdx]].g = 255;
-//                    cloud->points[neighbourhood[nIdx]].b = 0;
-//                }
+                if (colorDiscarded) {
+                    if (nIdx != 0) {
+                        (*cloud)[neighbourhood[nIdx]].r = 255;
+                        (*cloud)[neighbourhood[nIdx]].g = 255;
+                        cloud->points[neighbourhood[nIdx]].b = 0;
+                    }
+                }
             } else {
                 // dist values are ascending
                 break;
@@ -561,13 +595,19 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         // TODO einen splat einzeln ansehen am pc radius undso ob 20 prozent
 
         // color debug - random color for every point
-//        int randR = rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (255 - 0 + 1) + 0;
-//        int randB = rand() % (255 - 0 + 1) + 0;
-//        (*cloud)[pointIdx].r = 0;
-//        (*cloud)[pointIdx].g = 255;
-//        (*cloud)[pointIdx].b = 255;
+        int randR = rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (255 - 0 + 1) + 0;
+        int randB = rand() % (255 - 0 + 1) + 0;
 
+
+        if (colorSplats) {
+            (*cloud)[pointIdx].r = randR;
+            (*cloud)[pointIdx].g = randG;
+            (*cloud)[pointIdx].b = randB;
+//            (*cloud)[pointIdx].r = 0;
+//            (*cloud)[pointIdx].g = 255;
+//            (*cloud)[pointIdx].b = 255;
+        }
     }
 }
 
