@@ -138,9 +138,6 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
 
 float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
                                                     std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses){
-    // build neighbourhoods and determine classification of points
-    // TODO bestimme ich epsilon hier oder bei den angepassten nachbarschaften später?
-    //  beim radius behalte ich ja den alten..
     float uPtpDistSumNeighbourhoods = 0;
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
@@ -160,7 +157,8 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 pca.setIndices(neighboursPtr);
                 Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
                 Eigen::Vector3f eigenValues = pca.getEigenValues();
-                // TODO diese normale nehmen oder später nochmal pca?
+
+                // set normal
                 cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
                 cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
                 cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
@@ -171,11 +169,11 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 auto tangent2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
                 tangent2Vec[pointIdx] = tangent2;
 
+                // check if vertical normal is oriented up
                 const auto& point = cloud->points[pointIdx];
                 auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
                 auto vertLen = abs(point.normal_y);
                 if (horLen < vertLen) {
-                    // check if vertical normal is oriented up
                     if (point.normal_y < 0) {
                         (*cloud)[pointIdx].normal_x *= -1;
                         (*cloud)[pointIdx].normal_y *= -1;
@@ -226,7 +224,6 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                         }
                         break;
                 }
-
 
                 // splat grow epsilon
                 // compute avg unsigned point to plane distance for splat grow epsilon
@@ -298,10 +295,7 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
 
 
         // get new neighbourhood with adjusted radius
-        // (maybe get new normal here?)
-        // (maybe get new epsilon here?)
         float currentAvgRadius;
-//        float uPtpDistSumNeighbourhoods = 0;
 
         if (pointNeighbourhoods[pointIdx].size() >= 3) { // need at least 3 points for pca
             switch (pointClasses[pointIdx]) {
@@ -324,61 +318,13 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
             if (neighbours.size() >= 3) {
                 // save new neighbourhood
                 pointNeighbourhoods[pointIdx] = neighbours;
-
-//                // pca for new normal
-//                pcl::IndicesPtr neighboursPtr = make_shared<pcl::Indices>(neighbours);
-//                pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
-//                pca.setInputCloud(cloud);
-//                pca.setIndices(neighboursPtr);
-//                Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-//                Eigen::Vector3f eigenValues = pca.getEigenValues();
-//                cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
-//                cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
-//                cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
-//
-//                const auto& point = cloud->points[pointIdx];
-//                auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
-//                auto vertLen = abs(point.normal_y);
-//                if (horLen < vertLen) {
-//                    // check if vertical normal is oriented up
-//                    if (point.normal_y < 0) {
-//                        (*cloud)[pointIdx].normal_x *= -1;
-//                        (*cloud)[pointIdx].normal_y *= -1;
-//                        (*cloud)[pointIdx].normal_z *= -1;
-//                            // also flip tangents
-//                            auto temp = tangent1Vec[pointIdx];
-//                            tangent1Vec[pointIdx] = tangent2Vec[pointIdx];
-//                            tangent2Vec[pointIdx] = temp;
-//                    }
-//                }
-
-//                // new epsilon
-//                // compute avg unsigned point to plane distance for splat grow epsilon
-//                float uPtpDistSum = 0;
-//                // first neighbour is the point itself
-//                auto bla2 = std::vector<float>(neighbours.size());
-//                for (auto nPointIdx = 1; nPointIdx < neighbours.size(); nPointIdx++) {
-//                    auto ppd = pointPlaneDistance((*cloud)[neighbours[nPointIdx]], (*cloud)[pointIdx]);
-//                    uPtpDistSum += ppd;
-//
-//                    bla2[nPointIdx] = ppd;
-//                }
-//                float uPtpDistAvg = uPtpDistSum / static_cast<float>(neighbours.size() - 1);
-//                uPtpDistSumNeighbourhoods += uPtpDistAvg;
-
             } else {
                 pointNeighbourhoods[pointIdx] = pcl::Indices();
-//                // color debug - less then 3 in neighbourhood
-//                (*cloud)[pointIdx].r = 255;
-//                (*cloud)[pointIdx].g = 255;
-//                (*cloud)[pointIdx].b = 255;
             }
         } else {
             pointNeighbourhoods[pointIdx] = pcl::Indices();
         }
     }
-//    // ********** compute epsilon **********
-//    return uPtpDistSumNeighbourhoods / static_cast<float>(pointNeighbourhoods.size());
 }
 
 void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
@@ -649,15 +595,14 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         tangent2Vec[pointIdx] = pcl::PointXYZ(tangent2Vec[pointIdx].x / radius2, tangent2Vec[pointIdx].y / radius2, tangent2Vec[pointIdx].z / radius2);
 //        (*cloud)[pointIdx].curvature = radius;
 
-        // TODO temp lösung
-        float radius = max(radius1, radius2);
-
 
         // discard points
         auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
+        // TODO temp lösung
+        float radius = max(radius1, radius2);
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
             if (discardPoint[neighbourhood[nIdx]])
@@ -681,16 +626,11 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             }
         }
 
-        // TODO problem mit squared distances?
-        // TODO einen splat einzeln ansehen am pc radius undso ob 20 prozent
-
-        // color debug - random color for every point
-        int randR = rand() % (255 - 0 + 1) + 0;
-        int randG = rand() % (255 - 0 + 1) + 0;
-        int randB = rand() % (255 - 0 + 1) + 0;
-
-
         if (colorSplats) {
+            // color debug - random color for every point
+            int randR = rand() % (255 - 0 + 1) + 0;
+            int randG = rand() % (255 - 0 + 1) + 0;
+            int randB = rand() % (255 - 0 + 1) + 0;
             (*cloud)[pointIdx].r = randR;
             (*cloud)[pointIdx].g = randG;
             (*cloud)[pointIdx].b = randB;
