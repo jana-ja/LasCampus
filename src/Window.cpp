@@ -9,7 +9,7 @@
 
 
 Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
-                                           pointCloud(pointCloud) {
+                                           pointCloud(pointCloud){
 
     // set camera pos
 //    camera.position = glm::vec3(pointCloud.xOffset, pointCloud.yOffset + 10, -pointCloud.zOffset);
@@ -35,7 +35,7 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
     pointShader.setVec3("light_color", 1.0f, 1.0f, 1.0f);
     pointShader.setVec3("light_pos", 0.0f, 100.0f, 0.0f); // PointCloudShader
 
-    Shader splatShader = Shader("../src/shader/SplatVertexShader.vs", "../src/shader/SplatFragmentShader.fs");
+    Shader splatShader = Shader("../src/shader/EllipticalSplatVertexShader.vs", "../src/shader/EllipticalSplatFragmentShader.fs");
     shaderSettings(splatShader);
         // colors / lighting
         splatShader.setVec3("light_dir", -25.0f, -75.0f, -50.0f); // SplatShader
@@ -54,8 +54,8 @@ Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Camp
 
 
     // data
-    GLuint pcVBO, pcVAO;
-    dataStuffPointCloud(pcVBO, pcVAO, pointCloud);
+    GLuint pcVBO, t1VBO, t2VBO, pcVAO;
+    dataStuffPointCloud(pcVBO, t1VBO, t2VBO, pcVAO, pointCloud);
 
     // coordinate system
     // shader
@@ -295,7 +295,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.setFloat("point_size", POINT_SIZE); // TODO weg?
 }
 
-void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
+void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint &VAO, DataStructure pointCloud) {
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(VAO);
@@ -319,9 +319,22 @@ void Window::dataStuffPointCloud(GLuint &VBO, GLuint &VAO, DataStructure pointCl
     // color attribute
     glVertexAttribPointer(2, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pcl::PointNormal), (void *) (8 * sizeof(float))); // durch GL_TRUE wird unsigned byte richtig erkannnt und zu float konvertiert
     glEnableVertexAttribArray(2);
-    // radius atribute
+    // radius attribute
     glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(pcl::PointNormal), (void *) (offsetof(pcl::PointXYZRGBNormal, curvature)));
     glEnableVertexAttribArray(3);
+
+    // tangent 1
+    glGenBuffers(1, &t1VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, t1VBO);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(pcl::PointXYZ) * pointCloud.getVertexCount()), pointCloud.getTangent1Vec(), GL_STATIC_DRAW);
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointXYZ), (void *) 0);
+    glEnableVertexAttribArray(4);
+    // tangent 2
+    glGenBuffers(1, &t2VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, t2VBO);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(pcl::PointXYZ) * pointCloud.getVertexCount()), pointCloud.getTangent2Vec(), GL_STATIC_DRAW);
+    glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointXYZ), (void *) 0);
+    glEnableVertexAttribArray(5);
 
 
     // OPTIONAL: unbind

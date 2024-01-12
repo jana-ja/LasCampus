@@ -28,7 +28,15 @@ public:
 
     uint32_t getVertexCount();
 
-    pcl::PointXYZRGBNormal *getVertices();
+    pcl::PointXYZRGBNormal* getVertices(){
+        return cloud->data();
+    }
+    pcl::PointXYZ* getTangent1Vec(){
+        return tangent1Vec.data();
+    }
+    pcl::PointXYZ* getTangent2Vec(){
+        return tangent2Vec.data();
+    }
 
 //    Vertex getUTMForOpenGL(Vertex* vertex);
 //
@@ -51,6 +59,8 @@ private:
 
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    std::vector<pcl::PointXYZ> tangent1Vec;
+    std::vector<pcl::PointXYZ> tangent2Vec;
 
     std::vector<ShpDataIO::Polygon> buildings;
 

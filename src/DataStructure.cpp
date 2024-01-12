@@ -68,6 +68,9 @@ void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
+    tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
+    tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
+
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
@@ -162,15 +165,44 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
                 cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
 
+                // also set tangents
+                auto tangent1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
+
+                tangent1Vec[pointIdx] = tangent1;
+                auto normal = pcl::PointXYZ((*cloud)[pointIdx].normal_x, (*cloud)[pointIdx].normal_y, (*cloud)[pointIdx].normal_z);
+                auto test = crossProduct(normal, tangent1);
+                auto tangent2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
+                tangent2Vec[pointIdx] = tangent2;
+
                 const auto& point = cloud->points[pointIdx];
                 auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
                 auto vertLen = abs(point.normal_y);
                 if (horLen < vertLen) {
                     // check if vertical normal is oriented up
                     if (point.normal_y < 0) {
+                        auto& t1 = tangent1Vec[pointIdx];
+                        auto& t2 = tangent2Vec[pointIdx];
+                        auto t1M = pcl::PointXYZ(-t1.x, -t1.y, -t1.z);
+                        auto t2M = pcl::PointXYZ(-t2.x, -t2.y, -t2.z);
+                        if( crossProduct(t1, t2).x != normal.x) {
+                            int bkleihf = 3;
+                        }
                         (*cloud)[pointIdx].normal_x *= -1;
                         (*cloud)[pointIdx].normal_y *= -1;
                         (*cloud)[pointIdx].normal_z *= -1;
+                         normal = pcl::PointXYZ((*cloud)[pointIdx].normal_x, (*cloud)[pointIdx].normal_y, (*cloud)[pointIdx].normal_z);
+                        if( crossProduct(t1, t2).x != normal.x) {
+                            int bkleihf = 3;
+                        }
+                        // also flip tangents
+                        auto temp = tangent1Vec[pointIdx];
+                        tangent1Vec[pointIdx] = tangent2Vec[pointIdx];
+                        tangent2Vec[pointIdx] = temp;
+                        t1 = tangent1Vec[pointIdx];
+                        t2 = tangent2Vec[pointIdx];
+                        if( crossProduct(t1, t2).x != normal.x) {
+                            int bkleihf = 3;
+                        }
                     }
                 }
 
@@ -229,7 +261,13 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 float uPtpDistAvg = uPtpDistSum / static_cast<float>(neighbourhood.size() - 1);
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
 
+            } else { // TODO else set tangent to 0 vector or sth?
+                tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
+                tangent2Vec[pointIdx] = pcl::PointXYZ(0,0,0);
             }
+        } else {
+            tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
+            tangent2Vec[pointIdx] = pcl::PointXYZ(0,0,0);
         }
     }
 
@@ -326,6 +364,10 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
 //                        (*cloud)[pointIdx].normal_x *= -1;
 //                        (*cloud)[pointIdx].normal_y *= -1;
 //                        (*cloud)[pointIdx].normal_z *= -1;
+//                            // also flip tangents
+//                            auto temp = tangent1Vec[pointIdx];
+//                            tangent1Vec[pointIdx] = tangent2Vec[pointIdx];
+//                            tangent2Vec[pointIdx] = temp;
 //                    }
 //                }
 
@@ -435,6 +477,11 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
                             (*cloud)[*nIdxIt].normal_x *= -1;
                             (*cloud)[*nIdxIt].normal_y *= -1;
                             (*cloud)[*nIdxIt].normal_z *= -1;
+
+                            // also flip tangents
+                            auto temp = tangent1Vec[*nIdxIt];
+                            tangent1Vec[*nIdxIt] = tangent2Vec[*nIdxIt];
+                            tangent2Vec[*nIdxIt] = temp;
                         }
                     }
                 }
@@ -446,8 +493,8 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 void
 DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
-    // 1 → 0°, 0.6 → 45°, 0 → 90°. i guess: -0.6 → 135°, -1 → 180°. (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
-    float angleThreshold = 0.999; // ~30°
+    // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
+    float angleThreshold = 0.86; // ~30°
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
@@ -480,20 +527,57 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         auto const& neighbourhood = pointNeighbourhoods[pointIdx];
 
         (*cloud)[pointIdx].curvature = 0; // this is radius
+
+        auto normal = pcl::PointXYZ(point.normal_x, point.normal_y, point.normal_z);
+
         float epsilonSum = 0;
-        int epsilonCount = 0;
-        int lastEpsilonNeighbourIdx = 0;
-        pcl::PointXYZ normal;
-        normal.x = point.normal_x;
-        normal.y = point.normal_y;
-        normal.z = point.normal_z;
+        int epsilonCount1 = 0;
+        int epsilonCount2 = 0;
+        int lastEpsilonNeighbourIdx1 = 0;
+        int lastEpsilonNeighbourIdx2 = 0;
+
+        bool growTangent1 = true;
+        bool growTangent2 = true;
+
+        bool concernsTangent1;
 
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
+
+            if (!growTangent1 && !growTangent2) {
+                break;
+            }
+
+            // first check if neighbour point concerns tangent1 growth or tangent2 growth
+            // project vector onto plane:
+            auto neighbourVec = vectorSubtract(cloud->points[neighbourhood[nIdx]], point);
+            auto projectedDistance = dotProduct(normal, neighbourVec);
+            auto normalProjectedVec = pcl::PointXYZ(projectedDistance * normal.x, projectedDistance * normal.y, projectedDistance * normal.z);
+            auto planeProjectedVec = vectorSubtract(neighbourVec, normalProjectedVec);
+            // angle
+            auto vecLen = vectorLength(planeProjectedVec);
+            float cosAngle = dotProduct(tangent1Vec[pointIdx], planeProjectedVec) / vecLen;
+            if (abs(cosAngle) > 0.7) { // 45°
+                // concerns tangent1 -> less then 45° between tangent1 and projected neighbour vector
+                concernsTangent1 = true;
+                if(!growTangent1){
+                    continue;
+                }
+            } else {
+                concernsTangent1 = false;
+                if(!growTangent2) {
+                    continue;
+                }
+            }
 
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
             // stop growing when neighbour has different class
             if(pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]){
-                break;
+                if (concernsTangent1) {
+                    growTangent1 = false;
+                } else {
+                    growTangent2 = false;
+                }
+                continue;
             }
 
             // stop growing when angle between point normal and neighbour normal is too big
@@ -504,7 +588,12 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
             float angle = dotProduct(normal, neighbourNormal);
             if (angle < angleThreshold){
-                break;
+                if (concernsTangent1) {
+                    growTangent1 = false;
+                } else {
+                    growTangent2 = false;
+                }
+                continue;
             }
 
             auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
@@ -517,7 +606,12 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 //                    (*cloud)[pointIdx].b = 0;
 //                }
 
-                break;
+                if (concernsTangent1) {
+                    growTangent1 = false;
+                } else {
+                    growTangent2 = false;
+                }
+                continue;
             }
 
             // skip discarded points
@@ -526,12 +620,17 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             }
 
             epsilonSum += eps;
-            epsilonCount++;
-            lastEpsilonNeighbourIdx = nIdx;
-
+            if (concernsTangent1) {
+                epsilonCount1++;
+                lastEpsilonNeighbourIdx1 = nIdx;
+            } else {
+                epsilonCount2++;
+                lastEpsilonNeighbourIdx2 = nIdx;
+            }
         }
 
-        if (epsilonCount == 0) {
+        // no valid neighbours in at least one direction // TODO schauen ob sinn macht getrennt zu betrachten
+        if (epsilonCount1 == 0 || epsilonCount2 == 0) {
             // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
             if (colorInvalid) {
                 if((*cloud)[pointIdx].g != 255) {
@@ -544,7 +643,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         }
 
         // compute avg of the epsilons
-        float epsilonAvg = epsilonSum / static_cast<float>(lastEpsilonNeighbourIdx);
+        float epsilonAvg = epsilonSum / (epsilonCount1 + epsilonCount2);
 
         // move splat point
         (*cloud)[pointIdx].x += epsilonAvg * normal.x;
@@ -552,16 +651,38 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         (*cloud)[pointIdx].z += epsilonAvg * normal.z;
 
 
-        // compute splat radius
-        const auto& lastNeighbourPoint = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]];
-        auto pointToNeighbourVec = vectorSubtract(lastNeighbourPoint, point);
-        auto bla = dotProduct(normal, pointToNeighbourVec);
-        pcl::PointXYZ rightSide;
-        rightSide.x = bla * normal.x;
-        rightSide.y = bla * normal.y;
-        rightSide.z = bla * normal.z;
-        float radius = vectorLength(vectorSubtract(pointToNeighbourVec, rightSide));
-        (*cloud)[pointIdx].curvature = radius;
+        // compute splat radii
+
+        // tangent 1
+        const auto& lastNeighbourPoint1 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx1]];
+        auto pointToNeighbourVec1 = vectorSubtract(lastNeighbourPoint1, point);
+        auto bla1 = dotProduct(normal, pointToNeighbourVec1);
+        auto  rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
+        float radius1 = vectorLength(vectorSubtract(pointToNeighbourVec1, rightSide1));
+        // tangent 2
+        const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx2]];
+        auto pointToNeighbourVec2 = vectorSubtract(lastNeighbourPoint2, point);
+        auto bla2 = dotProduct(normal, pointToNeighbourVec2);
+        auto  rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
+        float radius2 = vectorLength(vectorSubtract(pointToNeighbourVec2, rightSide2));
+        //TODO debug ansehen
+        const auto& t1 = tangent1Vec[pointIdx];
+        const auto& t2 = tangent2Vec[pointIdx];
+        if( crossProduct(t1, t2).x != normal.x) {
+            int bkleihf = 3;
+        }
+        // length of axes has to be 1/radius
+        tangent1Vec[pointIdx] = pcl::PointXYZ(tangent1Vec[pointIdx].x / radius1, tangent1Vec[pointIdx].y / radius1, tangent1Vec[pointIdx].z / radius1);
+        tangent2Vec[pointIdx] = pcl::PointXYZ(tangent2Vec[pointIdx].x / radius2, tangent2Vec[pointIdx].y / radius2, tangent2Vec[pointIdx].z / radius2);
+        auto t1M = pcl::PointXYZ(-t1.x, -t1.y, -t1.z);
+        auto t2M = pcl::PointXYZ(-t2.x, -t2.y, -t2.z);
+        if( crossProduct(t1, t2).x  / (vectorLength(t1) * vectorLength(t2)) != normal.x) {
+            int bkleihf = 3;
+        }
+//        (*cloud)[pointIdx].curvature = radius;
+
+        // TODO temp lösung
+        float radius = max(radius1, radius2);
 
 
         // discard points
@@ -575,6 +696,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                 continue;
 
             auto dist = neighbourhoodDistances[nIdx];
+            // TODO komplexe winkel berechnung zum discarden
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
@@ -690,9 +812,6 @@ uint32_t DataStructure::getVertexCount() {
     return (uint32_t) cloud->width;
 }
 
-pcl::PointXYZRGBNormal* DataStructure::getVertices() {
-    return cloud->data();// vertices.data();
-}
 
 void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& endIdx,
                                       pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr) {
