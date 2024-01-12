@@ -167,10 +167,7 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
 
                 // also set tangents
                 auto tangent1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
-
                 tangent1Vec[pointIdx] = tangent1;
-                auto normal = pcl::PointXYZ((*cloud)[pointIdx].normal_x, (*cloud)[pointIdx].normal_y, (*cloud)[pointIdx].normal_z);
-                auto test = crossProduct(normal, tangent1);
                 auto tangent2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
                 tangent2Vec[pointIdx] = tangent2;
 
@@ -180,29 +177,13 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 if (horLen < vertLen) {
                     // check if vertical normal is oriented up
                     if (point.normal_y < 0) {
-                        auto& t1 = tangent1Vec[pointIdx];
-                        auto& t2 = tangent2Vec[pointIdx];
-                        auto t1M = pcl::PointXYZ(-t1.x, -t1.y, -t1.z);
-                        auto t2M = pcl::PointXYZ(-t2.x, -t2.y, -t2.z);
-                        if( crossProduct(t1, t2).x != normal.x) {
-                            int bkleihf = 3;
-                        }
                         (*cloud)[pointIdx].normal_x *= -1;
                         (*cloud)[pointIdx].normal_y *= -1;
                         (*cloud)[pointIdx].normal_z *= -1;
-                         normal = pcl::PointXYZ((*cloud)[pointIdx].normal_x, (*cloud)[pointIdx].normal_y, (*cloud)[pointIdx].normal_z);
-                        if( crossProduct(t1, t2).x != normal.x) {
-                            int bkleihf = 3;
-                        }
+
                         // also flip tangents
-                        auto temp = tangent1Vec[pointIdx];
-                        tangent1Vec[pointIdx] = tangent2Vec[pointIdx];
-                        tangent2Vec[pointIdx] = temp;
-                        t1 = tangent1Vec[pointIdx];
-                        t2 = tangent2Vec[pointIdx];
-                        if( crossProduct(t1, t2).x != normal.x) {
-                            int bkleihf = 3;
-                        }
+                        tangent1Vec[pointIdx] = tangent2;
+                        tangent2Vec[pointIdx] = tangent1;
                     }
                 }
 
@@ -261,7 +242,7 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 float uPtpDistAvg = uPtpDistSum / static_cast<float>(neighbourhood.size() - 1);
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
 
-            } else { // TODO else set tangent to 0 vector or sth?
+            } else {
                 tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
                 tangent2Vec[pointIdx] = pcl::PointXYZ(0,0,0);
             }
@@ -650,9 +631,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         (*cloud)[pointIdx].y += epsilonAvg * normal.y;
         (*cloud)[pointIdx].z += epsilonAvg * normal.z;
 
-
         // compute splat radii
-
         // tangent 1
         const auto& lastNeighbourPoint1 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx1]];
         auto pointToNeighbourVec1 = vectorSubtract(lastNeighbourPoint1, point);
@@ -665,20 +644,9 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         auto bla2 = dotProduct(normal, pointToNeighbourVec2);
         auto  rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
         float radius2 = vectorLength(vectorSubtract(pointToNeighbourVec2, rightSide2));
-        //TODO debug ansehen
-        const auto& t1 = tangent1Vec[pointIdx];
-        const auto& t2 = tangent2Vec[pointIdx];
-        if( crossProduct(t1, t2).x != normal.x) {
-            int bkleihf = 3;
-        }
         // length of axes has to be 1/radius
         tangent1Vec[pointIdx] = pcl::PointXYZ(tangent1Vec[pointIdx].x / radius1, tangent1Vec[pointIdx].y / radius1, tangent1Vec[pointIdx].z / radius1);
         tangent2Vec[pointIdx] = pcl::PointXYZ(tangent2Vec[pointIdx].x / radius2, tangent2Vec[pointIdx].y / radius2, tangent2Vec[pointIdx].z / radius2);
-        auto t1M = pcl::PointXYZ(-t1.x, -t1.y, -t1.z);
-        auto t2M = pcl::PointXYZ(-t2.x, -t2.y, -t2.z);
-        if( crossProduct(t1, t2).x  / (vectorLength(t1) * vectorLength(t2)) != normal.x) {
-            int bkleihf = 3;
-        }
 //        (*cloud)[pointIdx].curvature = radius;
 
         // TODO temp lösung

@@ -13,32 +13,27 @@ uniform bool backface_culling;
 
 out vec3 v2f_color;
 out vec3 v2f_center;
-out vec3  v2f_tangent0;
-out vec3  v2f_tangent1;
+out vec3 v2f_tangent0;
+out vec3 v2f_tangent1;
 out vec3 v2f_light_dir;
 
 void main(){
 
-
-    // float v_radius = 0.1;
     float size_fac = 1.8;
-
-    //v2f_normal = (view_matrix * vec4(v_normal, 0.0)).xyz;
 
     v2f_tangent0 = (view_matrix * vec4((v_tangent0 / size_fac), 0.0)).xyz;
     v2f_tangent1 = (view_matrix * vec4((v_tangent1 / size_fac), 0.0)).xyz;
     v2f_center = (view_matrix * vec4(v_world_pos, 1.0)).xyz;
     v2f_color = v_color;
-    //v2f_radius = v_radius * size_fac;
     v2f_light_dir = (view_matrix * vec4(light_dir, 0.0)).xyz;
-
 
     gl_Position = projection_matrix * view_matrix * vec4(v_world_pos, 1.0);
     float radius = 1.0 / min(length(v_tangent0), length(v_tangent1));
     gl_PointSize = (radius / -v2f_center.z * size_const * size_fac);
-if (v_tangent0 == vec3(0,0,0)) {
+    if (v_tangent0 == vec3(0,0,0)) {
         gl_PointSize = 0;
     }
+
     // backface culling
     if (backface_culling){
         vec3 n = cross(v2f_tangent0, v2f_tangent1);
