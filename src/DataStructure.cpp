@@ -612,7 +612,15 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                 continue;
 
             auto dist = neighbourhoodDistances[nIdx];
+
             // TODO komplexe winkel berechnung zum discarden
+            // https://math.stackexchange.com/questions/76457/check-if-a-point-is-within-an-ellipse
+            // rotate tangents and neighbour point to be parallel to xz-plane or something
+            // ellipse center is c
+            // then i can ignore y component
+            // use: if ( (n.x - c.x)² / r1²  +  (n.z - c.z)² / r2²  <= 1 ) -> isInside
+            // umformen: if ( r2² * (n.x - c.x)²  +  r1² * (n.z - c.z)² <= r1² * r2² -> isInside
+
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
