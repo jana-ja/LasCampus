@@ -48,10 +48,11 @@ public:
 
 private:
 
-    bool colorClasses = true;
+    bool colorClasses = false;
+    // splats + invalid + discarded = 1
     bool colorSplats = false;
-    bool colorInvalid = false;
-    bool colorDiscarded = false;
+    bool colorInvalid = true;
+    bool colorDiscarded = false; // cyan
 
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
 

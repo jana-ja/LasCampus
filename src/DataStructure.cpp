@@ -435,6 +435,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 //        }
 
         if (discardPoint[pointIdx]) {
+            tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
             continue;
         }
 
@@ -557,6 +558,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         }
 
         // no valid neighbours in at least one direction // TODO schauen ob sinn macht getrennt zu betrachten
+        // TODO PROBLEM: glaube schon dass das sinn macht, aber die ungewollten kanten sind so grade dass die hier invalid werden weil in eine richtung nichts passiert
         if (epsilonCount1 == 0 || epsilonCount2 == 0) {
             // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
             if (colorInvalid) {
@@ -566,6 +568,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                     (*cloud)[pointIdx].b = 255;
                 }
             }
+            tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
             continue;
         }
 
