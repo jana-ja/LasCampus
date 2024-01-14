@@ -109,11 +109,54 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                 v.normal_x = -1;
                 v.normal_y = -1;
                 v.normal_z = -1;
-                // pcl library switched r and b component
-                v.b = 100; // r
-                v.g = 100; // g
-                v.r = 100; // b
+
+
+                // filter stuff
+
+                // get info out of 8 bit flags:
+                // c c c m m m _ _
+                // little endian
+                // _ _ m m m c c c
+                int8_t returnNumber = point.flags & 7;
+                int8_t numOfReturns = (point.flags >> 3) & 7;
+                if (numOfReturns > 1) {
+                    if (returnNumber == 1){
+                        // first?
+
+                        v.b = 255;
+                        v.g = 0;
+                        v.r = 0;
+                        // TODO bäume oberer teil, haus kanten, ein dach?, teile von wänden
+                    } else if (returnNumber == numOfReturns) {
+                        // last?
+
+                        v.b = 0;
+                        v.g = 255;
+                        v.r = 0;
+                        // TODO boden, bisschen wände, kein baum
+                    } else {
+                        // intermediate points
+
+                        v.b = 0;
+                        v.g = 0;
+                        v.r = 255;
+                        // TODO die können eig alle iwie raus, da sind nur wenige wand puntke dabei
+                    }
+                } else {
+                    // pcl library switched r and b component
+                    v.b = 100; // r
+                    v.g = 100; // g
+                    v.r = 100; // b
+                }
                 v.a = 255;
+
+                if (point.pointSourceId == 2) {
+                    // TODO müssten auch über classification bit erkennbar sein? synthetic?
+                    //  generell die drei classification bits ansehen
+                    v.b = 255;
+                    v.g = 255;
+                    v.r = 255;
+                }
 
                 cloud->push_back(v);
             }

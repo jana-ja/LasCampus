@@ -51,7 +51,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         // get normals
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end(), "features");
-        adaSplats();
+//        adaSplats();
 //        if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
 //            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
 //            normalOrientation(startIdx, endIdx, treePtr);
@@ -62,7 +62,6 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     }
     std::cout << TAG << "loading data successful" << std::endl;
 }
-
 
 void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
