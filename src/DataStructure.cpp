@@ -56,7 +56,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         // get normals
         std::string normalFile = file;
         normalFile.replace(normalFile.end() - 3, normalFile.end(), "features");
-//        adaSplats();
+        adaSplats();
 //        if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
 //            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
 //            normalOrientation(startIdx, endIdx, treePtr);
@@ -637,7 +637,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         // no valid neighbours in at least one direction // TODO schauen ob sinn macht getrennt zu betrachten
         // TODO PROBLEM: glaube schon dass das sinn macht, aber die ungewollten kanten sind so grade dass die hier invalid werden weil in eine richtung nichts passiert
-        if (epsilonCount1 == 0 || epsilonCount2 == 0) {
+        if (epsilonCount1 == 0 && epsilonCount2 == 0) {
             // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
             if (colorInvalid) {
                 if((*cloud)[pointIdx].g != 255) {
@@ -648,6 +648,20 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             }
             tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
             continue;
+        }
+        else if (epsilonCount2 == 0) {
+            // minor achse
+            (*cloud)[pointIdx].r = 255;
+            (*cloud)[pointIdx].g = 0;
+            (*cloud)[pointIdx].b = 0;
+            epsilonCount2++;
+            lastEpsilonNeighbourIdx2 = 1;
+        } else if (epsilonCount1 == 0) {
+            (*cloud)[pointIdx].r = 0;
+            (*cloud)[pointIdx].g = 0;
+            (*cloud)[pointIdx].b = 255;
+            epsilonCount1++;
+            lastEpsilonNeighbourIdx1 = 1;
         }
 
         // compute avg of the epsilons
