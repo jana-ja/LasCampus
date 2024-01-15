@@ -109,10 +109,15 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 v.normal_y = -1;
                 v.normal_z = -1;
 
-                // filter stuff // TODO vllt später paar infos speichern und dann das filtern in datastructure machen?
-                float wallThreshold = 1.0;
-
+                // pcl library switched r and b component
+                v.b = 100; // r
+                v.g = 100; // g
+                v.r = 100; // b
                 v.a = 255;
+
+                // filter stuff // TODO vllt später paar infos speichern und dann das filtern in datastructure machen?
+                float wallThreshold = 1.5;
+
                 // get info out of 8 bit classification:
                 // classification, synthetic, keypoint, withheld
                 // little endian
@@ -133,9 +138,11 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 if (numOfReturns > 1) {
                     if (returnNumber == 1) {
                         // first of many
-                        v.b = 255;
-                        v.g = 0;
-                        v.r = 0;
+                        if(colorClasses) {
+                            v.b = 255;
+                            v.g = 0;
+                            v.r = 0;
+                        }
                         // bäume oberer teil, teile von wänden, ein dach?
                         // keep wall points, skip others
                         bool belongsToWall = false;
@@ -164,26 +171,22 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                         // intermediate points
                         // viel baum, ganz wenig wand -> raus
                         continue;
-                        v.b = 0;
-                        v.g = 0;
-                        v.r = 255;
+                        if(colorClasses) {
+                            v.b = 0;
+                            v.g = 0;
+                            v.r = 255;
+                        }
                     } else {
                         // last of many
                         // boden, bisschen wände, kein baum. einfach lassen
-                        v.b = 100; // r
-                        v.g = 100; // g
-                        v.r = 100; // b
                         if (classification != 2) { // not ground
-                            v.b = 0;
-                            v.g = 255;
-                            v.r = 0;
+                            if(colorClasses) {
+                                v.b = 0;
+                                v.g = 255;
+                                v.r = 0;
+                            }
                         }
                     }
-                } else {
-                    // pcl library switched r and b component
-                    v.b = 100; // r
-                    v.g = 100; // g
-                    v.r = 100; // b
                 }
 
                 // convert to opengl friendly thing

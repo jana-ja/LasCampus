@@ -25,6 +25,8 @@ public:
 
 private:
 
+    bool colorClasses = false;
+
     const std::string TAG = "LasIO\t";
 
     const uint8_t FEATURE_CACHE_VERSION = 2;
