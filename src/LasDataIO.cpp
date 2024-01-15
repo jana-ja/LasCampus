@@ -95,12 +95,11 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
         cloud->height = 1;
 
         if (header.pointDataRecordFormat == 1) {
+//            int count = 0;
             for (uint32_t i = 0; i < pointsUsed; i++) {//header.numberOfPoints; i++) {
                 PointDRF1 point;
                 inf.read((char*) (&point), sizeof(PointDRF1));
 
-                // filter stuff // TODO vllt später paar infos speichern und dann das filtern in datastructure machen?
-                float wallThreshold = 1.0;
                 pcl::PointXYZRGBNormal v; // TODO nach unten später
                 // center pointcloud - offset is in opengl coord system!
                 v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
@@ -110,8 +109,10 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 v.normal_y = -1;
                 v.normal_z = -1;
 
-                v.a = 255;
+                // filter stuff // TODO vllt später paar infos speichern und dann das filtern in datastructure machen?
+                float wallThreshold = 1.0;
 
+                v.a = 255;
                 // get info out of 8 bit classification:
                 // classification, synthetic, keypoint, withheld
                 // little endian
@@ -122,7 +123,6 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
 //                bool withheld = (point.classification >> 7) & 1;
                 if (synthetic) { // point.pointSourceId == 2
                     continue;
-                    // TODO die können raus
                 }
                 // get info out of 8 bit flags:
                 // return number, number of returns, stuff, stuff
@@ -136,8 +136,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                         v.b = 255;
                         v.g = 0;
                         v.r = 0;
-                        // TODO bäume oberer teil, haus kanten, ein dach?, teile von wänden
-
+                        // bäume oberer teil, teile von wänden, ein dach?
                         // keep wall points, skip others
                         bool belongsToWall = false;
                         std::vector<int> wallIdxRadiusSearch;
@@ -163,13 +162,14 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                         }
                     } else if (returnNumber != numOfReturns) {
                         // intermediate points
+                        // viel baum, ganz wenig wand -> raus
                         continue;
                         v.b = 0;
                         v.g = 0;
                         v.r = 255;
-                        // TODO die können eig alle iwie raus, da sind nur wenige wand punkte dabei
                     } else {
                         // last of many
+                        // boden, bisschen wände, kein baum. einfach lassen
                         v.b = 100; // r
                         v.g = 100; // g
                         v.r = 100; // b
@@ -178,7 +178,6 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                             v.g = 255;
                             v.r = 0;
                         }
-                        // TODO boden, bisschen wände, kein baum. eher einfach lassen
                     }
                 } else {
                     // pcl library switched r and b component
@@ -190,18 +189,17 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 // convert to opengl friendly thing
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
-
-
-
-
-
-
-
                 // TODO größe der cloud anpassen? könnte ich dann nach dem splats bauen auch nochmal machen, zumindest in der endversion wenn ich die punkt nicht mehr anschauen will
 
-
                 cloud->push_back(v);
+//                count++;
             }
+            // resize cloud
+            //cloud->resize(count);
+            *pointCount = cloud->size();
+            std::cout << TAG << "Num of points: " << *pointCount << std::endl;
+
+
         }
 
         if (!inf.good())
