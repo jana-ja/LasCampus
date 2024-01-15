@@ -68,7 +68,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     std::cout << TAG << "loading data successful" << std::endl;
 }
 
-DataStructure::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree) {
+float DataStructure::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree) {
     // preprocessing of buildings
     // save all walls (min, mid, max point & radius)
     // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
@@ -107,7 +107,6 @@ DataStructure::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ
             wallPoint2.z = building.points[pointIdx + 1].z;
 
             // detect (and color) alle points on this wall
-            pcl::PointXYZRGBNormal mid;
             wall.mid.x = (wallPoint1.x + wallPoint2.x) / 2;
             wall.mid.y = (ground + wallHeight) / 2;
             wall.mid.z = (wallPoint1.z + wallPoint2.z) / 2;
@@ -115,8 +114,11 @@ DataStructure::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ
             auto vec1 = vectorSubtract(wallPoint1, wallPoint2);
             auto vec2 = vectorSubtract(wallPoint1, wall.mid);
             auto planeNormal = normalize(crossProduct(vec1, vec2));
+            wall.mid.normal_x = planeNormal.x;
+            wall.mid.normal_y = planeNormal.y;
+            wall.mid.normal_z = planeNormal.z;
 
-            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
+            float r = sqrt(pow(wallPoint2.x - wall.mid.x, 2) + pow(wallHeight - wall.mid.y, 2) + pow(wallPoint2.z - wall.mid.z, 2));
             if (r > maxR) {
                 maxR = r;
             }

@@ -53,6 +53,13 @@ public:
 
     };
 
+    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
+
+    }
+
 private:
 
     bool colorClasses = false;
@@ -88,7 +95,7 @@ private:
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     std::vector<Wall> walls;
 
-    float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree);
+    float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree);
 
     void adaSplats();
 
@@ -134,12 +141,7 @@ private:
         return dist;
     }
 
-    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
 
-        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
-        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
-
-    }
 
     static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
 
