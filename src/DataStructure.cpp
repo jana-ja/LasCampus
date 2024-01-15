@@ -31,6 +31,11 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     float zOffset2 = 5705500; // TODO get from las file
     shpIo.readShp(shpDir + shpFile, &buildings, xOffset2, zOffset2);
 
+    // preprocess buildings to walls
+    float resolution = 8.0f; // TODO find good value
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
+            resolution);
+    float maxWallRadius = preprocessWalls(wallOctree);
 
     // read las file
     std::string lasDir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
@@ -43,7 +48,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     for (const auto& file: lasFiles) {
 
         // get points
-        lasIo.readLas(lasDir + file, cloud, &pointCount, xOffset, yOffset, zOffset);
+        lasIo.readLas(lasDir + file, cloud, &pointCount, xOffset, yOffset, zOffset, walls, wallOctree, maxWallRadius);
 //        lasIo.random(cloud);
 
         endIdx = pointCount;
@@ -61,6 +66,78 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         startIdx += pointCount;
     }
     std::cout << TAG << "loading data successful" << std::endl;
+}
+
+DataStructure::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree) {
+    // preprocessing of buildings
+    // save all walls (min, mid, max point & radius)
+    // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
+    float maxR = 0;
+    for (auto building: buildings) {
+        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        auto partIdx = building.parts.begin();
+        uint32_t nextPartIndex = *partIdx;
+        partIdx++;
+        if (partIdx != building.parts.end()) {
+            nextPartIndex = *partIdx;
+        }
+        // for all walls
+        float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+        float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
+        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
+
+            // if reached end of part/ring -> skip this "wall"
+            if (pointIdx + 1 == nextPartIndex) {
+                partIdx++;
+                if (partIdx != building.parts.end()) {
+                    nextPartIndex = *partIdx;
+                }
+                continue;
+            }
+
+            Wall wall;
+
+
+            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
+            wallPoint1.x = building.points[pointIdx].x;
+            wallPoint1.y = ground;
+            wallPoint1.z = building.points[pointIdx].z;
+            wallPoint2.x = building.points[pointIdx + 1].x;
+            wallPoint2.y = ground + wallHeight;
+            wallPoint2.z = building.points[pointIdx + 1].z;
+
+            // detect (and color) alle points on this wall
+            pcl::PointXYZRGBNormal mid;
+            wall.mid.x = (wallPoint1.x + wallPoint2.x) / 2;
+            wall.mid.y = (ground + wallHeight) / 2;
+            wall.mid.z = (wallPoint1.z + wallPoint2.z) / 2;
+
+            auto vec1 = vectorSubtract(wallPoint1, wallPoint2);
+            auto vec2 = vectorSubtract(wallPoint1, wall.mid);
+            auto planeNormal = normalize(crossProduct(vec1, vec2));
+
+            float r = sqrt(pow(wallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(wallPoint2.z - mid.z, 2));
+            if (r > maxR) {
+                maxR = r;
+            }
+
+            wall.minX = min(wallPoint1.x, wallPoint2.x);
+            wall.maxX = max(wallPoint1.x, wallPoint2.x);
+            wall.minZ = min(wallPoint1.z, wallPoint2.z);
+            wall.maxZ = max(wallPoint1.z, wallPoint2.z);
+
+            walls.push_back(wall);
+            wallMidPoints->push_back(wall.mid);
+
+
+        }
+    }
+
+    wallOctree.setInputCloud(wallMidPoints);
+    wallOctree.defineBoundingBox();
+    wallOctree.addPointsFromInputCloud();
+
+    return maxR;
 }
 
 void DataStructure::adaSplats() {

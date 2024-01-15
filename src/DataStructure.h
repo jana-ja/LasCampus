@@ -46,6 +46,13 @@ public:
     float yOffset{};
     float zOffset{};
 
+    struct Wall {
+        pcl::PointXYZRGBNormal mid;
+        float minX, maxX;
+        float minZ, maxZ;
+
+    };
+
 private:
 
     bool colorClasses = false;
@@ -76,16 +83,12 @@ private:
         std::vector<int> pointIdc;
     };
 
-    struct Wall {
-        pcl::PointXYZRGBNormal mid;
-        float minX, maxX;
-        float minZ, maxZ;
 
-    };
 
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     std::vector<Wall> walls;
 
+    float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree);
 
     void adaSplats();
 

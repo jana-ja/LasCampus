@@ -6,7 +6,7 @@
 
 
 void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount,
-                        float& xOffset, float& yOffset, float& zOffset) {
+                        float& xOffset, float& yOffset, float& zOffset, std::vector<DataStructure::Wall>& walls, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius) {
 
     std::cout << TAG << "read las file..." << std::endl;
 
@@ -98,49 +98,54 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                 PointDRF1 point;
                 inf.read((char *) (&point), sizeof(PointDRF1));
 
-                // convert to opengl friendly thing
-                // Xcoordinate = (Xrecord * Xscale) + Xoffset
-
-                // center pointcloud - offset is in opengl coord system!
-                pcl::PointXYZRGBNormal v;
-                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
-                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
-                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
-                v.normal_x = -1;
-                v.normal_y = -1;
-                v.normal_z = -1;
-
-
                 // filter stuff
-
-                // get info out of 8 bit flags:
-                // c c c m m m _ _
+                pcl::PointXYZRGBNormal v; // TODO nach unten später
+                // get info out of 8 bit classification:
+                // classification, synthetic, keypoint, withheld
                 // little endian
-                // _ _ m m m c c c
+                // w k s c c c c c
+                int8_t classification = point.classification & 31;
+                bool synthetic = (point.classification >> 5) & 1;
+//                bool keyPoint = (point.classification >> 6) & 1;
+//                bool withheld = (point.classification >> 7) & 1;
+                if (synthetic){ // point.pointSourceId == 2
+                    v.b = 255;
+                    v.g = 255;
+                    v.r = 255;
+                    continue;
+                    // TODO die können raus
+                }
+                // get info out of 8 bit flags:
+                // return number, number of returns, stuff, stuff
+                // little endian
+                // _ _ n n n r r r
                 int8_t returnNumber = point.flags & 7;
                 int8_t numOfReturns = (point.flags >> 3) & 7;
                 if (numOfReturns > 1) {
                     if (returnNumber == 1){
-                        // first?
-
+                        // first of many
                         v.b = 255;
                         v.g = 0;
                         v.r = 0;
                         // TODO bäume oberer teil, haus kanten, ein dach?, teile von wänden
-                    } else if (returnNumber == numOfReturns) {
-                        // last?
-
-                        v.b = 0;
-                        v.g = 255;
-                        v.r = 0;
-                        // TODO boden, bisschen wände, kein baum
-                    } else {
+                    } else if (returnNumber != numOfReturns) {
                         // intermediate points
-
+                        continue;
                         v.b = 0;
                         v.g = 0;
                         v.r = 255;
-                        // TODO die können eig alle iwie raus, da sind nur wenige wand puntke dabei
+                        // TODO die können eig alle iwie raus, da sind nur wenige wand punkte dabei
+                    } else {
+                        // last of many
+                        v.b = 100; // r
+                        v.g = 100; // g
+                        v.r = 100; // b
+//                        if (classification != 2) { // not ground
+//                            v.b = 0;
+//                            v.g = 255;
+//                            v.r = 0;
+//                        }
+                        // TODO boden, bisschen wände, kein baum. eher einfach lassen
                     }
                 } else {
                     // pcl library switched r and b component
@@ -148,15 +153,27 @@ void LasDataIO::readLas(const std::string &path, const pcl::PointCloud<pcl::Poin
                     v.g = 100; // g
                     v.r = 100; // b
                 }
+
+                // convert to opengl friendly thing
+                // Xcoordinate = (Xrecord * Xscale) + Xoffset
+
+                // center pointcloud - offset is in opengl coord system!
+                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
+                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
+                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
+                v.normal_x = -1;
+                v.normal_y = -1;
+                v.normal_z = -1;
+
                 v.a = 255;
 
-                if (point.pointSourceId == 2) {
-                    // TODO müssten auch über classification bit erkennbar sein? synthetic?
-                    //  generell die drei classification bits ansehen
-                    v.b = 255;
-                    v.g = 255;
-                    v.r = 255;
-                }
+
+
+
+
+
+                // TODO größe der cloud anpassen? könnte ich dann nach dem splats bauen auch nochmal machen, zumindest in der endversion wenn ich die punkt nicht mehr anschauen will
+
 
                 cloud->push_back(v);
             }

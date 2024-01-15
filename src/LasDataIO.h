@@ -11,13 +11,14 @@
 #include <cassert>
 #include <pcl/point_types.h>
 #include <pcl/features/normal_3d.h>
+#include "DataStructure.h"
 
 
 class LasDataIO {
 
 public:
 
-    void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount, float& xOffset, float& yOffset, float& zOffset);
+    void readLas(const std::string &path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount, float& xOffset, float& yOffset, float& zOffset, std::vector<DataStructure::Wall>& walls, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
     bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
     void writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx, const uint32_t& endIdx);
     void random(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
