@@ -25,7 +25,7 @@ public:
 
 private:
 
-    bool colorClasses = true;
+    bool colorClasses = false ;
 
     const std::string TAG = "LasIO\t";
 
