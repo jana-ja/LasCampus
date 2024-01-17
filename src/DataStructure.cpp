@@ -651,15 +651,19 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         }
         else if (epsilonCount2 == 0) {
             // minor achse
-            (*cloud)[pointIdx].r = 255;
-            (*cloud)[pointIdx].g = 0;
-            (*cloud)[pointIdx].b = 0;
+            if (colorInvalid) {
+                (*cloud)[pointIdx].r = 255;
+                (*cloud)[pointIdx].g = 0;
+                (*cloud)[pointIdx].b = 0;
+            }
             epsilonCount2++;
             lastEpsilonNeighbourIdx2 = 1;
         } else if (epsilonCount1 == 0) {
-            (*cloud)[pointIdx].r = 0;
-            (*cloud)[pointIdx].g = 0;
-            (*cloud)[pointIdx].b = 255;
+            if (colorInvalid) {
+                (*cloud)[pointIdx].r = 255;
+                (*cloud)[pointIdx].g = 0;
+                (*cloud)[pointIdx].b = 0;
+            }
             epsilonCount1++;
             lastEpsilonNeighbourIdx1 = 1;
         }
