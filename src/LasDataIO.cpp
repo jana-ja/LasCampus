@@ -180,7 +180,26 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                         // last of many
                         // boden, bisschen wände, kein baum. einfach lassen
                         if (classification != 2) { // not ground
-                            if(colorClasses) {
+                            bool belongsToWall = false;
+                            std::vector<int> wallIdxRadiusSearch;
+                            std::vector<float> wallRadiusSquaredDistance;
+                            if (wallOctree.radiusSearch(v, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
+                                for (auto wallIdx = 0; wallIdx < wallIdxRadiusSearch.size(); wallIdx++) {
+                                    const auto& wall = walls[wallIdxRadiusSearch[wallIdx]];
+
+                                    float dist = DataStructure::pointPlaneDistance(v, wall.mid);
+                                    if (dist > wallThreshold) {
+                                        continue;
+                                    }
+                                    if (v.x > wall.maxX || v.x < wall.minX || v.z > wall.maxZ || v.z < wall.minZ) {
+                                        continue;
+                                    }
+                                    // belongs to wall
+                                    belongsToWall = true;
+                                    break;
+                                }
+                            }
+                            if(colorClasses && belongsToWall) {
                                 v.b = 0;
                                 v.g = 255;
                                 v.r = 0;
