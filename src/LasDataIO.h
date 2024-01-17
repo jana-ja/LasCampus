@@ -13,6 +13,8 @@
 #include <pcl/features/normal_3d.h>
 #include "DataStructure.h"
 
+#include "stb_image.h"
+
 
 class LasDataIO {
 
@@ -24,6 +26,20 @@ public:
     void random(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
 private:
+
+    // Loads as RGBA... even if file is only RGB
+// Feel free to adjust this if you so please, by changing the 4 to a 0.
+    bool load_image(std::vector<unsigned char>& image, const std::string& filename, int& x, int&y)
+    {
+        int n; // jpg only 1 channel (greyscale) and 4th always 255, png 2 channels (greyscale + i) i - greyscale iwie mit mehr range
+        unsigned char* data = stbi_load(filename.c_str(), &x, &y, &n, 3);
+        if (data != nullptr)
+        {
+            image = std::vector<unsigned char>(data, data + x * y * 3);
+        }
+        stbi_image_free(data);
+        return (data != nullptr);
+    }
 
     bool colorClasses = false ;
 

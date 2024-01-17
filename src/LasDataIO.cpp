@@ -82,6 +82,30 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
 //            }
 //        }
 
+
+        // read image
+        std::string filename = "../las/dop10rgbi_32_389_5705_1_nw_2021.jpg";
+        int width, height;
+        std::vector<unsigned char> image;
+        bool success = load_image(image, filename, width, height);
+        if (!success)
+        {
+            std::cout << "Error loading image\n";
+            // TODO stop
+        }
+        std::cout << "Image width = " << width << '\n';
+        std::cout << "Image height = " << height << '\n';
+        const size_t RGBI = 3;
+        int x = 3;
+        int y = 4;
+        size_t index = RGBI * (y * width + x);
+//        std::cout << "RGBI pixel @ (x=3, y=4): "
+//                  << static_cast<int>(image[index + 0]) << " "
+//                  << static_cast<int>(image[index + 1]) << " "
+//                  << static_cast<int>(image[index + 2]) << " "
+//                  << static_cast<int>(image[index + 3]) << '\n';
+
+
         // points
         int pointsUsed = 200000; //header.numberOfPoints;
         *pointCount = pointsUsed;
@@ -99,12 +123,16 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
             for (uint32_t i = 0; i < pointsUsed; i++) {//header.numberOfPoints; i++) {
                 PointDRF1 point;
                 inf.read((char*) (&point), sizeof(PointDRF1));
+                float pointX = point.x * header.scaleX + header.offX;
+                float pointY = point.y * header.scaleY + header.offY;
+                float pointZ = point.z * header.scaleZ + header.offZ;
+
 
                 pcl::PointXYZRGBNormal v; // TODO nach unten später
                 // center pointcloud - offset is in opengl coord system!
-                v.x = (float) (point.x * header.scaleX + header.offX - xOffset);
-                v.y = (float) (point.z * header.scaleZ + header.offZ - yOffset);
-                v.z = -(float) (point.y * header.scaleY + header.offY - zOffset);
+                v.x = (float) (pointX - xOffset);
+                v.y = (float) (pointZ - yOffset);
+                v.z = -(float) (pointY - zOffset);
                 v.normal_x = -1;
                 v.normal_y = -1;
                 v.normal_z = -1;
@@ -212,6 +240,17 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
 
                 // TODO größe der cloud anpassen? könnte ich dann nach dem splats bauen auch nochmal machen, zumindest in der endversion wenn ich die punkt nicht mehr anschauen will
+
+                // get color from image
+                int imageX = (pointX - 389000.05) * 10;
+                int imageY = (pointY - 5705999.95) * -10;
+                // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
+                size_t index = RGBI * (imageY * width + imageX);
+                v.b = static_cast<int>(image[index + 0]);
+                v.g = static_cast<int>(image[index + 1]);
+                v.r = static_cast<int>(image[index + 2]);
+//                int intensity = image[index + 3];
+
 
                 cloud->push_back(v);
 //                count++;
