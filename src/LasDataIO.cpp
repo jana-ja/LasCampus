@@ -123,6 +123,9 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
             for (uint32_t i = 0; i < pointsUsed; i++) {//header.numberOfPoints; i++) {
                 PointDRF1 point;
                 inf.read((char*) (&point), sizeof(PointDRF1));
+
+                // convert to opengl friendly thing
+                // Xcoordinate = (Xrecord * Xscale) + Xoffset
                 float pointX = point.x * header.scaleX + header.offX;
                 float pointY = point.y * header.scaleY + header.offY;
                 float pointZ = point.z * header.scaleZ + header.offZ;
@@ -143,7 +146,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 v.r = 100; // b
                 v.a = 255;
 
-                // filter stuff // TODO vllt später paar infos speichern und dann das filtern in datastructure machen?
+                // filter stuff
                 float wallThreshold = 1.5;
 
                 // get info out of 8 bit classification:
@@ -236,13 +239,9 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                     }
                 }
 
-                // convert to opengl friendly thing
-                // Xcoordinate = (Xrecord * Xscale) + Xoffset
-
-                // TODO größe der cloud anpassen? könnte ich dann nach dem splats bauen auch nochmal machen, zumindest in der endversion wenn ich die punkt nicht mehr anschauen will
 
                 // get color from image
-                int imageX = (pointX - 389000.05) * 10;
+                int imageX = (pointX - 389000.05) * 10; // data from jp2 world file
                 int imageY = (pointY - 5705999.95) * -10;
                 // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
                 size_t index = RGBI * (imageY * width + imageX);
