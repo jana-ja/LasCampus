@@ -16,7 +16,7 @@
 
 using namespace std;
 
-DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile) {
+DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile) {
 
     // read shape file
     // TODO hard coded coordinates from current test las file

@@ -84,7 +84,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
 
 
         // read image
-        std::string filename = "../las/dop10rgbi_32_389_5705_1_nw_2021.jpg";
+        std::string filename = "../img/dop10rgbi_32_389_5705_1_nw_2021.jpg"; // TODO
         int width, height;
         std::vector<unsigned char> image;
         bool success = load_image(image, filename, width, height);

@@ -24,7 +24,7 @@
 
 class DataStructure {
 public:
-    DataStructure(const std::vector<std::string> &lasFiles, const std::string &shpFiles);
+    DataStructure(const std::vector<std::string> &lasFiles, const std::string &shpFile, const std::string &imgFile);
 
     uint32_t getVertexCount();
 
