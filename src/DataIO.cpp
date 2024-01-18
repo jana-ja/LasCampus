@@ -2,14 +2,14 @@
 // Created by Jana on 12.11.2023.
 //
 
-#include "LasDataIO.h"
+#include "DataIO.h"
 #include <numeric>
 #include <fstream>
 #include "UTM.h"
 #include "util.h"
 
-bool LasDataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
-                         const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings) {
+bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
+                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings) {
 
 
     std::cout << TAG << "begin loading data" << std::endl;
@@ -60,8 +60,8 @@ bool LasDataIO::readData(const std::vector<std::string>& lasFiles, const std::st
 
 // ********** las **********
 
-void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                        pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius) {
+void DataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
+                     pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius) {
 
     std::cout << TAG << "read las file..." << std::endl;
 
@@ -345,8 +345,8 @@ T swap_endian(T u) {
 
 // TODO idee: hier direkt bounding box mitgeben und nur die shapes innerhalb speichern
 void
-LasDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings, const float& xOffset, const float& zOffset, double maxX, double maxY, double minX,
-                   double minY) {
+DataIO::readShp(const std::string& path, std::vector<Polygon>* buildings, const float& xOffset, const float& zOffset, double maxX, double maxY, double minX,
+                double minY) {
 
     std::cout << TAG << "read shp file..." << std::endl;
 
@@ -466,7 +466,7 @@ LasDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings, con
     }
 }
 
-float LasDataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings) {
+float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings) {
     // preprocessing of buildings
     // save all walls (min, mid, max point & radius)
     // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
@@ -543,7 +543,7 @@ float LasDataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointX
 
 
 // ********** cache **********
-bool LasDataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+bool DataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
 
     std::cout << TAG << "try to read features from cache" << std::endl;
 
@@ -600,7 +600,7 @@ bool LasDataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::
  * @param startIdx
  * @param endIdx exclusive
  */
-void LasDataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+void DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
     std::ofstream out(normalPath, std::ios::binary);
 
     std::cout << TAG << "writing normals to cache" << std::endl;

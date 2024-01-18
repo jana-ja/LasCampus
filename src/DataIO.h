@@ -2,13 +2,13 @@
 // Created by Jana on 11.11.2023.
 //
 
-#ifndef LASCAMPUS_LASDATAIO_H
-#define LASCAMPUS_LASDATAIO_H
+#ifndef LASCAMPUS_DATAIO_H
+#define LASCAMPUS_DATAIO_H
 
 #include <pcl/octree/octree_search.h>
 #include "stb_image.h"
 
-class LasDataIO {
+class DataIO {
 
 public:
 
@@ -47,11 +47,11 @@ public:
 
 
 
-//    LasDataIO(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): {}
+//    DataIO(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): {}
     bool readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings);
 
 private:
-    const std::string TAG = "LasIO\t";
+    const std::string TAG = "DataIO\t";
 
     // ########## structs ##########
 #pragma pack(push, 1) // win - tightly pack the bytes and dont start at new power of two things
@@ -183,7 +183,7 @@ private:
         return true;
     }
     float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings);
-    std::vector<LasDataIO::Wall> walls;
+    std::vector<DataIO::Wall> walls;
 
     // ********** img **********
     bool load_image(std::vector<unsigned char>& image, const std::string& filename, int& x, int&y)
@@ -206,4 +206,4 @@ private:
 
 
 
-#endif //LASCAMPUS_LASDATAIO_H
+#endif //LASCAMPUS_DATAIO_H

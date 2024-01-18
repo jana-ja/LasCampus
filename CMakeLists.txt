@@ -14,10 +14,8 @@ add_executable(LasCampus src/main.cpp
         src/Camera.h
         src/shader.h
         src/util.h
-        src/LasDataIO.h
-        src/LasDataIO.cpp
-        src/ShpDataIO.cpp
-        src/ShpDataIO.h
+        src/DataIO.h
+        src/DataIO.cpp
         src/UTM.h
         src/UTM.cpp
 )

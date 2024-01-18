@@ -8,8 +8,7 @@
 
 #include <vector>
 #include <pcl/octree/octree_search.h>
-#include "LasDataIO.h"
-#include "ShpDataIO.h"
+#include "DataIO.h"
 #include <pcl/point_types.h>
 #include <pcl/impl/instantiate.hpp>  // defines the PCL_INSTANTIATE_PRODUCT macro
 #include <pcl/features/normal_3d.h>
@@ -63,7 +62,7 @@ private:
     std::vector<pcl::PointXYZ> tangent1Vec;
     std::vector<pcl::PointXYZ> tangent2Vec;
 
-    std::vector<LasDataIO::Polygon> buildings;
+    std::vector<DataIO::Polygon> buildings;
 
     // offset is in opengl coord system!
 //    float xOffset;
@@ -86,9 +85,6 @@ private:
 
     void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr);
 
-
-
-    ShpDataIO::Point getUtmForWgs(ShpDataIO::Point wgsPoint);
 
     int findIndex(float border, std::vector<float> vector1);
 

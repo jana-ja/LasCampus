@@ -19,7 +19,7 @@ using namespace std;
 DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile) {
 
 
-    LasDataIO lasIo = LasDataIO();//lasFiles, shpFile, imgFile);
+    DataIO lasIo = DataIO();//lasFiles, shpFile, imgFile);
 
     bool cachedFeatues = lasIo.readData(lasFiles, shpFile, imgFile, cloud, buildings);
 
@@ -695,10 +695,6 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
 
 
 // TODO später in util
-
-ShpDataIO::Point DataStructure::getUtmForWgs(ShpDataIO::Point wgsPoint) {
-    return wgsPoint;
-};
 
 //Vertex DataStructure::getUTMForOpenGL(Vertex *vertexOpenGL) {
 //    // TODO offset is float, losing precision
