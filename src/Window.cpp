@@ -8,7 +8,7 @@
 #include "Window.h"
 
 
-Window::Window(DataStructure pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
+Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
                                            pointCloud(pointCloud){
 
     // set camera pos
@@ -295,7 +295,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.setFloat("point_size", POINT_SIZE); // TODO weg?
 }
 
-void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint &VAO, DataStructure pointCloud) {
+void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint &VAO, DataStructure& pointCloud) {
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(VAO);
@@ -346,7 +346,7 @@ void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLui
 }
 
 
-void Window::dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure pointCloud) {
+void Window::dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure& pointCloud) {
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(VAO);

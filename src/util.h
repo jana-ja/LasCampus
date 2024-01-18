@@ -4,12 +4,116 @@
 
 #ifndef LASCAMPUS_UTIL_H
 #define LASCAMPUS_UTIL_H
+#include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
 
-extern const std::string PATH_SEPARATOR =
+namespace Util {
+
+    const std::string PATH_SEPARATOR =
 #ifdef _WIN32
-        "\\";
+            "\\";
 #else
-        "/";
+    "/";
 #endif
+
+
+    using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
+
+    // keep those functions inlined because they are small and used frequently
+     inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
+        pcl::PointXYZ result;
+        result.x = (a.x - b.x);
+        result.y = (a.y - b.y);
+        result.z = (a.z - b.z);
+        return result;
+    }
+
+    inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
+        pcl::PointXYZ result;
+        result.x = (a.x - b.x);
+        result.y = (a.y - b.y);
+        result.z = (a.z - b.z);
+        return result;
+    }
+
+    inline float dotProduct(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    inline pcl::PointXYZ crossProduct(pcl::PointXYZ a, pcl::PointXYZ b) {
+        pcl::PointXYZ result;
+        result.x = (a.y * b.z) - (a.z * b.y);
+        result.y = (a.z * b.x) - (a.x * b.z);
+        result.z = (a.x * b.y) - (a.y * b.x);
+        return result;
+    }
+
+    inline pcl::PointXYZ normalize(pcl::PointXYZ point) {
+        float magnitude = sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
+
+        pcl::PointXYZ result;
+        result.x = point.x / magnitude;
+        result.y = point.y / magnitude;
+        result.z = point.z / magnitude;
+        return result;
+    }
+
+
+    inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
+    }
+
+    inline float
+    isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
+        float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
+        return d;
+    }
+
+    inline float vectorLength(const pcl::PointXYZRGBNormal vector) {
+        return sqrt(pow(vector.x, 2) + pow(vector.y, 2) + pow(vector.z, 2));
+    }
+
+    inline float vectorLength(const pcl::PointXYZ vector) {
+        return sqrt(pow(vector.x, 2) + pow(vector.y, 2) + pow(vector.z, 2));
+    }
+
+    inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return dotProduct(normal, (vectorSubtract(planePoint, point)));
+    }
+
+    inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
+        return dotProduct(normal, (vectorSubtract(neighbourPoint, point)));
+    }
+
+    inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
+        // calc normal for plane points
+        auto vec1 = vectorSubtract(plane[0], plane[1]);
+        auto vec2 = vectorSubtract(plane[0], plane[2]);
+
+        auto planeNormal = normalize(crossProduct(vec1, vec2));
+
+        float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
+
+        return dist;
+    }
+
+    inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
+        return abs(dotProduct(normal, (vectorSubtract(neighbourPoint, point))));
+    }
+
+    inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
+        // calc normal for plane points
+        auto vec1 = vectorSubtract(plane[0], plane[1]);
+        auto vec2 = vectorSubtract(plane[0], plane[2]);
+
+        auto planeNormal = normalize(crossProduct(vec1, vec2));
+
+        float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
+
+        return abs(dist);
+    }
+}
 
 #endif //LASCAMPUS_UTIL_H

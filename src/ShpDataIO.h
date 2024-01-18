@@ -42,7 +42,7 @@ private:
 
 
 #pragma pack(push, 1) // win - tightly pack the bytes and dont start at new power of two things
-    struct Header {
+    struct ShpHeader {
         // big endianess
         uint32_t fileCode;
         uint32_t unused[5];
@@ -58,13 +58,13 @@ private:
 
 
     // variable length record header
-    struct VarLenRecHeader {
+    struct ShpVarLenRecHeader {
         uint32_t recNumber; // 1-based
         uint32_t contentLen; // in 16-bit words
     };
 
     // variable length record content for shape type 5
-    struct PolygonRecContent {
+    struct ShpPolygonRecContent {
         uint32_t shapeType;
         double xMin, yMin, xMax, yMax;
         uint32_t numParts; // "rings" of polygon.
@@ -78,7 +78,7 @@ private:
 
 #pragma pack(pop)
 
-    bool isPolygonInBounds(PolygonRecContent& polygon);
+    bool isPolygonInBounds(ShpPolygonRecContent& polygon);
 
 
 };

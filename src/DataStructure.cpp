@@ -18,129 +18,23 @@ using namespace std;
 
 DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile) {
 
-    // read shape file
-    // TODO hard coded coordinates from current test las file
-    double maxX = 7.415424;
-    double maxY = 51.494428;
-    double minX = 7.401340;
-    double minY = 51.485245;
 
-    std::string shpDir = ".." + PATH_SEPARATOR + "shp" + PATH_SEPARATOR;
-    ShpDataIO shpIo = ShpDataIO(maxX, maxY, minX, minY);
-    float xOffset2 = 389500;
-    float zOffset2 = 5705500; // TODO get from las file
-    shpIo.readShp(shpDir + shpFile, &buildings, xOffset2, zOffset2);
+    LasDataIO lasIo = LasDataIO();//lasFiles, shpFile, imgFile);
 
-    // preprocess buildings to walls
-    float resolution = 8.0f; // TODO find good value
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
-            resolution);
-    float maxWallRadius = preprocessWalls(wallOctree);
+    bool cachedFeatues = lasIo.readData(lasFiles, shpFile, imgFile, cloud, buildings);
 
-    // read las file
-    std::string lasDir = ".." + PATH_SEPARATOR + "las" + PATH_SEPARATOR;
-    LasDataIO lasIo = LasDataIO();
-
-    uint32_t startIdx = 0;
-    uint32_t endIdx;
-    uint32_t pointCount = 0;//; // TODO remove
-    std::cout << TAG << "begin loading data" << std::endl;
-    for (const auto& file: lasFiles) {
-
-        // get points
-        lasIo.readLas(lasDir + file, cloud, &pointCount, xOffset, yOffset, zOffset, walls, wallOctree, maxWallRadius);
-//        lasIo.random(cloud);
-
-        endIdx = pointCount;
-
-        // get normals
-        std::string normalFile = file;
-        normalFile.replace(normalFile.end() - 3, normalFile.end(), "features");
+    if (!cachedFeatues) {
         adaSplats();
-//        if (!lasIo.readFeaturesFromCache(lasDir + normalFile, cloud, startIdx, endIdx)) {
-//            auto treePtr = kdTreePcaNormalEstimation(startIdx, endIdx);
-//            normalOrientation(startIdx, endIdx, treePtr);
-//            lasIo.writeFeaturesToCache(lasDir + normalFile, cloud, startIdx, endIdx);
-//        }
 
-        startIdx += pointCount;
-    }
-    std::cout << TAG << "loading data successful" << std::endl;
-}
-
-float DataStructure::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree) {
-    // preprocessing of buildings
-    // save all walls (min, mid, max point & radius)
-    // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
-    float maxR = 0;
-    for (auto building: buildings) {
-        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
-        auto partIdx = building.parts.begin();
-        uint32_t nextPartIndex = *partIdx;
-        partIdx++;
-        if (partIdx != building.parts.end()) {
-            nextPartIndex = *partIdx;
-        }
-        // for all walls
-        float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
-        float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
-        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
-
-            // if reached end of part/ring -> skip this "wall"
-            if (pointIdx + 1 == nextPartIndex) {
-                partIdx++;
-                if (partIdx != building.parts.end()) {
-                    nextPartIndex = *partIdx;
-                }
-                continue;
-            }
-
-            Wall wall;
-
-
-            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
-            wallPoint1.x = building.points[pointIdx].x;
-            wallPoint1.y = ground;
-            wallPoint1.z = building.points[pointIdx].z;
-            wallPoint2.x = building.points[pointIdx + 1].x;
-            wallPoint2.y = ground + wallHeight;
-            wallPoint2.z = building.points[pointIdx + 1].z;
-
-            // detect (and color) alle points on this wall
-            wall.mid.x = (wallPoint1.x + wallPoint2.x) / 2;
-            wall.mid.y = (ground + wallHeight) / 2;
-            wall.mid.z = (wallPoint1.z + wallPoint2.z) / 2;
-
-            auto vec1 = vectorSubtract(wallPoint1, wallPoint2);
-            auto vec2 = vectorSubtract(wallPoint1, wall.mid);
-            auto planeNormal = normalize(crossProduct(vec1, vec2));
-            wall.mid.normal_x = planeNormal.x;
-            wall.mid.normal_y = planeNormal.y;
-            wall.mid.normal_z = planeNormal.z;
-
-            float r = sqrt(pow(wallPoint2.x - wall.mid.x, 2) + pow(wallHeight - wall.mid.y, 2) + pow(wallPoint2.z - wall.mid.z, 2));
-            if (r > maxR) {
-                maxR = r;
-            }
-
-            wall.minX = min(wallPoint1.x, wallPoint2.x);
-            wall.maxX = max(wallPoint1.x, wallPoint2.x);
-            wall.minZ = min(wallPoint1.z, wallPoint2.z);
-            wall.maxZ = max(wallPoint1.z, wallPoint2.z);
-
-            walls.push_back(wall);
-            wallMidPoints->push_back(wall.mid);
-
-
-        }
+//        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
+//        const auto& file = lasFiles[0];
+//        std::string cacheFile = file;
+//        cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "features");
+//        lasIo.writeFeaturesToCache(lasDir + cacheFile, cloud);
     }
 
-    wallOctree.setInputCloud(wallMidPoints);
-    wallOctree.defineBoundingBox();
-    wallOctree.addPointsFromInputCloud();
-
-    return maxR;
 }
+
 
 void DataStructure::adaSplats() {
     auto start = std::chrono::high_resolution_clock::now();
@@ -309,7 +203,7 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 // first neighbour is the point itself
                 auto bla2 = std::vector<float>(neighbourhood.size());
                 for (auto nPointIdx = 1; nPointIdx < neighbourhood.size(); nPointIdx++) {
-                    auto ppd = pointPlaneDistance((*cloud)[neighbourhood[nPointIdx]], (*cloud)[pointIdx]);
+                    auto ppd = Util::pointPlaneDistance((*cloud)[neighbourhood[nPointIdx]], (*cloud)[pointIdx]);
                     uPtpDistSum += ppd;
 
                     bla2[nPointIdx] = ppd;
@@ -463,7 +357,7 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 
                     const auto& point = (*cloud)[*nIdxIt];
 
-                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > wallThreshold) {
+                    if (Util::pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > wallThreshold) {
                         continue;
                     }
                     if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) {
@@ -478,7 +372,7 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
                     auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
                     auto vertLen = point.normal_y;
                     if (horLen > vertLen) {
-                        if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) {
+                        if (Util::signedPointPlaneDistance(normalPoint, wallPlane) < 0) {
                             (*cloud)[*nIdxIt].normal_x *= -1;
                             (*cloud)[*nIdxIt].normal_y *= -1;
                             (*cloud)[*nIdxIt].normal_z *= -1;
@@ -555,13 +449,13 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
             // first check if neighbour point concerns tangent1 growth or tangent2 growth
             // project vector onto plane:
-            auto neighbourVec = vectorSubtract(cloud->points[neighbourhood[nIdx]], point);
-            auto projectedDistance = dotProduct(normal, neighbourVec);
+            auto neighbourVec = Util::vectorSubtract(cloud->points[neighbourhood[nIdx]], point);
+            auto projectedDistance = Util::dotProduct(normal, neighbourVec);
             auto normalProjectedVec = pcl::PointXYZ(projectedDistance * normal.x, projectedDistance * normal.y, projectedDistance * normal.z);
-            auto planeProjectedVec = vectorSubtract(neighbourVec, normalProjectedVec);
+            auto planeProjectedVec = Util::vectorSubtract(neighbourVec, normalProjectedVec);
             // angle
-            auto vecLen = vectorLength(planeProjectedVec);
-            float cosAngle = dotProduct(tangent1Vec[pointIdx], planeProjectedVec) / vecLen;
+            auto vecLen = Util::vectorLength(planeProjectedVec);
+            float cosAngle = Util::dotProduct(tangent1Vec[pointIdx], planeProjectedVec) / vecLen;
             if (abs(cosAngle) > 0.7) { // 45°
                 // concerns tangent1 -> less then 45° between tangent1 and projected neighbour vector
                 concernsTangent1 = true;
@@ -592,7 +486,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             neighbourNormal.y = (*cloud)[neighbourhood[nIdx]].normal_y;
             neighbourNormal.z = (*cloud)[neighbourhood[nIdx]].normal_z;
 
-            float angle = dotProduct(normal, neighbourNormal);
+            float angle = Util::dotProduct(normal, neighbourNormal);
             if (angle < angleThreshold){
                 if (concernsTangent1) {
                     growTangent1 = false;
@@ -602,7 +496,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                 continue;
             }
 
-            auto eps = signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
+            auto eps = Util::signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
             if (abs(eps) > currentSplatGrowEpsilon) {
                 // stop growing this neighbourhood
                 // point nIdx does NOT belong to neighbourhood
@@ -679,16 +573,16 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         // compute splat radii
         // tangent 1
         const auto& lastNeighbourPoint1 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx1]];
-        auto pointToNeighbourVec1 = vectorSubtract(lastNeighbourPoint1, point);
-        auto bla1 = dotProduct(normal, pointToNeighbourVec1);
+        auto pointToNeighbourVec1 = Util::vectorSubtract(lastNeighbourPoint1, point);
+        auto bla1 = Util::dotProduct(normal, pointToNeighbourVec1);
         auto  rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
-        float radius1 = vectorLength(vectorSubtract(pointToNeighbourVec1, rightSide1));
+        float radius1 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec1, rightSide1));
         // tangent 2
         const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx2]];
-        auto pointToNeighbourVec2 = vectorSubtract(lastNeighbourPoint2, point);
-        auto bla2 = dotProduct(normal, pointToNeighbourVec2);
+        auto pointToNeighbourVec2 = Util::vectorSubtract(lastNeighbourPoint2, point);
+        auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
         auto  rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
-        float radius2 = vectorLength(vectorSubtract(pointToNeighbourVec2, rightSide2));
+        float radius2 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec2, rightSide2));
         // length of axes has to be 1/radius
         tangent1Vec[pointIdx] = pcl::PointXYZ(tangent1Vec[pointIdx].x / radius1, tangent1Vec[pointIdx].y / radius1, tangent1Vec[pointIdx].z / radius1);
         tangent2Vec[pointIdx] = pcl::PointXYZ(tangent2Vec[pointIdx].x / radius2, tangent2Vec[pointIdx].y / radius2, tangent2Vec[pointIdx].z / radius2);
@@ -902,7 +796,7 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
 //                    }
                     const auto& point = (*cloud)[*nIdxIt];
 
-                    if (pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
+                    if (Util::pointPlaneDistance(cloud->points[*nIdxIt], wallPlane) > thresholdDelta) {
                         continue;
                     }
                     auto minX = min(wallPoint1.x, wallPoint2.x);
@@ -929,7 +823,7 @@ void DataStructure::normalOrientation(const uint32_t& startIdx, const uint32_t& 
                     auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
                     auto vertLen = point.normal_y;
                     if (horLen > vertLen) {
-                        if (signedPointPlaneDistance(normalPoint, wallPlane) < 0) { // TODO check sign richtig
+                        if (Util::signedPointPlaneDistance(normalPoint, wallPlane) < 0) { // TODO check sign richtig
                             (*cloud)[*nIdxIt].normal_x *= -1;
                             (*cloud)[*nIdxIt].normal_y *= -1;
                             (*cloud)[*nIdxIt].normal_z *= -1;

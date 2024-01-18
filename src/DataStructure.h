@@ -1,8 +1,11 @@
 //
 // Created by Jana on 30.08.2023.
 //
-#include <string>
-#include <cstdint>
+
+
+#ifndef LASCAMPUS_DATASTRUCTURE_H
+#define LASCAMPUS_DATASTRUCTURE_H
+
 #include <vector>
 #include <pcl/octree/octree_search.h>
 #include "LasDataIO.h"
@@ -15,11 +18,6 @@
 
 // pcl only instantiates most common use cases, I use PointXYZRGBNormal
 //PCL_INSTANTIATE_PRODUCT(NormalEstimation, ((pcl::PointXYZRGBNormal))((pcl::PointXYZRGBNormal)));
-
-
-
-#ifndef LASCAMPUS_POINTCLOUD_H
-#define LASCAMPUS_POINTCLOUD_H
 
 
 class DataStructure {
@@ -46,19 +44,7 @@ public:
     float yOffset{};
     float zOffset{};
 
-    struct Wall {
-        pcl::PointXYZRGBNormal mid;
-        float minX, maxX;
-        float minZ, maxZ;
 
-    };
-
-    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
-
-        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
-        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
-
-    }
 
 private:
 
@@ -77,7 +63,7 @@ private:
     std::vector<pcl::PointXYZ> tangent1Vec;
     std::vector<pcl::PointXYZ> tangent2Vec;
 
-    std::vector<ShpDataIO::Polygon> buildings;
+    std::vector<LasDataIO::Polygon> buildings;
 
     // offset is in opengl coord system!
 //    float xOffset;
@@ -92,10 +78,7 @@ private:
 
 
 
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-    std::vector<Wall> walls;
 
-    float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree);
 
     void adaSplats();
 
@@ -103,102 +86,7 @@ private:
 
     void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr);
 
-    static float isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
-        float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
-        return d;
-    }
 
-    static float vectorLength(const pcl::PointXYZRGBNormal vector) {
-        return sqrt(pow(vector.x, 2) + pow(vector.y, 2) + pow(vector.z, 2));
-    }
-
-    static float vectorLength(const pcl::PointXYZ vector) {
-        return sqrt(pow(vector.x, 2) + pow(vector.y, 2) + pow(vector.z, 2));
-    }
-
-    static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
-
-        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
-        return dotProduct(normal, (vectorSubtract(planePoint, point)));
-
-    }
-
-    static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
-
-        return dotProduct(normal, (vectorSubtract(neighbourPoint, point)));
-
-    }
-
-    static float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
-        // calc normal for plane points
-        auto vec1 = vectorSubtract(plane[0], plane[1]);
-        auto vec2 = vectorSubtract(plane[0], plane[2]);
-
-        auto planeNormal = normalize(crossProduct(vec1, vec2));
-
-        float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
-
-        return dist;
-    }
-
-
-
-    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
-
-        return abs(dotProduct(normal, (vectorSubtract(neighbourPoint, point))));
-
-    }
-
-    static float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const Plane& plane) {
-        // calc normal for plane points
-        auto vec1 = vectorSubtract(plane[0], plane[1]);
-        auto vec2 = vectorSubtract(plane[0], plane[2]);
-
-        auto planeNormal = normalize(crossProduct(vec1, vec2));
-
-        float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
-
-        return abs(dist);
-    }
-
-    static pcl::PointXYZ normalize(pcl::PointXYZ point){
-        float magnitude = sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
-
-        pcl::PointXYZ result;
-        result.x = point.x / magnitude;
-        result.y = point.y / magnitude;
-        result.z = point.z / magnitude;
-        return result;
-    }
-
-    static float dotProduct(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
-
-        return a.x * b.x + a.y * b.y + a.z * b.z;
-    }
-
-    static pcl::PointXYZ crossProduct(pcl::PointXYZ a, pcl::PointXYZ b) {
-        pcl::PointXYZ result;
-        result.x = (a.y * b.z) - (a.z * b.y);
-        result.y = (a.z * b.x) - (a.x * b.z);
-        result.z = (a.x * b.y) - (a.y * b.x);
-        return result;
-    }
-
-    static pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
-        pcl::PointXYZ result;
-        result.x = (a.x - b.x);
-        result.y = (a.y - b.y);
-        result.z = (a.z - b.z);
-        return result;
-    }
-
-    static pcl::PointXYZ vectorSubtract(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
-        pcl::PointXYZ result;
-        result.x = (a.x - b.x);
-        result.y = (a.y - b.y);
-        result.z = (a.z - b.z);
-        return result;
-    }
 
     ShpDataIO::Point getUtmForWgs(ShpDataIO::Point wgsPoint);
 
@@ -215,4 +103,4 @@ private:
 };
 
 
-#endif //LASCAMPUS_POINTCLOUD_H
+#endif //LASCAMPUS_DATASTRUCTURE_H

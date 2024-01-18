@@ -40,7 +40,7 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
         uint32_t bytesRead = 0;
 
         // read header
-        Header header = Header();
+        ShpHeader header = ShpHeader();
         inf.read((char*) &header,
                  sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
         bytesRead += sizeof(header);
@@ -64,7 +64,7 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
         while (readContents) {
 
             // read var length record header - TODO gleich vector erstellen wo die ganzen var len records reinkommen??
-            VarLenRecHeader varLenRecHeader;
+            ShpVarLenRecHeader varLenRecHeader;
             inf.read((char*) &varLenRecHeader, sizeof(varLenRecHeader));
             bytesRead += sizeof(varLenRecHeader);
             // swap big endian fields
@@ -75,12 +75,12 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
 
 
             // read var length record content
-            PolygonRecContent polygonRecContent;
+            ShpPolygonRecContent polygonRecContent;
 
             // read shape type
             // all shapes in file have the same shape type (5 here) or null (0)
-            inf.read((char*) &polygonRecContent, sizeof(PolygonRecContent::shapeType));
-            bytesRead += sizeof(PolygonRecContent::shapeType);
+            inf.read((char*) &polygonRecContent, sizeof(ShpPolygonRecContent::shapeType));
+            bytesRead += sizeof(ShpPolygonRecContent::shapeType);
 //            std::cout << TAG << "var len rec shape type: " << +polygonRecContent.shapeType << std::endl;
             // skip if null shape
             if (polygonRecContent.shapeType == 0) {
@@ -88,9 +88,9 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
                 continue;
             }
             // read polygon content
-            inf.read((char*) &polygonRecContent + sizeof(PolygonRecContent::shapeType),
-                     sizeof(polygonRecContent) - sizeof(PolygonRecContent::shapeType));
-            bytesRead += sizeof(polygonRecContent) - sizeof(PolygonRecContent::shapeType);
+            inf.read((char*) &polygonRecContent + sizeof(ShpPolygonRecContent::shapeType),
+                     sizeof(polygonRecContent) - sizeof(ShpPolygonRecContent::shapeType));
+            bytesRead += sizeof(polygonRecContent) - sizeof(ShpPolygonRecContent::shapeType);
 
 
             // check if polygon lies within bounds of las data
@@ -124,7 +124,7 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
             } else {
 
                 // skip this polygon
-                auto remainingBytesPolygon = contentLenBytes - sizeof(PolygonRecContent);
+                auto remainingBytesPolygon = contentLenBytes - sizeof(ShpPolygonRecContent);
                 inf.seekg(remainingBytesPolygon, std::ios_base::cur); // skip to point tree
                 bytesRead += remainingBytesPolygon;
 
@@ -149,7 +149,7 @@ void ShpDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings
     }
 }
 
-bool ShpDataIO::isPolygonInBounds(ShpDataIO::PolygonRecContent& polygon) {
+bool ShpDataIO::isPolygonInBounds(ShpDataIO::ShpPolygonRecContent& polygon) {
     if (polygon.xMin > boundsMaxX || polygon.xMax < boundsMinX) {
         return false; // out of bounds in x direction
     }

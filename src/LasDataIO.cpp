@@ -3,10 +3,64 @@
 //
 
 #include "LasDataIO.h"
+#include <numeric>
+#include <fstream>
+#include "UTM.h"
+#include "util.h"
+
+bool LasDataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
+                         const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings) {
 
 
-void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, uint32_t* pointCount,
-                        float& xOffset, float& yOffset, float& zOffset, std::vector<DataStructure::Wall>& walls,
+    std::cout << TAG << "begin loading data" << std::endl;
+
+
+// read shape file
+// TODO hard coded coordinates from current test las file - maybe read las header, then read shp and the rest of las??
+// these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
+    double maxX = 7.415424;
+    double maxY = 51.494428;
+    double minX = 7.401340;
+    double minY = 51.485245;
+    boundsMaxX = maxX;
+    boundsMaxY = maxY,
+    boundsMinX = minX;
+    boundsMinY = minY;
+    std::string shpDir = ".." + Util::PATH_SEPARATOR + "shp" + Util::PATH_SEPARATOR;
+    float xOffset2 = 389500;
+    float zOffset2 = 5705500; // TODO get from las file
+    readShp(shpDir + shpFile, &buildings, xOffset2, zOffset2, maxX, maxY, minX, minY);
+
+// preprocess buildings to walls
+    float resolution = 8.0f; // TODO find good value
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
+            resolution);
+    // TODO add error handling if buildings are empty
+    float maxWallRadius = preprocessWalls(wallOctree, buildings);
+
+    // read las file
+    std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
+    const auto& file = lasFiles[0];
+    // get points
+    readLas(lasDir + file, cloud, walls, wallOctree, maxWallRadius);
+
+    // get normals
+//    std::string cacheFile = file;
+//    cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "features");
+//    bool loadedCachedFeatures = readFeaturesFromCache(lasDir + cacheFile, cloud);
+//    return loadedCachedFeatures;
+    return false;
+
+
+    std::cout << TAG << "loading data successful" << std::endl;
+
+}
+
+
+
+// ********** las **********
+
+void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
                         pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius) {
 
     std::cout << TAG << "read las file..." << std::endl;
@@ -59,7 +113,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
 
 
 //        // var length records
-//        VarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
+//        ShpVarLenRecHeader varLenRecHeaders[header.numVarLenRecords]; // size two in this case
 //        GeoKeyDirectoryTag geoKeyDirectoryTag; // is required
 //
 //        for (int i = 0; i < header.numVarLenRecords; i++) {
@@ -88,8 +142,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
         int width, height;
         std::vector<unsigned char> image;
         bool success = load_image(image, filename, width, height);
-        if (!success)
-        {
+        if (!success) {
             std::cout << "Error loading image\n";
             // TODO stop
         }
@@ -108,7 +161,6 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
 
         // points
         int pointsUsed = 200000; //header.numberOfPoints;
-        *pointCount = pointsUsed;
 
         std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
@@ -169,7 +221,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                 if (numOfReturns > 1) {
                     if (returnNumber == 1) {
                         // first of many
-                        if(colorClasses) {
+                        if (colorReturnNumberClasses) {
                             v.b = 255;
                             v.g = 0;
                             v.r = 0;
@@ -183,7 +235,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                             for (auto wallIdx = 0; wallIdx < wallIdxRadiusSearch.size(); wallIdx++) {
                                 const auto& wall = walls[wallIdxRadiusSearch[wallIdx]];
 
-                                float dist = DataStructure::pointPlaneDistance(v, wall.mid);
+                                float dist = Util::pointPlaneDistance(v, wall.mid);
                                 if (dist > wallThreshold) {
                                     continue;
                                 }
@@ -202,7 +254,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                         // intermediate points
                         // viel baum, ganz wenig wand -> raus
                         continue;
-                        if(colorClasses) {
+                        if (colorReturnNumberClasses) {
                             v.b = 0;
                             v.g = 0;
                             v.r = 255;
@@ -218,7 +270,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                                 for (auto wallIdx = 0; wallIdx < wallIdxRadiusSearch.size(); wallIdx++) {
                                     const auto& wall = walls[wallIdxRadiusSearch[wallIdx]];
 
-                                    float dist = DataStructure::pointPlaneDistance(v, wall.mid);
+                                    float dist = Util::pointPlaneDistance(v, wall.mid);
                                     if (dist > wallThreshold) {
                                         continue;
                                     }
@@ -230,7 +282,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
                                     break;
                                 }
                             }
-                            if(colorClasses && belongsToWall) {
+                            if (colorReturnNumberClasses && belongsToWall) {
                                 v.b = 0;
                                 v.g = 255;
                                 v.r = 0;
@@ -256,8 +308,7 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
             }
             // resize cloud
             //cloud->resize(count);
-            *pointCount = cloud->size();
-            std::cout << TAG << "Num of points: " << *pointCount << std::endl;
+            std::cout << TAG << "Num of points: " << pointsUsed << std::endl;
 
 
         }
@@ -274,8 +325,225 @@ void LasDataIO::readLas(const std::string& path, const pcl::PointCloud<pcl::Poin
 }
 
 
-bool LasDataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx,
-                                      const uint32_t& endIdx) { // TODO endindex muss exklusiv sein!
+// ********** shp **********
+template<typename T>
+T swap_endian(T u) {
+    static_assert(CHAR_BIT == 8, "CHAR_BIT != 8");
+
+    union {
+        T u;
+        unsigned char u8[sizeof(T)];
+    } source, dest;
+
+    source.u = u;
+
+    for (size_t k = 0; k < sizeof(T); k++)
+        dest.u8[k] = source.u8[sizeof(T) - k - 1];
+
+    return dest.u;
+}
+
+// TODO idee: hier direkt bounding box mitgeben und nur die shapes innerhalb speichern
+void
+LasDataIO::readShp(const std::string& path, std::vector<Polygon>* buildings, const float& xOffset, const float& zOffset, double maxX, double maxY, double minX,
+                   double minY) {
+
+    std::cout << TAG << "read shp file..." << std::endl;
+
+    std::ifstream inf(path, std::ios::binary);
+
+    if (inf.is_open()) {
+
+        uint32_t bytesRead = 0;
+
+        // read header
+        ShpHeader header = ShpHeader();
+        inf.read((char*) &header,
+                 sizeof(header)); // cast to (char *) -> tell cpp we have some amount of bytes here/char array
+        bytesRead += sizeof(header);
+        // swap big endian fields
+        header.fileCode = swap_endian<uint32_t>(header.fileCode);
+        header.fileLength = swap_endian<uint32_t>(header.fileLength);
+        auto fileLengthBytes = header.fileLength * 2; //* 16 / 8;
+
+        std::cout << TAG << "File: " << path << std::endl;
+        std::cout << TAG << "Shape Type: " << +header.shapeType << std::endl;
+
+
+        // version checks
+        if (header.shapeType != 5) {
+            throw std::invalid_argument(
+                    "Can't handle given SHP file. Only shapeType 5 (Polygon -> buildings) is allowed.");
+        }
+
+
+        bool readContents = true;
+        while (readContents) {
+
+            // read var length record header - TODO gleich vector erstellen wo die ganzen var len records reinkommen??
+            ShpVarLenRecHeader varLenRecHeader;
+            inf.read((char*) &varLenRecHeader, sizeof(varLenRecHeader));
+            bytesRead += sizeof(varLenRecHeader);
+            // swap big endian fields
+            varLenRecHeader.recNumber = swap_endian<uint32_t>(varLenRecHeader.recNumber);
+            varLenRecHeader.contentLen = swap_endian<uint32_t>(varLenRecHeader.contentLen);
+            auto contentLenBytes = varLenRecHeader.contentLen * 2; //* 16 / 8;
+//            std::cout << TAG << "var len rec len: " << +contentLenBytes << std::endl;
+
+
+            // read var length record content
+            ShpPolygonRecContent polygonRecContent;
+
+            // read shape type
+            // all shapes in file have the same shape type (5 here) or null (0)
+            inf.read((char*) &polygonRecContent, sizeof(ShpPolygonRecContent::shapeType));
+            bytesRead += sizeof(ShpPolygonRecContent::shapeType);
+//            std::cout << TAG << "var len rec shape type: " << +polygonRecContent.shapeType << std::endl;
+            // skip if null shape
+            if (polygonRecContent.shapeType == 0) {
+                std::cout << TAG << "Skipping Null Shape" << std::endl;
+                continue;
+            }
+            // read polygon content
+            inf.read((char*) &polygonRecContent + sizeof(ShpPolygonRecContent::shapeType),
+                     sizeof(polygonRecContent) - sizeof(ShpPolygonRecContent::shapeType));
+            bytesRead += sizeof(polygonRecContent) - sizeof(ShpPolygonRecContent::shapeType);
+
+
+            // check if polygon lies within bounds of las data
+            if (isPolygonInBounds(polygonRecContent)) {
+
+                // read part indices and points of all parts
+                Polygon polygon;
+                // part indices
+                uint32_t partIndex;
+                for (auto i = 0; i < polygonRecContent.numParts; i++) {
+                    inf.read((char*) &partIndex, sizeof(uint32_t));
+                    bytesRead += sizeof(uint32_t);
+                    polygon.parts.push_back(partIndex); // push back makes copy
+                }
+                // points of all parts
+                Point point;
+                for (auto i = 0; i < polygonRecContent.numPoints; i++) {
+                    inf.read((char*) &point, sizeof(Point));
+                    bytesRead += sizeof(Point);
+                    // convert point from w84 to utm zone 32n TODO is precise enough?
+                    double utmX, utmZ;
+                    LatLonToUTMXY(point.z, point.x, 32, utmX, utmZ);
+                    // TODO - offset for opengl coord sys
+                    point.x = utmX - xOffset;
+                    point.z = -(utmZ - zOffset); // TODO negative z for opengl coord sys
+                    polygon.points.push_back(point);
+                }
+
+                buildings->push_back(polygon);
+
+            } else {
+
+                // skip this polygon
+                auto remainingBytesPolygon = contentLenBytes - sizeof(ShpPolygonRecContent);
+                inf.seekg(remainingBytesPolygon, std::ios_base::cur); // skip to point tree
+                bytesRead += remainingBytesPolygon;
+
+            }
+
+            // test if file is finished
+//            std::cout << TAG << "bytesRead: " << +bytesRead << std::endl;
+            if (bytesRead >= fileLengthBytes) {
+                readContents = false;
+            }
+
+        }
+
+        if (!inf.good())
+            throw std::runtime_error("Reading .shp ran into error");
+
+        std::cout << TAG << "finished reading shp file" << std::endl;
+
+
+    } else {
+        throw std::runtime_error("Can't find .shp file");
+    }
+}
+
+float LasDataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings) {
+    // preprocessing of buildings
+    // save all walls (min, mid, max point & radius)
+    // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
+    float maxR = 0;
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    for (auto building: buildings) {
+        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        auto partIdx = building.parts.begin();
+        uint32_t nextPartIndex = *partIdx;
+        partIdx++;
+        if (partIdx != building.parts.end()) {
+            nextPartIndex = *partIdx;
+        }
+        // for all walls
+        float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+        float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
+        for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
+
+            // if reached end of part/ring -> skip this "wall"
+            if (pointIdx + 1 == nextPartIndex) {
+                partIdx++;
+                if (partIdx != building.parts.end()) {
+                    nextPartIndex = *partIdx;
+                }
+                continue;
+            }
+
+            Wall wall;
+
+
+            pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
+            wallPoint1.x = building.points[pointIdx].x;
+            wallPoint1.y = ground;
+            wallPoint1.z = building.points[pointIdx].z;
+            wallPoint2.x = building.points[pointIdx + 1].x;
+            wallPoint2.y = ground + wallHeight;
+            wallPoint2.z = building.points[pointIdx + 1].z;
+
+            // detect (and color) alle points on this wall
+            wall.mid.x = (wallPoint1.x + wallPoint2.x) / 2;
+            wall.mid.y = (ground + wallHeight) / 2;
+            wall.mid.z = (wallPoint1.z + wallPoint2.z) / 2;
+
+            auto vec1 = Util::vectorSubtract(wallPoint1, wallPoint2);
+            auto vec2 = Util::vectorSubtract(wallPoint1, wall.mid);
+            auto planeNormal = Util::normalize(Util::crossProduct(vec1, vec2));
+            wall.mid.normal_x = planeNormal.x;
+            wall.mid.normal_y = planeNormal.y;
+            wall.mid.normal_z = planeNormal.z;
+
+            float r = sqrt(pow(wallPoint2.x - wall.mid.x, 2) + pow(wallHeight - wall.mid.y, 2) + pow(wallPoint2.z - wall.mid.z, 2));
+            if (r > maxR) {
+                maxR = r;
+            }
+
+            wall.minX = std::min(wallPoint1.x, wallPoint2.x);
+            wall.maxX = std::max(wallPoint1.x, wallPoint2.x);
+            wall.minZ = std::min(wallPoint1.z, wallPoint2.z);
+            wall.maxZ = std::max(wallPoint1.z, wallPoint2.z);
+
+            walls.push_back(wall);
+            wallMidPoints->push_back(wall.mid);
+
+
+        }
+    }
+
+    wallOctree.setInputCloud(wallMidPoints);
+    wallOctree.defineBoundingBox();
+    wallOctree.addPointsFromInputCloud();
+
+    return maxR;
+}
+
+
+// ********** cache **********
+bool LasDataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
 
     std::cout << TAG << "try to read features from cache" << std::endl;
 
@@ -300,7 +568,7 @@ bool LasDataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::
 
 
         // read normals
-        for (auto it = cloud->points.begin() + startIdx; it != cloud->points.begin() + endIdx; it++) {
+        for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
             float normal[3];
             inf.read((char*) (&normal), 3 * sizeof(float));
 
@@ -332,8 +600,7 @@ bool LasDataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::
  * @param startIdx
  * @param endIdx exclusive
  */
-void LasDataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const uint32_t& startIdx,
-                                     const uint32_t& endIdx) { // TODO end index is exclusive
+void LasDataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
     std::ofstream out(normalPath, std::ios::binary);
 
     std::cout << TAG << "writing normals to cache" << std::endl;
@@ -341,13 +608,13 @@ void LasDataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::P
     if (out.is_open()) {
         // write header
         FeatureCacheHeader normalHeader;
-        normalHeader.numberOfPoints = endIdx - startIdx;
+        normalHeader.numberOfPoints = cloud->size();
         normalHeader.version = FEATURE_CACHE_VERSION;
 
         out.write((char*) (&normalHeader), sizeof(FeatureCacheHeader));
 
         // write normals and radii
-        for (auto it = cloud->points.begin() + startIdx; it != cloud->points.begin() + endIdx; it++) {
+        for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
             out.write((char*) (&*it->normal), 3 * sizeof(float));
             out.write((char*) (&it->curvature), sizeof(float));
         }
@@ -364,15 +631,3 @@ void LasDataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::P
     }
 }
 
-void LasDataIO::random(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
-    for (int i = 0; i < 10000; ++i) {
-        pcl::PointXYZRGBNormal p;
-        p.x = (float) (rand() % 100);
-        p.y = (float) (rand() % 100);
-        p.z = (float) (rand() % 100);
-
-        cloud->push_back(p);
-
-        //std::cout << v.x << ", " << v.y << ", " << v.z << std::endl;
-    }
-}
