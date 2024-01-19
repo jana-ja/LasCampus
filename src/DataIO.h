@@ -12,21 +12,8 @@ class DataIO {
 
 public:
 
-    // TODO denke das sollte woanders leben?
-    struct Wall {
-        pcl::PointXYZRGBNormal mid;
-        float minX, maxX;
-        float minZ, maxZ;
-
-    };
-
-    // ********** las **********
-    void readLas(const std::string& path, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                 pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
-
     // ********** shp **********
-    //ShpDataIO(double maxX, double maxY, double minX, double minY); TODO get values from las
-    struct Point {
+    struct ShpPoint {
         double x, z;
     };
     /*
@@ -37,12 +24,16 @@ public:
      */
     struct Polygon {
         std::vector<uint32_t> parts; // size = numParts
-        std::vector<Point> points; // size = numPoints
+        std::vector<ShpPoint> points; // size = numPoints
     };
-    void readShp(const std::string& path, std::vector<Polygon>* buildings, const float& xOffset, const float& zOffset, double maxX, double maxY, double minX, double minY);
+    struct Wall {
+        pcl::PointXYZRGBNormal mid;
+        float minX, maxX;
+        float minZ, maxZ;
+
+    };
 
     // ********** cache **********
-    bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
     void writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
 
@@ -108,9 +99,8 @@ private:
         std::vector<GeoKeyEntry> entries;
     };
 
-// Point Data Record Format 1
+// ShpPoint Data Record Format 1
     struct PointDRF1 {
-        uint32_t x, y, z;
         uint16_t intensity;
         uint8_t flags; // multiple bits that are not needed and add up to eight
         uint8_t classification;
@@ -118,6 +108,8 @@ private:
         uint8_t userData;
         uint16_t pointSourceId;
         double gpsTime;
+        float x, y, z; // originally uint32_t at first position in struct, but i want float
+
     };
 
     struct FeatureCacheHeader {
@@ -154,7 +146,7 @@ private:
         uint32_t numPoints;
         // those will be handled in vectors
 //        uint32_t parts[numParts];
-//        Point points[numPoints];
+//        ShpPoint points[numPoints];
     };
 #pragma pack(pop)
 
@@ -164,15 +156,24 @@ private:
 
 
     // ********** las **********
+    // in opengl coord sys
     float xOffset;
     float yOffset;
     float zOffset;
-    bool colorReturnNumberClasses = false;
     int pointRecFormat;
     bool firstFile = true;
+    int numOfPoints;
+
+    std::vector<PointDRF1> lasPoints;
+    void readLas(const std::string& path);
+
+    bool colorReturnNumberClasses = false;
+    void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
+                              pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
 
     // ********** shp **********
-    double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY;
+    // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
+    double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY; // in wgs84 lat lon in degrees
     bool isPolygonInBounds(ShpPolygonRecContent& polygon){
         if (polygon.xMin > boundsMaxX || polygon.xMax < boundsMinX) {
             return false; // out of bounds in x direction
@@ -182,6 +183,7 @@ private:
         }
         return true;
     }
+    void readShp(const std::string& path, std::vector<Polygon>* buildings);
     float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings);
     std::vector<DataIO::Wall> walls;
 
@@ -201,6 +203,7 @@ private:
 
     // ********** cache **********
     const uint8_t FEATURE_CACHE_VERSION = 2;
+    bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
 };
 

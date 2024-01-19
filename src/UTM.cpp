@@ -354,8 +354,8 @@ void MapXYToLatLon (FLOAT x, FLOAT y, FLOAT lambda0, FLOAT& phi, FLOAT& lambda)
 // Universal Transverse Mercator projection.
 //
 // Inputs:
-//   lat - Latitude of the point, in radians.
-//   lon - Longitude of the point, in radians.
+//   lat - Latitude of the point, in deg.
+//   lon - Longitude of the point, in deg.
 //   zone - UTM zone to be used for calculating values for x and y.
 //          If zone is less than 1 or greater than 60, the routine
 //          will determine the appropriate zone from the value of lon.
@@ -396,8 +396,8 @@ int LatLonToUTMXY (FLOAT lat, FLOAT lon, int zone, FLOAT& x, FLOAT& y) {
 //               false otherwise.
 //
 // Outputs:
-// lat - The latitude of the point, in radians.
-// lon - The longitude of the point, in radians.
+// lat - The latitude of the point, in deg.
+// lon - The longitude of the point, in deg.
 // 
 // Returns:
 // The function does not return a value.
@@ -415,6 +415,9 @@ void UTMXYToLatLon (FLOAT x, FLOAT y, int zone, bool southhemi, FLOAT& lat, FLOA
   
   cmeridian = UTMCentralMeridian (zone);
   MapXYToLatLon (x, y, cmeridian, lat, lon);
+
+  lat = RadToDeg(lat);
+  lon = RadToDeg(lon);
     
   return;
 }
