@@ -14,36 +14,18 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 
     std::cout << TAG << "begin loading data" << std::endl;
 
-    /*
-     * vllt:
-     * read las header
-     * read shp
-     * preprocess walls
-     * read las points with wall information and build vertex cloud
-     *
-     * oder: (scheint mir cleaner aber hatte schonmal angefangen das umzubauen und iwas war doof? vllt war das nur weil die dataIOs da noch getrennt waren??
-     * read las and safe points to vector
-     * read shp
-     * preprocess walls
-     * filter las points with wall information and build vertex cloud
-     */
-
-
-
     // read las file
     std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
     const auto& file = lasFiles[0];
-    // get points
-    // set offsets and bounds
-    readLas(lasDir + file); // TODO infos die ich brauche: used points um später die cloud zu bauen, die max min werte für shp filtern, die offsets um gebäude in mein coordsys zu verschieben
+    // sets: las to opengl offsets, bounds for shp and numOfPoints
+    readLas(lasDir + file);
 
     // read shape file
-// TODO hard coded coordinates from current test las file - maybe read las header, then read shp and the rest of las??
-
     std::string shpDir = ".." + Util::PATH_SEPARATOR + "shp" + Util::PATH_SEPARATOR;
     readShp(shpDir + shpFile, &buildings);
 
-// preprocess buildings to walls
+    std::cout << TAG << "begin processing shp data" << std::endl;
+    // preprocess buildings to walls
     float resolution = 8.0f; // TODO find good value
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
             resolution);
@@ -57,13 +39,12 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    bool loadedCachedFeatures = readFeaturesFromCache(lasDir + cacheFile, cloud);
 //    return loadedCachedFeatures;
 
+    std::cout << TAG << "begin filtering and coloring points" << std::endl;
     filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius);
-
-    return false;
 
 
     std::cout << TAG << "loading data successful" << std::endl;
-
+    return false;
 }
 
 
