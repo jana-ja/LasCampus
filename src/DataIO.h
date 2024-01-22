@@ -156,6 +156,7 @@ private:
 
 
     // ********** las **********
+    bool colorReturnNumberClasses = false;
     // in opengl coord sys
     float xOffset;
     float yOffset;
@@ -166,8 +167,6 @@ private:
 
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
-
-    bool colorReturnNumberClasses = false;
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
                               pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
 
