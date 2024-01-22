@@ -71,6 +71,8 @@ void DataStructure::adaSplats() {
     float alpha = 0.2;
     adaComputeSplats(alpha, splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
 
+    adaResampling(avgRadiusNeighbourhoods, tree, pointClasses);
+
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
@@ -441,6 +443,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         bool concernsTangent1;
 
+        // grow
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
             if (!growTangent1 && !growTangent2) {
@@ -481,6 +484,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             }
 
             // stop growing when angle between point normal and neighbour normal is too big
+            // smoothness check
             pcl::PointXYZ neighbourNormal;
             neighbourNormal.x = (*cloud)[neighbourhood[nIdx]].normal_x;
             neighbourNormal.y = (*cloud)[neighbourhood[nIdx]].normal_y;
@@ -642,6 +646,138 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
     }
 }
 
+// TODO die machen dann vor splat generation noch denoising
+void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<int>& pointClasses) {
+
+    // determine avg splats density
+    float avgSplatsDensity = 0;
+    int avgSplatCounter = 0;
+    int pointSplatCount;
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+        const auto& point = (*cloud)[pointIdx];
+        pointSplatCount = 0;
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        if(tree->radiusSearch(point, avgRadiusNeighbourhoods, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+            // count points that are splats, but dont count non-surface group
+            for (int searchIdx = 0; searchIdx < pointIdxRadiusSearch.size(); searchIdx++) {
+                int& nPointIdx = pointIdxRadiusSearch[searchIdx];
+                const auto& nPoint = (*cloud)[nPointIdx];
+                // continue if not splat
+                if (tangent1Vec[nPointIdx].x == 0 && tangent1Vec[nPointIdx].y == 0 && tangent1Vec[nPointIdx].z == 0) { // for elliptical splats
+                    continue;
+                }
+
+                // continue if non-surface group
+                if (pointClasses[nPointIdx] == 3) {
+                    continue;
+                }
+
+                pointSplatCount++;
+            }
+            avgSplatsDensity += static_cast<float>(pointSplatCount) / static_cast<float>(pointIdxRadiusSearch.size());
+            avgSplatCounter++;
+
+        }
+    }
+    avgSplatsDensity /= static_cast<float>(avgSplatCounter);
+
+
+    // resampling
+    std::vector<pcl::PointXYZRGBNormal> newPoints;
+    // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
+    float angleThreshold = 0.6; // ~30° TODO copied from splat generation
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+        const auto& point = (*cloud)[pointIdx];
+        // only for splats
+        if (tangent1Vec[pointIdx].x == 0 && tangent1Vec[pointIdx].y == 0 && tangent1Vec[pointIdx].z == 0) { // for elliptical splats
+            continue;
+        }
+//        auto bla = tangent1Vec[pointIdx];
+//        auto blaNorm = Util::normalize(bla);
+//        blaNorm.x = blaNorm.x / avgRadiusNeighbourhoods;
+//        blaNorm.y = blaNorm.y / avgRadiusNeighbourhoods;
+//        blaNorm.z = blaNorm.z / avgRadiusNeighbourhoods;
+//        tangent1Vec[pointIdx] = blaNorm;
+//        auto bla2 = tangent2Vec[pointIdx];
+//        auto blaNorm2 = Util::normalize(bla2);
+//        blaNorm2.x = blaNorm2.x / avgRadiusNeighbourhoods;
+//        blaNorm2.y = blaNorm2.y / avgRadiusNeighbourhoods;
+//        blaNorm2.z = blaNorm2.z / avgRadiusNeighbourhoods;
+//        tangent2Vec[pointIdx] = blaNorm2;
+        // TODO vllt oben speichern für splats?
+        pointSplatCount = 0;
+        std::vector<int> pointIdxRadiusSearch;
+        std::vector<float> pointRadiusSquaredDistance;
+        if(tree->radiusSearch(point, avgRadiusNeighbourhoods, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+            // count points that are splats, but dont count non-surface group
+            for (int searchIdx = 0; searchIdx < pointIdxRadiusSearch.size(); searchIdx++) {
+                int& nPointIdx = pointIdxRadiusSearch[searchIdx];
+                const auto& nPoint = (*cloud)[nPointIdx];
+                // continue if not splat
+                if (tangent1Vec[nPointIdx].x == 0 && tangent1Vec[nPointIdx].y == 0 && tangent1Vec[nPointIdx].z == 0) { // for elliptical splats
+                    continue;
+                }
+
+                // continue if non-surface group
+                if (pointClasses[nPointIdx] == 3) {
+                    continue;
+                }
+
+                pointSplatCount++;
+            }
+            float splatDensity = static_cast<float>(pointSplatCount) / static_cast<float>(pointIdxRadiusSearch.size());
+
+            if (splatDensity < avgSplatsDensity) {
+                // resample
+                for (auto nPointIdxIt = pointIdxRadiusSearch.rbegin(); nPointIdxIt != pointIdxRadiusSearch.rend(); nPointIdxIt++) {
+                    const auto& nPointIdx = *nPointIdxIt;
+//                    if (tangent1Vec[nPointIdx].x == 0 && tangent1Vec[nPointIdx].y == 0 && tangent1Vec[nPointIdx].z == 0) { // for elliptical splats
+//                        continue;
+//                    }
+                    // found the farthest splat
+
+                    if (pointClasses[pointIdx] != pointClasses[nPointIdx]) {
+                        continue;
+                    }
+                    // smoothness check
+                    auto normal = pcl::PointXYZ((*cloud)[pointIdx].normal_x, (*cloud)[pointIdx].normal_y, (*cloud)[pointIdx].normal_z);
+                    pcl::PointXYZ neighbourNormal;
+                    neighbourNormal.x = (*cloud)[nPointIdx].normal_x;
+                    neighbourNormal.y = (*cloud)[nPointIdx].normal_y;
+                    neighbourNormal.z = (*cloud)[nPointIdx].normal_z;
+                    float angle = Util::dotProduct(normal, neighbourNormal);
+                    if (angle < angleThreshold){
+                        continue;
+                    }
+                    // found the farthest valid splat
+
+                    const auto& farthestSplat = (*cloud)[nPointIdx];
+                    // "interpolate a new point that lies at the center of the segment connecting the splats’ centers"
+                    auto newPoint = pcl::PointXYZRGBNormal( (point.x + farthestSplat.x) / 2, (point.y + farthestSplat.y) / 2, (point.z + farthestSplat.z) / 2);
+                    // debug color
+                    newPoint.b = 255;
+                    newPoint.g = 0;
+                    newPoint.r = 255;
+                    // TODO braucht noch normale, tangente1 und 2, radii
+                    newPoint.normal_x = point.normal_x;
+                    newPoint.normal_y = point.normal_y;
+                    newPoint.normal_z = point.normal_z;
+                    pointClasses.push_back(pointClasses[pointIdx]);
+                    tangent1Vec.push_back(pcl::PointXYZ(0,0,0));
+                    tangent2Vec.push_back(pcl::PointXYZ(0,0,0));
+                    newPoints.push_back(newPoint);
+                    break;
+
+                }
+            }
+        }
+
+    }
+    cloud->insert(cloud->end(), newPoints.begin(), newPoints.end());
+
+
+}
 
 pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr
 DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
