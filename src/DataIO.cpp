@@ -40,7 +40,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    return loadedCachedFeatures;
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
-    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius);
+    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -181,28 +181,21 @@ void DataIO::readLas(const std::string& path) {
 }
 
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius){
+                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile){
  // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
 
     // read image
-    std::string filename = "../img/dop10rgbi_32_389_5705_1_nw_2021.jpg"; // TODO
-    int width, height;
     std::vector<unsigned char> image;
-    bool success = load_image(image, filename, width, height);
-    if (!success) {
-        std::cout << "Error loading image\n";
-        // TODO stop
-    }
-//    std::cout << "Image width = " << width << '\n';
-//    std::cout << "Image height = " << height << '\n';
-    const size_t RGBI = 3;
-    int x = 3;
-    int y = 4;
+    int width, height;
+    const int channels = 3;
+        if (!readImg(image, imgFile, channels, width, height)) {
+            std::cout << "Error loading image\n";
+            // TODO stop
+        }
 
     for (const auto& point: lasPoints) {
-
 
         pcl::PointXYZRGBNormal v; // TODO nach unten später
         // center pointcloud - offset is in opengl coord system!
@@ -314,16 +307,17 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
 
 
-        // get color from image
-        int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
-        int imageY = (point.y - 5705999.95) * -10;
-        // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
-        size_t index = RGBI * (imageY * width + imageX);
-        v.b = static_cast<int>(image[index + 0]);
-        v.g = static_cast<int>(image[index + 1]);
-        v.r = static_cast<int>(image[index + 2]);
+        if (colorImgFile) {
+            // get color from image
+            int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
+            int imageY = (point.y - 5705999.95) * -10;
+            // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
+            size_t index = channels * (imageY * width + imageX);
+            v.b = static_cast<int>(image[index + 0]);
+            v.g = static_cast<int>(image[index + 1]);
+            v.r = static_cast<int>(image[index + 2]);
 //                int intensity = image[index + 3];
-
+        }
         cloud->push_back(v);
     }
 }
@@ -542,6 +536,20 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
     wallOctree.addPointsFromInputCloud();
 
     return maxR;
+}
+
+// ********** img **********
+bool DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFile, const int& desiredChannels, int& width, int& height) {
+    std::string imgDir = ".." + Util::PATH_SEPARATOR + "img" + Util::PATH_SEPARATOR;
+    std::string imgPath = imgDir + imgFile;
+    // if file has less then desired channels, remaining fields will be 255
+    int actualChannels;
+    unsigned char* data = stbi_load(imgPath.c_str(), &width, &height, &actualChannels, desiredChannels);
+    if (data != nullptr) {
+        image = std::vector<unsigned char>(data, data + width * height * desiredChannels);
+    }
+    stbi_image_free(data);
+    return (data != nullptr);
 }
 
 

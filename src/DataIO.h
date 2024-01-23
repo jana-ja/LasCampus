@@ -153,10 +153,11 @@ private:
 
     // ########## FIELDS & METHODS ##########
 
+    bool colorReturnNumberClasses = false;
+    bool colorImgFile = false;
 
 
     // ********** las **********
-    bool colorReturnNumberClasses = false;
     // in opengl coord sys
     float xOffset;
     float yOffset;
@@ -168,7 +169,7 @@ private:
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                              pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
+                              pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile);
 
     // ********** shp **********
     // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
@@ -187,18 +188,7 @@ private:
     std::vector<DataIO::Wall> walls;
 
     // ********** img **********
-    bool load_image(std::vector<unsigned char>& image, const std::string& filename, int& x, int&y)
-    {
-        int desiredChannels = 3; // if file has less channels, remaining fields will be 255
-        int actualChannels;
-        unsigned char* data = stbi_load(filename.c_str(), &x, &y, &actualChannels, desiredChannels);
-        if (data != nullptr)
-        {
-            image = std::vector<unsigned char>(data, data + x * y * desiredChannels);
-        }
-        stbi_image_free(data);
-        return (data != nullptr);
-    }
+    bool readImg(std::vector<unsigned char>& image, const std::string& filename, const int& desiredChannels, int& width, int& height);
 
     // ********** cache **********
     const uint8_t FEATURE_CACHE_VERSION = 2;
