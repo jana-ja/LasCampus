@@ -9,7 +9,7 @@
 #include "util.h"
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
-                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings) {
+                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints) {
 
 
     std::cout << TAG << "begin loading data" << std::endl;
@@ -40,7 +40,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    return loadedCachedFeatures;
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
-    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile);
+    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile, lasWallPoints);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -181,7 +181,7 @@ void DataIO::readLas(const std::string& path) {
 }
 
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile){
+                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints){
  // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
@@ -196,6 +196,8 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
 
     for (const auto& point: lasPoints) {
+
+        bool belongsToWall = false;
 
         pcl::PointXYZRGBNormal v; // TODO nach unten später
         // center pointcloud - offset is in opengl coord system!
@@ -243,7 +245,6 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 }
                 // bäume oberer teil, teile von wänden, ein dach?
                 // keep wall points, skip others
-                bool belongsToWall = false;
                 std::vector<int> wallIdxRadiusSearch;
                 std::vector<float> wallRadiusSquaredDistance;
                 if (wallOctree.radiusSearch(v, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
@@ -278,7 +279,6 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 // last of many
                 // boden, bisschen wände, kein baum. einfach lassen
                 if (classification != 2) { // not ground
-                    bool belongsToWall = false;
                     std::vector<int> wallIdxRadiusSearch;
                     std::vector<float> wallRadiusSquaredDistance;
                     if (wallOctree.radiusSearch(v, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
@@ -318,7 +318,9 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
             v.r = static_cast<int>(image[index + 2]);
 //                int intensity = image[index + 3];
         }
+
         cloud->push_back(v);
+        lasWallPoints.push_back(belongsToWall);
     }
 }
 
