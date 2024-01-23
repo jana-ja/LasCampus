@@ -19,32 +19,137 @@ using namespace std;
 DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile) {
 
 
-    DataIO lasIo = DataIO();//lasFiles, shpFile, imgFile);
+    DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
 
-    bool cachedFeatues = lasIo.readData(lasFiles, shpFile, imgFile, cloud, buildings);
+    std::vector<bool> lasWallPoints;
+    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud, buildings, lasWallPoints);
+
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    tree->setInputCloud(cloud);
+
+    detectWalls(lasWallPoints, tree);
 
     if (!cachedFeatues) {
-        adaSplats();
+//        adaSplats(tree);
 
 //        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
 //        const auto& file = lasFiles[0];
 //        std::string cacheFile = file;
 //        cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "features");
-//        lasIo.writeFeaturesToCache(lasDir + cacheFile, cloud);
+//        dataIO.writeFeaturesToCache(lasDir + cacheFile, cloud);
     }
 
 }
 
+void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
+    // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
+    //  -> make more efficient?
+    for (auto building: buildings) {
+        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        auto partIdx = building.parts.begin();
+        uint32_t nextPartIndex = *partIdx;
+        partIdx++;
+        if (partIdx != building.parts.end()) {
+            nextPartIndex = *partIdx;
+        }
+        // for each wall
 
-void DataStructure::adaSplats() {
+        for (auto bPointIdx = 0; bPointIdx < building.points.size() - 1; bPointIdx++) {
+
+            // if reached end of part/ring -> skip this "wall"
+            if (bPointIdx + 1 == nextPartIndex) {
+                partIdx++;
+                if (partIdx != building.parts.end()) {
+                    nextPartIndex = *partIdx;
+                }
+                continue;
+            }
+
+            int randR = rand() % (256);
+            int randG = rand() % (256);
+            int randB = rand() % (256);
+
+            // find osm wall points with big threshold
+            float osmWallThreshold = 2.0;
+
+            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+            float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
+            pcl::PointXYZRGBNormal osmWallPoint1, osmWallPoint2;
+            osmWallPoint1.x = static_cast<float>(building.points[bPointIdx].x);
+            osmWallPoint1.y = ground + wallHeight;
+            osmWallPoint1.z = static_cast<float>(building.points[bPointIdx].z);
+            osmWallPoint2.x = static_cast<float>(building.points[bPointIdx + 1].x);
+            osmWallPoint2.y = ground + wallHeight;
+            osmWallPoint2.z = static_cast<float>(building.points[bPointIdx + 1].z);
+
+            // detect (and color) alle points on this wall
+            pcl::PointXYZRGBNormal mid;
+            mid.x = (osmWallPoint1.x + osmWallPoint2.x) / 2;
+            mid.y = (ground + wallHeight) / 2;
+            mid.z = (osmWallPoint1.z + osmWallPoint2.z) / 2;
+
+            Plane osmWallPlane = {osmWallPoint1, osmWallPoint2, mid};
+
+            auto r = static_cast<float>(sqrt(pow(osmWallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(osmWallPoint2.z - mid.z, 2)));
+
+            std::vector<int> pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            tree->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+
+            if (!pointIdxRadiusSearch.empty()) {
+
+                auto minX = min(osmWallPoint1.x, osmWallPoint2.x);
+                auto maxX = max(osmWallPoint1.x, osmWallPoint2.x);
+                auto minZ = min(osmWallPoint1.z, osmWallPoint2.z);
+                auto maxZ = max(osmWallPoint1.z, osmWallPoint2.z);
+
+                // only take osm wall points that are also las wall points
+                for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+
+                    const auto& nIdx = *nIdxIt;
+                    const auto& point = (*cloud)[*nIdxIt];
+
+//                    if (!lasWallPoints[nIdx]) {
+//                        continue;
+//                    }
+
+                    // TODO implement direct calculation test if point lies inside wall rectangle
+                    if (Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWallPlane) > osmWallThreshold) {
+                        continue;
+                    }
+                    if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) { // TODO wie gut passen die? muss ich puffer einbauen?
+                        continue;
+                    }
+
+                    (*cloud)[nIdx].b = randR;
+                    (*cloud)[nIdx].g = randG;
+                    (*cloud)[nIdx].r = randB;
+                }
+
+                // fit plane through safe wall points
+
+                // select points with las wall plane with smaller threshold
+                // yeah
+                // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
+
+
+
+                // project wall points onto las wallpoint plane
+
+                // resample
+            }
+        }
+    }
+
+}
+
+void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
     tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
     tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
 
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
-    tree->setInputCloud(cloud);
 
     int k = 40;
     std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
@@ -71,7 +176,7 @@ void DataStructure::adaSplats() {
     float alpha = 0.2;
     adaComputeSplats(alpha, splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
 
-    adaResampling(avgRadiusNeighbourhoods, tree, pointClasses);
+//    adaResampling(avgRadiusNeighbourhoods, tree, pointClasses);
 
 
     auto stop = std::chrono::high_resolution_clock::now();
@@ -1004,4 +1109,6 @@ int DataStructure::findIndex(float border, std::vector<float> vector1) {
     }
     return index;
 }
+
+
 
