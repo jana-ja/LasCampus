@@ -44,7 +44,11 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
+    int stopCount = 0;
     for (auto building: buildings) {
+        if(stopCount > 1)
+            break;
+
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
         auto partIdx = building.parts.begin();
         uint32_t nextPartIndex = *partIdx;
@@ -55,6 +59,8 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
         // for each wall
 
         for (auto bPointIdx = 0; bPointIdx < building.points.size() - 1; bPointIdx++) {
+            if(stopCount > 1)
+                break;
 
             // if reached end of part/ring -> skip this "wall"
             if (bPointIdx + 1 == nextPartIndex) {
@@ -65,9 +71,11 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                 continue;
             }
 
-            int randR = rand() % (256);
-            int randG = rand() % (256);
-            int randB = rand() % (256);
+            int randR = 0;//rand() % (256);
+            int randG = 255;//rand() % (256);
+            int randB = 0;//rand() % (256);
+
+            float lasWallThreshold = 0.5;
 
             // find osm wall points with big threshold
             float osmWallThreshold = 2.0;
@@ -92,7 +100,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
 
             auto r = static_cast<float>(sqrt(pow(osmWallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(osmWallPoint2.z - mid.z, 2)));
 
-            std::vector<int> pointIdxRadiusSearch;
+            pcl::Indices pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
             tree->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
 
@@ -104,43 +112,104 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                 auto maxZ = max(osmWallPoint1.z, osmWallPoint2.z);
 
                 // only take osm wall points that are also las wall points
+                pcl::Indices certainWallPoints;
                 for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
                     const auto& nIdx = *nIdxIt;
                     const auto& point = (*cloud)[*nIdxIt];
 
-//                    if (!lasWallPoints[nIdx]) {
-//                        continue;
-//                    }
+                    if (!lasWallPoints[nIdx]) {
+                        continue;
+                    }
 
                     // TODO implement direct calculation test if point lies inside wall rectangle
                     if (Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWallPlane) > osmWallThreshold) {
                         continue;
                     }
-                    if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) { // TODO wie gut passen die? muss ich puffer einbauen?
+                    if (point.x > maxX || point.x < minX || point.z > maxZ ||
+                        point.z < minZ) { // TODO wie gut passen die? muss ich puffer einbauen? ja lieber machen
                         continue;
                     }
 
-                    (*cloud)[nIdx].b = randR;
-                    (*cloud)[nIdx].g = randG;
-                    (*cloud)[nIdx].r = randB;
+//                    (*cloud)[nIdx].b = 255;
+//                    (*cloud)[nIdx].g = 255;
+//                    (*cloud)[nIdx].r = 0;
+//                    (*cloud)[nIdx].b = randR;
+//                    (*cloud)[nIdx].g = randG;
+//                    (*cloud)[nIdx].r = randB;
+                    certainWallPoints.push_back(nIdx);
+                    
                 }
 
-                // fit plane through safe wall points
+                // fit plane through certain wall points
+                if (certainWallPoints.size() >= 3) {
+                    pcl::IndicesPtr certainWallPointsPtr = make_shared<pcl::Indices>(certainWallPoints);
+                    // pca on the wall points
+                    pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>; // TODO nach oben
+                    pca.setInputCloud(cloud); // TODO nach oben
+                    pca.setIndices(certainWallPointsPtr);
+                    Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                    Eigen::Vector3f eigenValues = pca.getEigenValues();
 
-                // select points with las wall plane with smaller threshold
-                // yeah
-                // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
+                    // create plane
+                    // select a point TODO welchen??? am besten mitte?
+                    auto lasWallPlane = (*cloud)[certainWallPoints[0]]; // TODO mid point finden, vllt ist das sogar mid
+                    lasWallPlane.normal_x = eigenVectors(0, 2); // TODO ich glaube normal ist trash?
+                    lasWallPlane.normal_y = eigenVectors(1, 2);
+                    lasWallPlane.normal_z = eigenVectors(2, 2);
+                    // TODO bekomme manchmal trash normalen die zB komplett nach oben zeige. rausfiltern wenn die senkrecht sind oder wenn die normale sehr stark abweicht von der osm wand normalen.
+                    //  weil dadurch entstehen doofe fehler wo zB dann dächer zu wänden werden weil die normale nach oben zeigt. die dist unten ist dann viel zu riesig.
+// get distance to plane
+                    auto dist1 = Util::signedPointPlaneDistance(osmWallPoint1, lasWallPlane); // TODO die dist ist zu groß!
+                    auto dist2 = Util::signedPointPlaneDistance(osmWallPoint2, lasWallPlane);
+                    // move point um distance along plane normal (point - (dist * normal))
+                    auto lasWallPoint1 = Util::vectorSubtract(osmWallPoint1, pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x, dist1 * lasWallPlane.normal_y, dist1 * lasWallPlane.normal_z));
+                    auto lasWallPoint2 = Util::vectorSubtract(osmWallPoint2, pcl::PointXYZRGBNormal(dist2 * lasWallPlane.normal_x, dist2 * lasWallPlane.normal_y, dist2 * lasWallPlane.normal_z));
+                    // vllt puffer einbauen?
+                    auto lasMinX = min(lasWallPoint1.x, lasWallPoint2.x);
+                    auto lasMaxX = max(lasWallPoint1.x, lasWallPoint2.x);
+                    auto lasMinZ = min(lasWallPoint1.z, lasWallPoint2.z);
+                    auto lasMaxZ = max(lasWallPoint1.z, lasWallPoint2.z);
 
 
+                    // select points with las wall plane with smaller threshold
+                    // yeah
+                    // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
+                    for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
-                // project wall points onto las wallpoint plane
+                        const auto& nIdx = *nIdxIt;
+                        const auto& point = (*cloud)[*nIdxIt];
 
-                // resample
+                        // TODO implement direct calculation test if point lies inside wall rectangle
+                        if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWallPlane) > lasWallThreshold) {
+                            continue;
+                        }
+                        // TODO find min max for las wall -> project wall end points on las wall plane?
+                        // project osm wall points onto las wall plane
+
+                        if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { // TODO wie gut passen die? muss ich puffer einbauen? ja lieber machen
+                            continue;
+                        }
+
+
+                        (*cloud)[nIdx].b = randR;
+                        (*cloud)[nIdx].g = randG;
+                        (*cloud)[nIdx].r = randB;
+
+                        // project wall points onto las wallpoint plane
+//                        auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
+//                        auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y, pointDist * lasWallPlane.normal_z));;
+//                        (*cloud)[nIdx].x = newPosi.x;
+//                        (*cloud)[nIdx].y = newPosi.y;
+//                        (*cloud)[nIdx].z = newPosi.z;
+
+                        // resample
+                    }
+                        stopCount++;
+                }
             }
         }
     }
-
 }
 
 void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {

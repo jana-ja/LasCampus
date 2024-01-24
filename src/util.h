@@ -80,7 +80,7 @@ namespace Util {
 
     inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
         pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
-        return dotProduct(normal, (vectorSubtract(planePoint, point)));
+        return dotProduct(normal, (vectorSubtract(point, planePoint)));
     }
 
     inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
