@@ -154,7 +154,7 @@ private:
 
     // ########## FIELDS & METHODS ##########
 
-    bool colorReturnNumberClasses = true;
+    bool colorReturnNumberClasses = false;
     bool colorImgFile = false;
 
 
