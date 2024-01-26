@@ -44,11 +44,27 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
-    int stopCount = 0;
-    for (auto building: buildings) {
-        if(stopCount > 1)
-            break;
 
+    bool oneWall = false;
+
+    pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>; // TODO nach oben
+    pca.setInputCloud(cloud); // TODO nach oben
+
+    float lasWallThreshold = 0.5; // 0.2, 0.3 oder so?
+    float osmWallThreshold = 2.0; // TODO macht eig keinen sinn das hier größer zu haben als in DataIO filter funktion? weil die punkte dann eh raus sind
+
+    int buildingCount = 0;
+    int wallCount = 0;
+    int buildingsNumber = 184;
+    int wallNumber = 12; // ich will wand 12 und 14, 13 ist iwie son dummer stumpf??
+    for (auto building: buildings) {
+        if (oneWall) {
+            if (buildingCount > buildingsNumber)
+                break;
+            buildingCount++;
+            if (buildingCount < buildingsNumber)
+                continue;
+        }
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
         auto partIdx = building.parts.begin();
         uint32_t nextPartIndex = *partIdx;
@@ -57,10 +73,15 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
             nextPartIndex = *partIdx;
         }
         // for each wall
-
+        wallCount = 0;
         for (auto bPointIdx = 0; bPointIdx < building.points.size() - 1; bPointIdx++) {
-            if(stopCount > 1)
-                break;
+            if (oneWall) {
+                if (wallCount - 2 > wallNumber) // will 3 walls
+                    break;
+                wallCount++;
+                if (wallCount - 1 < wallNumber)
+                    continue;
+            }
 
             // if reached end of part/ring -> skip this "wall"
             if (bPointIdx + 1 == nextPartIndex) {
@@ -75,11 +96,8 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
             int randG = 255;//rand() % (256);
             int randB = 0;//rand() % (256);
 
-            float lasWallThreshold = 0.5;
 
             // find osm wall points with big threshold
-            float osmWallThreshold = 2.0;
-
             float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
             float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
             pcl::PointXYZRGBNormal osmWallPoint1, osmWallPoint2;
@@ -145,8 +163,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                 if (certainWallPoints.size() >= 3) {
                     pcl::IndicesPtr certainWallPointsPtr = make_shared<pcl::Indices>(certainWallPoints);
                     // pca on the wall points
-                    pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>; // TODO nach oben
-                    pca.setInputCloud(cloud); // TODO nach oben
+
                     pca.setIndices(certainWallPointsPtr);
                     Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
                     Eigen::Vector3f eigenValues = pca.getEigenValues();
@@ -205,7 +222,6 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
 
                         // resample
                     }
-                        stopCount++;
                 }
             }
         }
