@@ -28,27 +28,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
 
 
-    // -----------------------------------//
-    tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
-    tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
-
-    int k = 40;
-    std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
-    std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
-    std::vector<int> pointClasses(cloud->points.size());
-    fill(pointClasses.begin(), pointClasses.end(), 2);
-
-    // ********** knn and compute avgRadius **********
-    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
-    std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
-
-    // ********** get neighbourhood with radius, use pca for classification and compute epsilon **********
-    float splatGrowEpsilon = adaNeighbourhoodsClassificationAndEpsilon(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
-    std::cout << TAG << "splat grow epsilon is: " << splatGrowEpsilon << std::endl;
-    // -----------------------------------//
-
-
-    detectWalls(lasWallPoints, tree, pointClasses);
+    detectWalls(lasWallPoints, tree);
 
     if (!cachedFeatues) {
 //        adaSplats(tree);
@@ -62,7 +42,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
 }
 
-void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int> pointClasses) {
+void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
 
@@ -71,7 +51,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>; // TODO nach oben
     pca.setInputCloud(cloud); // TODO nach oben
 
-    float lasWallThreshold = 0.5; // 0.2, 0.3 oder so?
+    float lasWallThreshold = 1.0; // 0.2, 0.3 oder so? war 0.5 TODO lolol
     float osmWallThreshold = 2.0; // TODO macht eig keinen sinn das hier größer zu haben als in DataIO filter funktion? weil die punkte dann eh raus sind
 
     int buildingCount = 0;
@@ -113,12 +93,15 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                 continue;
             }
 
-            int randR = 0;//rand() % (256);
-            int randG = 255;//rand() % (256);
-            int randB = 0;//rand() % (256);
+//            int randR = 0;//rand() % (256);
+//            int randG = 255;//rand() % (256);
+//            int randB = 0;//rand() % (256);
+            int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+            int randG = rand() % (156) + 100;
+            int randB = rand() % (156) + 100;
 
 
-            // find osm wall points with big threshold
+            // get the osm wall end points
             float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
             float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
             pcl::PointXYZRGBNormal osmWallPoint1, osmWallPoint2;
@@ -129,7 +112,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
             osmWallPoint2.y = ground + wallHeight;
             osmWallPoint2.z = static_cast<float>(building.points[bPointIdx + 1].z);
 
-            // detect (and color) alle points on this wall
+            // comp mid point
             pcl::PointXYZRGBNormal mid;
             mid.x = (osmWallPoint1.x + osmWallPoint2.x) / 2;
             mid.y = (ground + wallHeight) / 2;
@@ -137,18 +120,17 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
 
             Plane osmWallPlane = {osmWallPoint1, osmWallPoint2, mid};
 
+            // search points from mid point with big radius
             auto r = static_cast<float>(sqrt(pow(osmWallPoint2.x - mid.x, 2) + pow(wallHeight - mid.y, 2) + pow(osmWallPoint2.z - mid.z, 2)));
-
             pcl::Indices pointIdxRadiusSearch;
             std::vector<float> pointRadiusSquaredDistance;
             tree->radiusSearch(mid, r, pointIdxRadiusSearch, pointRadiusSquaredDistance);
-
             if (!pointIdxRadiusSearch.empty()) {
 
-                auto minX = min(osmWallPoint1.x, osmWallPoint2.x);
-                auto maxX = max(osmWallPoint1.x, osmWallPoint2.x);
-                auto minZ = min(osmWallPoint1.z, osmWallPoint2.z);
-                auto maxZ = max(osmWallPoint1.z, osmWallPoint2.z);
+                auto osmMinX = min(osmWallPoint1.x, osmWallPoint2.x);
+                auto osmMaxX = max(osmWallPoint1.x, osmWallPoint2.x);
+                auto osmMinZ = min(osmWallPoint1.z, osmWallPoint2.z);
+                auto osmMaxZ = max(osmWallPoint1.z, osmWallPoint2.z);
 
                 // only take osm wall points that are also las wall points
                 pcl::Indices certainWallPoints;
@@ -159,7 +141,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                     if (Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWallPlane) > osmWallThreshold) {
                         continue;
                     }
-                    if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) {
+                    if (point.x > osmMaxX || point.x < osmMinX || point.z > osmMaxZ || point.z < osmMinZ) {
                         continue;
                     }
 //                    (*cloud)[nIdx].b = randR;
@@ -169,67 +151,119 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                         continue;
                     }
 
-//                    switch (pointClasses[nIdx]) {
-//                        // linear
-//                        case 0:
-//                            (*cloud)[nIdx].b = 255;
-//                            (*cloud)[nIdx].g = 0;
-//                            (*cloud)[nIdx].r = 0;
-//                            break;
-//                            // planar
-//                        case 1:
-//                            (*cloud)[nIdx].b = 0;
-//                            (*cloud)[nIdx].g = 255;
-//                            (*cloud)[nIdx].r = 0;
-//                            break;
-//                            // spherical
-//                        default:
-//                            (*cloud)[nIdx].b = 0;
-//                            (*cloud)[nIdx].g = 0;
-//                            (*cloud)[nIdx].r = 255;
-//                            break;
-//                    }
-
-//                    (*cloud)[nIdx].b = 255;
+                    // TODO nochmal die sicheren wandpunkte nach wänden einfärben und schauen welche zsm gehören, warum ist lange wand trotz median nur links??
+//                    (*cloud)[nIdx].b = 0;
 //                    (*cloud)[nIdx].g = 255;
 //                    (*cloud)[nIdx].r = 0;
-//                    (*cloud)[nIdx].b = randR;
-//                    (*cloud)[nIdx].g = randG;
-//                    (*cloud)[nIdx].r = randB;
+                    (*cloud)[nIdx].b = randR;
+                    (*cloud)[nIdx].g = randG;
+                    (*cloud)[nIdx].r = randB;
                     certainWallPoints.push_back(nIdx);
                     
                 }
 
+
+
                 // fit plane through certain wall points
                 if (certainWallPoints.size() >= 3) {
-                    pcl::IndicesPtr certainWallPointsPtr = make_shared<pcl::Indices>(certainWallPoints);
-                    // pca on the wall points
 
+                    pcl::IndicesPtr certainWallPointsPtr = make_shared<pcl::Indices>(certainWallPoints);
                     pca.setIndices(certainWallPointsPtr);
                     Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
                     Eigen::Vector3f eigenValues = pca.getEigenValues();
 
                     // create plane
-                    // select a point TODO welchen??? am besten mitte?
-                    auto lasWallPlane = (*cloud)[certainWallPoints[0]]; // TODO mid point finden, vllt ist das sogar mid
-                    lasWallPlane.normal_x = eigenVectors(0, 2); // TODO ich glaube normal ist trash?
+                    // get median point of certain wall points
+                    float xMedian, yMedian, zMedian;
+                    findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
+                    // normal
+                    auto lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+                    lasWallPlane.normal_x = eigenVectors(0, 2); // TODO ich glaube normal ist trash?, nur bei der einen wand
                     lasWallPlane.normal_y = eigenVectors(1, 2);
                     lasWallPlane.normal_z = eigenVectors(2, 2);
+                    // should be vertical
                     // TODO bekomme manchmal trash normalen die zB komplett nach oben zeige. rausfiltern wenn die senkrecht sind oder wenn die normale sehr stark abweicht von der osm wand normalen.
                     //  weil dadurch entstehen doofe fehler wo zB dann dächer zu wänden werden weil die normale nach oben zeigt. die dist unten ist dann viel zu riesig.
+                    auto horLen = sqrt(pow(lasWallPlane.normal_x, 2) + pow(lasWallPlane.normal_z, 2));
+                    auto vertLen = abs(lasWallPlane.normal_y);
+                    if (vertLen > horLen) {
+                        continue; //TODO skip this wall for now
+                    }
+
+                    // bei y auch min max finden? bei den anderen nicht wegen baum ausreißer punkten TODO wände haben nicht überall gleiche höhe leider
+                    float yMin, yMax;
+                    findYMinMax(certainWallPoints, yMin, yMax);
+
+
                     // get distance to plane
+                    // TODO change osm wall point heigt! sonst wird die dist vllt riesig wenn die wan dleich tkrum ist weil sich das akkumuliert?
+                    osmWallPoint1.y = yMedian;
+                    osmWallPoint2.y = yMedian;
                     auto dist1 = Util::signedPointPlaneDistance(osmWallPoint1, lasWallPlane); // TODO die dist ist zu groß!
                     auto dist2 = Util::signedPointPlaneDistance(osmWallPoint2, lasWallPlane);
                     // move point um distance along plane normal (point - (dist * normal))
                     auto lasWallPoint1 = Util::vectorSubtract(osmWallPoint1, pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x, dist1 * lasWallPlane.normal_y, dist1 * lasWallPlane.normal_z));
                     auto lasWallPoint2 = Util::vectorSubtract(osmWallPoint2, pcl::PointXYZRGBNormal(dist2 * lasWallPlane.normal_x, dist2 * lasWallPlane.normal_y, dist2 * lasWallPlane.normal_z));
+
+
                     // vllt puffer einbauen?
+//                    float buffer = 0.5;
+//                    auto wallVec = Util::normalize(Util::vectorSubtract(lasWallPoint2, lasWallPoint1)); // von 1 nach 2
+//                    lasWallPoint1 = pcl::PointXYZ(lasWallPoint1.x - buffer * wallVec.x, lasWallPoint1.y - buffer * wallVec.y, lasWallPoint1.z - buffer * wallVec.z); // 1 -= vec
+//                    lasWallPoint2 = pcl::PointXYZ(lasWallPoint2.x + buffer * wallVec.x, lasWallPoint2.y + buffer * wallVec.y, lasWallPoint2.z + buffer * wallVec.z); // 2 += vec
+                    // get min max wall borders
                     auto lasMinX = min(lasWallPoint1.x, lasWallPoint2.x);
                     auto lasMaxX = max(lasWallPoint1.x, lasWallPoint2.x);
                     auto lasMinZ = min(lasWallPoint1.z, lasWallPoint2.z);
                     auto lasMaxZ = max(lasWallPoint1.z, lasWallPoint2.z);
 
+                    {
+                        // draw plane
+                        // get perp vec
+                        auto lasWallNormal = pcl::PointXYZ(lasWallPlane.normal_x, lasWallPlane.normal_y, lasWallPlane.normal_z);
+                        auto perpVec1 = Util::normalize(pcl::PointXYZ(-lasWallNormal.z,0 , lasWallNormal.x)); // switch 2 comps, add -
+                        auto perpVec2 = Util::crossProduct(perpVec1, lasWallNormal);
+                        float planeX = lasWallPlane.x;
+                        float planeY = lasWallPlane.y;
+                        float planeZ = lasWallPlane.z;
+                        for (int i = 0; i <= 30; i++) {
+                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec1.x * i * 0.2, planeY + perpVec1.y * i * 0.2, planeZ + perpVec1.z * i * 0.2, 0, 0, 255));
+                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec1.x * i * 0.2, planeY - perpVec1.y * i * 0.2, planeZ - perpVec1.z * i * 0.2, 0, 0, 255));
+                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec2.x * i * 0.2, planeY + perpVec2.y * i * 0.2, planeZ + perpVec2.z * i * 0.2, 0, 0, 255));
+                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec2.x * i * 0.2, planeY - perpVec2.y * i * 0.2, planeZ - perpVec2.z * i * 0.2, 0, 0, 255));
+                        }
 
+                        // TODO zum testen punkte als rahmen einfügen entlang der ränderd
+                        for (float y = -20; y < 30; y += 0.5) {
+                            cloud->push_back(pcl::PointXYZRGBNormal(lasWallPoint1.x, y, lasWallPoint1.z, randR, randG, randB));
+                            cloud->push_back(pcl::PointXYZRGBNormal(lasWallPoint2.x, y, lasWallPoint2.z, randR, randG, randB));
+                        }
+//                    for (float x = lasMinX; x < lasMaxX; x++) {
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMin, lasMinZ, 0, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMin, lasMaxZ, 0, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMax, lasMinZ, 0, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMax, lasMaxZ, 0, 255, 0));
+//                    }
+//                    for (float z = lasMinZ; z < lasMaxZ; z++) {
+//                        cloud->push_back(pcl::PointXYZRGBNormal(lasMinX, yMin, z, 0, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(lasMinX, yMax, z, 0, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(lasMaxX, yMin, z, 0, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(lasMaxX, yMax, z, 0, 255, 0));
+//                    }
+//                    // alter punkt
+//                    for (float x = osmMinX; x < osmMaxX; x+=1) {
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMin, osmMinZ, 255, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMin, osmMaxZ, 255, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMax, osmMinZ, 255, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMax, osmMaxZ, 255, 255, 0));
+//                    }
+//                    for (float z = osmMinZ; z < osmMaxZ; z++) {
+//                        cloud->push_back(pcl::PointXYZRGBNormal(osmMinX, yMin, z, 255, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(osmMinX, yMax, z, 255, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(osmMaxX, yMin, z, 255, 255, 0));
+//                        cloud->push_back(pcl::PointXYZRGBNormal(osmMaxX, yMax, z, 255, 255, 0));
+//                    }
+                    }
                     // select points with las wall plane with smaller threshold
                     // yeah
                     // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
@@ -250,17 +284,19 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                         }
 
 
-                        (*cloud)[nIdx].b = randR;
-                        (*cloud)[nIdx].g = randG;
-                        (*cloud)[nIdx].r = randB;
+
+//                        (*cloud)[nIdx].b = randR;
+//                        (*cloud)[nIdx].g = randG;
+//                        (*cloud)[nIdx].r = randB;
 
                         // project wall points onto las wallpoint plane
-//                        auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-//                        auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y, pointDist * lasWallPlane.normal_z));;
-//                        (*cloud)[nIdx].x = newPosi.x;
-//                        (*cloud)[nIdx].y = newPosi.y;
-//                        (*cloud)[nIdx].z = newPosi.z;
+                        auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
+                        auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y, pointDist * lasWallPlane.normal_z));;
+                        (*cloud)[nIdx].x = newPosi.x;
+                        (*cloud)[nIdx].y = newPosi.y;
+                        (*cloud)[nIdx].z = newPosi.z;
 
+                        // TODO boden punkte raus? aber brauche die auch eig
                         // resample
                     }
                 }
@@ -445,12 +481,12 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
 
             } else {
-                tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
-                tangent2Vec[pointIdx] = pcl::PointXYZ(0,0,0);
+                tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+                tangent2Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             }
         } else {
-            tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
-            tangent2Vec[pointIdx] = pcl::PointXYZ(0,0,0);
+            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+            tangent2Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
         }
     }
 
@@ -465,8 +501,9 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
 
 // farbwerte von jpeg2000 nehmen
 
-void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
-                                    std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
+void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods,
+                                         std::vector<pcl::Indices>& pointNeighbourhoods,
+                                         std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
 
     // get new knn
     int currentK;
@@ -640,7 +677,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 //        }
 
         if (discardPoint[pointIdx]) {
-            tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
+            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             continue;
         }
 
@@ -693,19 +730,19 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             if (abs(cosAngle) > 0.7) { // 45°
                 // concerns tangent1 -> less then 45° between tangent1 and projected neighbour vector
                 concernsTangent1 = true;
-                if(!growTangent1){
+                if (!growTangent1) {
                     continue;
                 }
             } else {
                 concernsTangent1 = false;
-                if(!growTangent2) {
+                if (!growTangent2) {
                     continue;
                 }
             }
 
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
             // stop growing when neighbour has different class
-            if(pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]){
+            if (pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]) {
                 if (concernsTangent1) {
                     growTangent1 = false;
                 } else {
@@ -722,7 +759,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             neighbourNormal.z = (*cloud)[neighbourhood[nIdx]].normal_z;
 
             float angle = Util::dotProduct(normal, neighbourNormal);
-            if (angle < angleThreshold){
+            if (angle < angleThreshold) {
                 if (concernsTangent1) {
                     growTangent1 = false;
                 } else {
@@ -769,16 +806,15 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         if (epsilonCount1 == 0 && epsilonCount2 == 0) {
             // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
             if (colorInvalid) {
-                if((*cloud)[pointIdx].g != 255) {
+                if ((*cloud)[pointIdx].g != 255) {
                     (*cloud)[pointIdx].r = 255;
                     (*cloud)[pointIdx].g = 0;
                     (*cloud)[pointIdx].b = 255;
                 }
             }
-            tangent1Vec[pointIdx] = pcl::PointXYZ(0,0,0);
+            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             continue;
-        }
-        else if (epsilonCount2 == 0) {
+        } else if (epsilonCount2 == 0) {
             // minor achse
             if (colorInvalid) {
                 (*cloud)[pointIdx].r = 255;
@@ -810,13 +846,13 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         const auto& lastNeighbourPoint1 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx1]];
         auto pointToNeighbourVec1 = Util::vectorSubtract(lastNeighbourPoint1, point);
         auto bla1 = Util::dotProduct(normal, pointToNeighbourVec1);
-        auto  rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
+        auto rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
         float radius1 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec1, rightSide1));
         // tangent 2
         const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx2]];
         auto pointToNeighbourVec2 = Util::vectorSubtract(lastNeighbourPoint2, point);
         auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
-        auto  rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
+        auto rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
         float radius2 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec2, rightSide2));
         // length of axes has to be 1/radius
         tangent1Vec[pointIdx] = pcl::PointXYZ(tangent1Vec[pointIdx].x / radius1, tangent1Vec[pointIdx].y / radius1, tangent1Vec[pointIdx].z / radius1);
@@ -889,7 +925,7 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
         pointSplatCount = 0;
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
-        if(tree->radiusSearch(point, avgRadiusNeighbourhoods, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+        if (tree->radiusSearch(point, avgRadiusNeighbourhoods, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             // count points that are splats, but dont count non-surface group
             for (int searchIdx = 0; searchIdx < pointIdxRadiusSearch.size(); searchIdx++) {
                 int& nPointIdx = pointIdxRadiusSearch[searchIdx];
@@ -940,7 +976,7 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
         pointSplatCount = 0;
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
-        if(tree->radiusSearch(point, avgRadiusNeighbourhoods, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+        if (tree->radiusSearch(point, avgRadiusNeighbourhoods, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
             // count points that are splats, but dont count non-surface group
             for (int searchIdx = 0; searchIdx < pointIdxRadiusSearch.size(); searchIdx++) {
                 int& nPointIdx = pointIdxRadiusSearch[searchIdx];
@@ -978,14 +1014,14 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
                     neighbourNormal.y = (*cloud)[nPointIdx].normal_y;
                     neighbourNormal.z = (*cloud)[nPointIdx].normal_z;
                     float angle = Util::dotProduct(normal, neighbourNormal);
-                    if (angle < angleThreshold){
+                    if (angle < angleThreshold) {
                         continue;
                     }
                     // found the farthest valid splat
 
                     const auto& farthestSplat = (*cloud)[nPointIdx];
                     // "interpolate a new point that lies at the center of the segment connecting the splats’ centers"
-                    auto newPoint = pcl::PointXYZRGBNormal( (point.x + farthestSplat.x) / 2, (point.y + farthestSplat.y) / 2, (point.z + farthestSplat.z) / 2);
+                    auto newPoint = pcl::PointXYZRGBNormal((point.x + farthestSplat.x) / 2, (point.y + farthestSplat.y) / 2, (point.z + farthestSplat.z) / 2);
                     // debug color
                     newPoint.b = 255;
                     newPoint.g = 0;
@@ -995,8 +1031,8 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
                     newPoint.normal_y = point.normal_y;
                     newPoint.normal_z = point.normal_z;
                     pointClasses.push_back(pointClasses[pointIdx]);
-                    tangent1Vec.push_back(pcl::PointXYZ(0,0,0));
-                    tangent2Vec.push_back(pcl::PointXYZ(0,0,0));
+                    tangent1Vec.push_back(pcl::PointXYZ(0, 0, 0));
+                    tangent2Vec.push_back(pcl::PointXYZ(0, 0, 0));
                     newPoints.push_back(newPoint);
                     break;
 
@@ -1235,6 +1271,46 @@ int DataStructure::findIndex(float border, std::vector<float> vector1) {
     }
     return index;
 }
+
+bool xComparator (pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
+    return p1.x < p2.x;
+}
+bool yComparator (pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
+    return p1.y < p2.y;
+}
+bool zComparator (pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
+    return p1.z < p2.z;
+}
+
+void DataStructure::findXYZMedian(vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian) {
+    auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
+    for (auto i = 0; i < pointIndices.size(); i++) {
+        const auto& pointIdx = pointIndices[i];
+        points[i] = (*cloud)[pointIdx];
+    }
+    int n = pointIndices.size() / 2;
+    std::nth_element(points.begin(), points.begin() + n, points.end(), xComparator);
+    xMedian = points[n].x;
+    std::nth_element(points.begin(), points.begin() + n, points.end(), yComparator);
+    yMedian = points[n].y;
+    std::nth_element(points.begin(), points.begin() + n, points.end(), zComparator);
+    zMedian = points[n].z;
+}
+
+void DataStructure::findYMinMax(vector<int>& pointIndices, float& yMin, float& yMax) {
+    auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
+    for (auto i = 0; i < pointIndices.size(); i++) {
+        const auto& pointIdx = pointIndices[i];
+        points[i] = (*cloud)[pointIdx];
+    }
+    std::nth_element(points.begin(), points.begin(), points.end(), yComparator);
+    yMin = points[0].y;
+    std::nth_element(points.begin(), points.end() - 1, points.end(), yComparator);
+    yMax = points[points.size()-1].y;
+}
+
+
+
 
 
 

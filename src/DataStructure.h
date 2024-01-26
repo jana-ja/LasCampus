@@ -77,7 +77,7 @@ private:
 
 
 
-    void detectWalls(std::vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int> pointClasses);
+    void detectWalls(std::vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);
 
 
     void adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);
@@ -88,6 +88,9 @@ private:
 
 
     int findIndex(float border, std::vector<float> vector1);
+
+    void findXYZMedian(std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
+    void findYMinMax(std::vector<int>& pointIndices, float& yMin, float& yMax);
 
     float adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
     float adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
