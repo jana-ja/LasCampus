@@ -181,8 +181,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
                     // normal
                     auto lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-                    lasWallPlane.normal_x = eigenVectors(0, 2); // TODO ich glaube normal ist trash?, nur bei der einen wand
-                    lasWallPlane.normal_y = eigenVectors(1, 2);
+                    // TODO vllt ebene stattdessen so fitten dass die wand senkrecht ist und dann dist zu den punkten am kleinsten ist? im median?
+                    lasWallPlane.normal_x = eigenVectors(0, 2);
+                    lasWallPlane.normal_y = eigenVectors(1, 2); // TODO sollte die einfach 0 sein?
                     lasWallPlane.normal_z = eigenVectors(2, 2);
                     // should be vertical
                     // TODO bekomme manchmal trash normalen die zB komplett nach oben zeige. rausfiltern wenn die senkrecht sind oder wenn die normale sehr stark abweicht von der osm wand normalen.
@@ -193,16 +194,16 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         continue; //TODO skip this wall for now
                     }
 
+                    // fit data to certain wall points
                     // bei y auch min max finden? bei den anderen nicht wegen baum ausreißer punkten TODO wände haben nicht überall gleiche höhe leider
                     float yMin, yMax;
                     findYMinMax(certainWallPoints, yMin, yMax);
-
-
+                    // project wall start and end point to certain wall point plane
                     // get distance to plane
-                    // TODO change osm wall point heigt! sonst wird die dist vllt riesig wenn die wan dleich tkrum ist weil sich das akkumuliert?
+                    // TODO change osm wall point height! sonst wird die dist vllt riesig wenn die wand leicht krum ist weil sich das akkumuliert?
                     osmWallPoint1.y = yMedian;
                     osmWallPoint2.y = yMedian;
-                    auto dist1 = Util::signedPointPlaneDistance(osmWallPoint1, lasWallPlane); // TODO die dist ist zu groß!
+                    auto dist1 = Util::signedPointPlaneDistance(osmWallPoint1, lasWallPlane);
                     auto dist2 = Util::signedPointPlaneDistance(osmWallPoint2, lasWallPlane);
                     // move point um distance along plane normal (point - (dist * normal))
                     auto lasWallPoint1 = Util::vectorSubtract(osmWallPoint1, pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x, dist1 * lasWallPlane.normal_y, dist1 * lasWallPlane.normal_z));
@@ -254,6 +255,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         (*cloud)[nIdx].x = newPosi.x;
                         (*cloud)[nIdx].y = newPosi.y;
                         (*cloud)[nIdx].z = newPosi.z;
+
                         finalWallPoints.push_back(nIdx);
                         if (!lasGroundPoints[nIdx]) {
                             finalWallPointsNotGround.push_back(nIdx);
@@ -303,7 +305,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                             float xCopy = x;
                             float zCopy = z;
                             while (y < yMax) {
-                                cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 0, 0, 255));
+                                cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 255, 255, 255));
 //                                x += stepWidth * perpVec2.x;
                                 y += stepWidth;// * perpVec2.y;
 //                                z += stepWidth * perpVec2.z;
@@ -315,6 +317,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                             z = zCopy + stepWidth * perpVec1.z;
                             steppiGegangen += stepWidth;
                         }
+                        // TODO nochmal die osm und las wand punkte ansehen bevor ich die an die gefundenen wandpunkte anpasse
 //                        for (int i = 0; i <= 30; i++) {
 //                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec1.x * i * 0.2, planeY + perpVec1.y * i * 0.2, planeZ + perpVec1.z * i * 0.2, 0, 0, 255));
 //                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec1.x * i * 0.2, planeY - perpVec1.y * i * 0.2, planeZ - perpVec1.z * i * 0.2, 0, 0, 255));
