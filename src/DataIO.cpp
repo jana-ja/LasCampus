@@ -32,7 +32,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     // TODO add error handling if buildings are empty
     float maxWallRadius = preprocessWalls(wallOctree, buildings);
 
-    // get normals
+    // get cached features
     // TODO probleme mit cache files da ich ja jetzt schon vorher punkte rauswerfe, muss dann exakt übereinstimmen also vllt verwendete params (zB wallthreshold im cache speichern)
 //    std::string cacheFile = file;
 //    cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "features");
@@ -182,7 +182,7 @@ void DataIO::readLas(const std::string& path) {
 
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
                                   pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints){
- // init cloud
+    // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
 
@@ -195,6 +195,8 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
             // TODO stop
         }
 
+    // filter stuff
+    float wallThreshold = 1.0;
     for (const auto& point: lasPoints) {
 
         bool belongsToWall = false;
@@ -215,8 +217,6 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         v.r = 100; // b
         v.a = 255;
 
-        // filter stuff
-        float wallThreshold = 1.5;
 
         // get info out of 8 bit classification:
         // classification, synthetic, keypoint, withheld
@@ -269,16 +269,21 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
             } else if (returnNumber != numOfReturns) {
                 // intermediate points
                 // viel baum, ganz wenig wand -> raus
-                continue;
                 if (colorReturnNumberClasses) {
                     v.b = 0;
                     v.g = 0;
                     v.r = 255;
                 }
+                continue;
             } else {
                 // last of many
                 // boden, bisschen wände, kein baum. einfach lassen
                 if (classification != 2) { // not ground
+                    if (colorReturnNumberClasses){//} && belongsToWall) {
+                        v.b = 0;
+                        v.g = 255;
+                        v.r = 0;
+                    }
                     std::vector<int> wallIdxRadiusSearch;
                     std::vector<float> wallRadiusSquaredDistance;
                     if (wallOctree.radiusSearch(v, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
@@ -297,10 +302,8 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                             break;
                         }
                     }
-                    if (colorReturnNumberClasses && belongsToWall) {
-                        v.b = 0;
-                        v.g = 255;
-                        v.r = 0;
+                    if (!belongsToWall) {
+                        continue;
                     }
                 }
             }
