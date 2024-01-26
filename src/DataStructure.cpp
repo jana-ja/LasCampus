@@ -27,7 +27,28 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
-    detectWalls(lasWallPoints, tree);
+
+    // -----------------------------------//
+    tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
+    tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
+
+    int k = 40;
+    std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
+    std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
+    std::vector<int> pointClasses(cloud->points.size());
+    fill(pointClasses.begin(), pointClasses.end(), 2);
+
+    // ********** knn and compute avgRadius **********
+    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
+
+    // ********** get neighbourhood with radius, use pca for classification and compute epsilon **********
+    float splatGrowEpsilon = adaNeighbourhoodsClassificationAndEpsilon(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
+    std::cout << TAG << "splat grow epsilon is: " << splatGrowEpsilon << std::endl;
+    // -----------------------------------//
+
+
+    detectWalls(lasWallPoints, tree, pointClasses);
 
     if (!cachedFeatues) {
 //        adaSplats(tree);
@@ -41,7 +62,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
 }
 
-void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
+void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int> pointClasses) {
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
 
@@ -135,19 +156,39 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
 
                     const auto& nIdx = *nIdxIt;
                     const auto& point = (*cloud)[*nIdxIt];
-
+                    if (Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWallPlane) > osmWallThreshold) {
+                        continue;
+                    }
+                    if (point.x > maxX || point.x < minX || point.z > maxZ || point.z < minZ) {
+                        continue;
+                    }
+//                    (*cloud)[nIdx].b = randR;
+//                    (*cloud)[nIdx].g = randG;
+//                    (*cloud)[nIdx].r = randB;
                     if (!lasWallPoints[nIdx]) {
                         continue;
                     }
 
-                    // TODO implement direct calculation test if point lies inside wall rectangle
-                    if (Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWallPlane) > osmWallThreshold) {
-                        continue;
-                    }
-                    if (point.x > maxX || point.x < minX || point.z > maxZ ||
-                        point.z < minZ) { // TODO wie gut passen die? muss ich puffer einbauen? ja lieber machen
-                        continue;
-                    }
+//                    switch (pointClasses[nIdx]) {
+//                        // linear
+//                        case 0:
+//                            (*cloud)[nIdx].b = 255;
+//                            (*cloud)[nIdx].g = 0;
+//                            (*cloud)[nIdx].r = 0;
+//                            break;
+//                            // planar
+//                        case 1:
+//                            (*cloud)[nIdx].b = 0;
+//                            (*cloud)[nIdx].g = 255;
+//                            (*cloud)[nIdx].r = 0;
+//                            break;
+//                            // spherical
+//                        default:
+//                            (*cloud)[nIdx].b = 0;
+//                            (*cloud)[nIdx].g = 0;
+//                            (*cloud)[nIdx].r = 255;
+//                            break;
+//                    }
 
 //                    (*cloud)[nIdx].b = 255;
 //                    (*cloud)[nIdx].g = 255;
@@ -176,7 +217,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                     lasWallPlane.normal_z = eigenVectors(2, 2);
                     // TODO bekomme manchmal trash normalen die zB komplett nach oben zeige. rausfiltern wenn die senkrecht sind oder wenn die normale sehr stark abweicht von der osm wand normalen.
                     //  weil dadurch entstehen doofe fehler wo zB dann dächer zu wänden werden weil die normale nach oben zeigt. die dist unten ist dann viel zu riesig.
-// get distance to plane
+                    // get distance to plane
                     auto dist1 = Util::signedPointPlaneDistance(osmWallPoint1, lasWallPlane); // TODO die dist ist zu groß!
                     auto dist2 = Util::signedPointPlaneDistance(osmWallPoint2, lasWallPlane);
                     // move point um distance along plane normal (point - (dist * normal))
