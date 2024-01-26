@@ -22,13 +22,16 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
 
     std::vector<bool> lasWallPoints;
-    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud, buildings, lasWallPoints);
+    std::vector<bool> lasGroundPoints;
+    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud, buildings, lasWallPoints, lasGroundPoints);
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
 
-    detectWalls(lasWallPoints, tree);
+    detectWalls(lasWallPoints, lasGroundPoints, tree);
+    // cloud has changed
+    tree->setInputCloud(cloud);
 
     if (!cachedFeatues) {
 //        adaSplats(tree);
@@ -42,7 +45,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
 }
 
-void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
+void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
 
@@ -51,8 +54,8 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>; // TODO nach oben
     pca.setInputCloud(cloud); // TODO nach oben
 
-    float lasWallThreshold = 1.0; // 0.2, 0.3 oder so? war 0.5 TODO lolol
-    float osmWallThreshold = 2.0; // TODO macht eig keinen sinn das hier größer zu haben als in DataIO filter funktion? weil die punkte dann eh raus sind
+    float lasWallThreshold = 0.5; // 0.2, 0.3 oder so? war 0.5 TODO lolol
+    float osmWallThreshold = 1.0; // TODO macht eig keinen sinn das hier größer zu haben als in DataIO filter funktion? weil die punkte dann eh raus sind
 
     int buildingCount = 0;
     int wallCount = 0;
@@ -155,9 +158,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
 //                    (*cloud)[nIdx].b = 0;
 //                    (*cloud)[nIdx].g = 255;
 //                    (*cloud)[nIdx].r = 0;
-                    (*cloud)[nIdx].b = randR;
-                    (*cloud)[nIdx].g = randG;
-                    (*cloud)[nIdx].r = randB;
+//                    (*cloud)[nIdx].b = randR;
+//                    (*cloud)[nIdx].g = randG;
+//                    (*cloud)[nIdx].r = randB;
                     certainWallPoints.push_back(nIdx);
                     
                 }
@@ -204,7 +207,8 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                     // move point um distance along plane normal (point - (dist * normal))
                     auto lasWallPoint1 = Util::vectorSubtract(osmWallPoint1, pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x, dist1 * lasWallPlane.normal_y, dist1 * lasWallPlane.normal_z));
                     auto lasWallPoint2 = Util::vectorSubtract(osmWallPoint2, pcl::PointXYZRGBNormal(dist2 * lasWallPlane.normal_x, dist2 * lasWallPlane.normal_y, dist2 * lasWallPlane.normal_z));
-
+                    lasWallPoint1.y = yMedian;
+                    lasWallPoint2.y = yMedian;
 
                     // vllt puffer einbauen?
 //                    float buffer = 0.5;
@@ -217,27 +221,112 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
                     auto lasMinZ = min(lasWallPoint1.z, lasWallPoint2.z);
                     auto lasMaxZ = max(lasWallPoint1.z, lasWallPoint2.z);
 
+                    // select points with las wall plane with smaller threshold
+                    // yeah
+                    // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
+                    pcl::Indices finalWallPoints;
+                    pcl::Indices finalWallPointsNotGround;
+                    for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+
+                        const auto& nIdx = *nIdxIt;
+                        const auto& point = (*cloud)[*nIdxIt];
+
+                        // TODO implement direct calculation test if point lies inside wall rectangle
+                        if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWallPlane) > lasWallThreshold) {
+                            continue;
+                        }
+                        // TODO find min max for las wall -> project wall end points on las wall plane?
+                        // project osm wall points onto las wall plane
+
+                        if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { // TODO wie gut passen die? muss ich puffer einbauen? ja lieber machen
+                            continue;
+                        }
+
+
+
+                        (*cloud)[nIdx].b = randR;
+                        (*cloud)[nIdx].g = randG;
+                        (*cloud)[nIdx].r = randB;
+
+                        // project wall points onto las wallpoint plane
+                        auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
+                        auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y, pointDist * lasWallPlane.normal_z));;
+                        (*cloud)[nIdx].x = newPosi.x;
+                        (*cloud)[nIdx].y = newPosi.y;
+                        (*cloud)[nIdx].z = newPosi.z;
+                        finalWallPoints.push_back(nIdx);
+                        if (!lasGroundPoints[nIdx]) {
+                            finalWallPointsNotGround.push_back(nIdx);
+                        }
+
+                        // TODO boden punkte raus? aber brauche die auch eig
+                        // resample
+                    }
+
+
                     {
+                        // y min und max nochmal anpassen, damit vom boden aus geht
+                        findYMinMax(finalWallPoints, yMin, yMax);
+                        // TODO las wall points nochmal anpassen, damit nicht über grenze hinaus geht, dabei muss ich aber boden schon rausgeworfen haben
+                        float xStart, xEnd, zStart, zEnd;
+                        findXZStartEnd(finalWallPoints, xStart, xEnd, zStart, zEnd);
+                        lasWallPoint1 = pcl::PointXYZ(xStart, yMax, zStart);
+                        lasWallPoint2 = pcl::PointXYZ(xEnd, yMax, zEnd);
+
                         // draw plane
+                        float stepWidth = 0.5;
                         // get perp vec
                         auto lasWallNormal = pcl::PointXYZ(lasWallPlane.normal_x, lasWallPlane.normal_y, lasWallPlane.normal_z);
-                        auto perpVec1 = Util::normalize(pcl::PointXYZ(-lasWallNormal.z,0 , lasWallNormal.x)); // switch 2 comps, add -
+//                        auto perpVec1 = Util::normalize(pcl::PointXYZ(-lasWallNormal.z,0 , lasWallNormal.x)); // switch 2 comps, add -
+                        auto lasWallVec = Util::vectorSubtract(lasWallPoint2, lasWallPoint1);
+                        auto perpVec1 = Util::normalize(lasWallVec); // von 1 nach 2 TODO die haben aktuell gleiche höhe, darauf achten!
                         auto perpVec2 = Util::crossProduct(perpVec1, lasWallNormal);
                         float planeX = lasWallPlane.x;
                         float planeY = lasWallPlane.y;
                         float planeZ = lasWallPlane.z;
-                        for (int i = 0; i <= 30; i++) {
-                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec1.x * i * 0.2, planeY + perpVec1.y * i * 0.2, planeZ + perpVec1.z * i * 0.2, 0, 0, 255));
-                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec1.x * i * 0.2, planeY - perpVec1.y * i * 0.2, planeZ - perpVec1.z * i * 0.2, 0, 0, 255));
-                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec2.x * i * 0.2, planeY + perpVec2.y * i * 0.2, planeZ + perpVec2.z * i * 0.2, 0, 0, 255));
-                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec2.x * i * 0.2, planeY - perpVec2.y * i * 0.2, planeZ - perpVec2.z * i * 0.2, 0, 0, 255));
+
+                        // perpVec 1 should be in
+                        if (perpVec2.y < 0) {
+                            // flip
+                            perpVec2.x = -perpVec2.x;
+                            perpVec2.y = -perpVec2.y;
+                            perpVec2.z = -perpVec2.z;
                         }
 
-                        // TODO zum testen punkte als rahmen einfügen entlang der ränderd
-                        for (float y = -20; y < 30; y += 0.5) {
-                            cloud->push_back(pcl::PointXYZRGBNormal(lasWallPoint1.x, y, lasWallPoint1.z, randR, randG, randB));
-                            cloud->push_back(pcl::PointXYZRGBNormal(lasWallPoint2.x, y, lasWallPoint2.z, randR, randG, randB));
+                        float lasWallLength = Util::vectorLength(lasWallVec);
+                        float x = lasWallPoint1.x;
+                        float z = lasWallPoint1.z;
+                        float steppiGegangen = 0;
+                        // move horizontal
+                        while (steppiGegangen < lasWallLength) {
+                            float y = yMin;
+                            float xCopy = x;
+                            float zCopy = z;
+                            while (y < yMax) {
+                                cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 0, 0, 255));
+//                                x += stepWidth * perpVec2.x;
+                                y += stepWidth;// * perpVec2.y;
+//                                z += stepWidth * perpVec2.z;
+
+                                    // beim hochgehen radius search machen 1 m oder so, dann in richtung der wall normal schauen mit kleinem threshold, wenn ich punkt finde aufhören
+                                    //  aber was ist dann mit wand?
+                            }
+                            x = xCopy + stepWidth * perpVec1.x;
+                            z = zCopy + stepWidth * perpVec1.z;
+                            steppiGegangen += stepWidth;
                         }
+//                        for (int i = 0; i <= 30; i++) {
+//                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec1.x * i * 0.2, planeY + perpVec1.y * i * 0.2, planeZ + perpVec1.z * i * 0.2, 0, 0, 255));
+//                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec1.x * i * 0.2, planeY - perpVec1.y * i * 0.2, planeZ - perpVec1.z * i * 0.2, 0, 0, 255));
+//                            cloud->push_back(pcl::PointXYZRGBNormal(planeX + perpVec2.x * i * 0.2, planeY + perpVec2.y * i * 0.2, planeZ + perpVec2.z * i * 0.2, 0, 0, 255));
+//                            cloud->push_back(pcl::PointXYZRGBNormal(planeX - perpVec2.x * i * 0.2, planeY - perpVec2.y * i * 0.2, planeZ - perpVec2.z * i * 0.2, 0, 0, 255));
+//                        }
+//
+//                        // TODO zum testen punkte als rahmen einfügen entlang der ränderd
+//                        for (float y = -20; y < 30; y += 0.5) {
+//                            cloud->push_back(pcl::PointXYZRGBNormal(lasWallPoint1.x, y, lasWallPoint1.z, randR, randG, randB));
+//                            cloud->push_back(pcl::PointXYZRGBNormal(lasWallPoint2.x, y, lasWallPoint2.z, randR, randG, randB));
+//                        }
 //                    for (float x = lasMinX; x < lasMaxX; x++) {
 //                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMin, lasMinZ, 0, 255, 0));
 //                        cloud->push_back(pcl::PointXYZRGBNormal(x, yMin, lasMaxZ, 0, 255, 0));
@@ -264,41 +353,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, pcl::search::KdTree
 //                        cloud->push_back(pcl::PointXYZRGBNormal(osmMaxX, yMax, z, 255, 255, 0));
 //                    }
                     }
-                    // select points with las wall plane with smaller threshold
-                    // yeah
-                    // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
-                    for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
-                        const auto& nIdx = *nIdxIt;
-                        const auto& point = (*cloud)[*nIdxIt];
-
-                        // TODO implement direct calculation test if point lies inside wall rectangle
-                        if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWallPlane) > lasWallThreshold) {
-                            continue;
-                        }
-                        // TODO find min max for las wall -> project wall end points on las wall plane?
-                        // project osm wall points onto las wall plane
-
-                        if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { // TODO wie gut passen die? muss ich puffer einbauen? ja lieber machen
-                            continue;
-                        }
-
-
-
-//                        (*cloud)[nIdx].b = randR;
-//                        (*cloud)[nIdx].g = randG;
-//                        (*cloud)[nIdx].r = randB;
-
-                        // project wall points onto las wallpoint plane
-                        auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-                        auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y, pointDist * lasWallPlane.normal_z));;
-                        (*cloud)[nIdx].x = newPosi.x;
-                        (*cloud)[nIdx].y = newPosi.y;
-                        (*cloud)[nIdx].z = newPosi.z;
-
-                        // TODO boden punkte raus? aber brauche die auch eig
-                        // resample
-                    }
                 }
             }
         }
@@ -1307,6 +1362,26 @@ void DataStructure::findYMinMax(vector<int>& pointIndices, float& yMin, float& y
     yMin = points[0].y;
     std::nth_element(points.begin(), points.end() - 1, points.end(), yComparator);
     yMax = points[points.size()-1].y;
+}
+
+void DataStructure::findXZStartEnd(vector<int>& pointIndices, float& xStart, float& xEnd, float& zStart, float& zEnd) {
+    auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
+    for (auto i = 0; i < pointIndices.size(); i++) {
+        const auto& pointIdx = pointIndices[i];
+        points[i] = (*cloud)[pointIdx];
+    }
+    // x TODO funktioniert jetzt nicht gut wenn parallel zur x achse ist! wobei da sind die wände ja glaube ich schon geplättet? also sollte gehen?
+    std::nth_element(points.begin(), points.begin(), points.end(), xComparator);
+    xStart = points[0].x;
+    zStart = points[0].z;
+    std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
+    xEnd = points[points.size()-1].x;
+    zEnd = points[points.size()-1].z;
+//    //z
+//    std::nth_element(points.begin(), points.begin(), points.end(), zComparator);
+//    zMin = points[0].z;
+//    std::nth_element(points.begin(), points.end() - 1, points.end(), zComparator);
+//    zMax = points[points.size()-1].z;
 }
 
 

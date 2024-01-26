@@ -9,7 +9,7 @@
 #include "util.h"
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
-                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints) {
+                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints) {
 
 
     std::cout << TAG << "begin loading data" << std::endl;
@@ -40,7 +40,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    return loadedCachedFeatures;
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
-    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile, lasWallPoints);
+    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -181,7 +181,7 @@ void DataIO::readLas(const std::string& path) {
 }
 
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints){
+                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints){
     // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
@@ -229,6 +229,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         if (synthetic) { // point.pointSourceId == 2
             continue;
         }
+
         // get info out of 8 bit flags:
         // return number, number of returns, stuff, stuff
         // little endian
@@ -324,6 +325,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 
         cloud->push_back(v);
         lasWallPoints.push_back(belongsToWall);
+        lasGroundPoints.push_back(classification == 2);
     }
 }
 
