@@ -267,13 +267,22 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
 
 
                     {
+                        // TODO wichtigste sache jetzt
+                        //  das funktionoiert leider auc nicht, wenn ich zwei punkte von der schiefen eben nehmen, daziwschen den vektor und den dann einfach grade mache, liegt nciht auf der ebene drauf!
+                        //  vllt von anfang an ebene grade machen ( dann schauen wo puntk fixieren)
+                        //   sonst die neuen punkte auf die ebene schieben ohne höhe  zu verändern?? aber wofür vorher die schiefe ebene behalten? iwann muss ich mich eh entscheiden wo cih den punkt der ebene ficisere (boden, median, kp)
+
+
+
                         // y min und max nochmal anpassen, damit vom boden aus geht
                         findYMinMax(finalWallPoints, yMin, yMax);
                         // TODO las wall points nochmal anpassen, damit nicht über grenze hinaus geht, dabei muss ich aber boden schon rausgeworfen haben
-                        float xStart, xEnd, zStart, zEnd;
-                        findXZStartEnd(finalWallPoints, xStart, xEnd, zStart, zEnd);
-                        lasWallPoint1 = pcl::PointXYZ(xStart, yMax, zStart);
-                        lasWallPoint2 = pcl::PointXYZ(xEnd, yMax, zEnd);
+                        float xStart, xEnd, yStart, yEnd, zStart, zEnd;
+                        findStartEnd(finalWallPoints, xStart, xEnd, yStart, yEnd, zStart, zEnd);
+                        // ich muss hier das alte y übernehmen für die las wall points und dann bei dem vektor dazwischenden vertikalen teil erst rausnehmen
+                        //  sonst schiebe ich auf schiefen wänden punkte einfach runter und verfälsche die ebene
+                        lasWallPoint1 = pcl::PointXYZ(xStart, yStart, zStart);
+                        lasWallPoint2 = pcl::PointXYZ(xEnd, yEnd, zEnd);
 
                         // draw plane
                         float stepWidth = 0.5;
@@ -281,7 +290,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         auto lasWallNormal = pcl::PointXYZ(lasWallPlane.normal_x, lasWallPlane.normal_y, lasWallPlane.normal_z);
 //                        auto perpVec1 = Util::normalize(pcl::PointXYZ(-lasWallNormal.z,0 , lasWallNormal.x)); // switch 2 comps, add -
                         auto lasWallVec = Util::vectorSubtract(lasWallPoint2, lasWallPoint1);
-                        auto perpVec1 = Util::normalize(lasWallVec); // von 1 nach 2 TODO die haben aktuell gleiche höhe, darauf achten!
+                        auto perpVec1 = Util::normalize(pcl::PointXYZ(lasWallVec.x, 0, lasWallVec.z)); // von 1 nach 2 // TODO das funktionoiert leider auc nicht, wenn ich zwei punkte von der schiefen eben nehmen, daziwschen den vektor und den dann einfach grade mache, liegt nciht auf der ebene drauf!
                         auto perpVec2 = Util::crossProduct(perpVec1, lasWallNormal);
                         float planeX = lasWallPlane.x;
                         float planeY = lasWallPlane.y;
@@ -306,9 +315,10 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                             float zCopy = z;
                             while (y < yMax) {
                                 cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 255, 255, 255));
-//                                x += stepWidth * perpVec2.x;
-                                y += stepWidth;// * perpVec2.y;
-//                                z += stepWidth * perpVec2.z;
+//                                y += stepWidth;// * perpVec2.y;
+                                x += stepWidth * perpVec2.x;
+                                y += stepWidth * perpVec2.y;
+                                z += stepWidth * perpVec2.z;
 
                                     // beim hochgehen radius search machen 1 m oder so, dann in richtung der wall normal schauen mit kleinem threshold, wenn ich punkt finde aufhören
                                     //  aber was ist dann mit wand?
@@ -1367,7 +1377,7 @@ void DataStructure::findYMinMax(vector<int>& pointIndices, float& yMin, float& y
     yMax = points[points.size()-1].y;
 }
 
-void DataStructure::findXZStartEnd(vector<int>& pointIndices, float& xStart, float& xEnd, float& zStart, float& zEnd) {
+void DataStructure::findStartEnd(vector<int>& pointIndices, float& xStart, float& xEnd, float& yStart, float& yEnd, float& zStart, float& zEnd) {
     auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
     for (auto i = 0; i < pointIndices.size(); i++) {
         const auto& pointIdx = pointIndices[i];
@@ -1376,9 +1386,11 @@ void DataStructure::findXZStartEnd(vector<int>& pointIndices, float& xStart, flo
     // x TODO funktioniert jetzt nicht gut wenn parallel zur x achse ist! wobei da sind die wände ja glaube ich schon geplättet? also sollte gehen?
     std::nth_element(points.begin(), points.begin(), points.end(), xComparator);
     xStart = points[0].x;
+    yStart = points[0].y;
     zStart = points[0].z;
     std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
     xEnd = points[points.size()-1].x;
+    yEnd = points[points.size()-1].y;
     zEnd = points[points.size()-1].z;
 //    //z
 //    std::nth_element(points.begin(), points.begin(), points.end(), zComparator);
