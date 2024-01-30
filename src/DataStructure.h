@@ -77,7 +77,7 @@ private:
 
 
 
-    void detectWalls(std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);
+    void detectWalls(std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
 
 
     void adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);
