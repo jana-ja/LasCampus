@@ -58,11 +58,7 @@ namespace Util {
     }
 
 
-    inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
 
-        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
-        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
-    }
 
     inline float
     isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
@@ -97,6 +93,12 @@ namespace Util {
         float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
 
         return dist;
+    }
+
+    inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
     }
 
     inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
