@@ -142,11 +142,11 @@ void DataIO::readLas(const std::string& path) {
 
 
         // points
-        numOfPoints = 200000; //header.numberOfPoints;
+        numOfPoints = 400000; //header.numberOfPoints;
 
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
-        inf.seekg(11500000 * sizeof(PointDRF1), std::ios_base::cur); // skip to point tree TODO because i dont use all points for testing
+        inf.seekg(11300000 * sizeof(PointDRF1), std::ios_base::cur); // skip to point tree TODO because i dont use all points for testing
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {

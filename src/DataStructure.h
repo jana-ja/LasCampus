@@ -91,7 +91,7 @@ private:
 
     void findXYZMedian(std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
     void findYMinMax(std::vector<int>& pointIndices, float& yMin, float& yMax);
-    void findStartEnd(std::vector<int>& pointIndices, float& xStart, float& xEnd, float& yStart, float& yEnd, float& zStart, float& zEnd);
+    void findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointXYZ& start, pcl::PointXYZ& end);
 
     float adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
     float adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);

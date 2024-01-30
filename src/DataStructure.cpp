@@ -46,9 +46,11 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 }
 
 void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
-    bool colorOsmWall = true;
+    bool colorOsmWall = false;
     bool colorCertainLasWall = false;
-    bool colorFinalLasWall = false;
+    bool colorCertainLasWallRandom = false;
+    bool colorFinalLasWall = true;
+    bool colorFinalLasWallWithoutGround = false;
 
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
@@ -184,9 +186,11 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         (*cloud)[nIdx].b = 0;
                         (*cloud)[nIdx].g = 255;
                         (*cloud)[nIdx].r = 0;
-//                    (*cloud)[nIdx].b = randR;
-//                    (*cloud)[nIdx].g = randG;
-//                    (*cloud)[nIdx].r = randB;
+                    }
+                    if (colorCertainLasWallRandom) {
+                        (*cloud)[nIdx].b = randR;
+                        (*cloud)[nIdx].g = randG;
+                        (*cloud)[nIdx].r = randB;
                     }
                     certainWallPoints.push_back(nIdx);
 
@@ -239,13 +243,14 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 auto dist1 = Util::signedPointPlaneDistance(osmWallPoint1, lasWallPlane);
                 auto dist2 = Util::signedPointPlaneDistance(osmWallPoint2, lasWallPlane);
                 // move point um distance along plane normal (point - (dist * normal))
-                lasWallPoint1 = Util::vectorSubtract(osmWallPoint1,pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x,
-                                                                            dist1 * lasWallPlane.normal_y,dist1 * lasWallPlane.normal_z));
-                lasWallPoint2 = Util::vectorSubtract(osmWallPoint2,pcl::PointXYZRGBNormal(dist2 * lasWallPlane.normal_x,
-                                                                            dist2 * lasWallPlane.normal_y,dist2 * lasWallPlane.normal_z));
+                lasWallPoint1 = Util::vectorSubtract(osmWallPoint1, pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x,
+                                                                                           dist1 * lasWallPlane.normal_y, dist1 * lasWallPlane.normal_z));
+                lasWallPoint2 = Util::vectorSubtract(osmWallPoint2, pcl::PointXYZRGBNormal(dist2 * lasWallPlane.normal_x,
+                                                                                           dist2 * lasWallPlane.normal_y, dist2 * lasWallPlane.normal_z));
                 //endregion
 
                 pcl::Indices finalWallPoints;
+                std::vector<pcl::PointXYZ> finalWallPointsNotGround;
                 //region get all las wall points with lasWallPlane and las border points   +   project these points onto plane
 
                 // vllt puffer einbauen?
@@ -262,7 +267,6 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 // select points with las wall plane with smaller threshold
                 // yeah
                 // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
-                pcl::Indices finalWallPointsNotGround;
                 for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
                     const auto& nIdx = *nIdxIt;
@@ -283,19 +287,29 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     }
 
 
-                    finalWallPoints.push_back(nIdx);
+                    finalWallPoints.push_back(
+                            nIdx); // dont need to project these, because they are only used to determine y values and projection normal is horizontal
                     if (!lasGroundPoints[nIdx]) {
-                        finalWallPointsNotGround.push_back(nIdx);
+                        if (colorFinalLasWallWithoutGround) {
+                            (*cloud)[nIdx].b = randR;
+                            (*cloud)[nIdx].g = randG;
+                            (*cloud)[nIdx].r = randB;
+                        }
+                        // project wall points onto las wallpoint plane
+                        auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
+                        auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
+                                                                                          pointDist * lasWallPlane.normal_z));
+                        finalWallPointsNotGround.push_back(newPosi);
                     }
 
 
-                    // project wall points onto las wallpoint plane
-                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
-                                                                                      pointDist * lasWallPlane.normal_z));;
-                    (*cloud)[nIdx].x = newPosi.x;
-                    (*cloud)[nIdx].y = newPosi.y;
-                    (*cloud)[nIdx].z = newPosi.z;
+//                    // project wall points onto las wallpoint plane
+//                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
+//                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
+//                                                                                      pointDist * lasWallPlane.normal_z));
+//                    (*cloud)[nIdx].x = newPosi.x;
+//                    (*cloud)[nIdx].y = newPosi.y;
+//                    (*cloud)[nIdx].z = newPosi.z;
                 }
                 //endregion
 
@@ -311,10 +325,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 //  aber was ist dann mit orthogonalen wänden?
                 findYMinMax(finalWallPoints, yMin, yMax);
                 // get new border points based on finalWallPoints without ground points (so generated points don't go over the edges)
-                float xStart, xEnd, yStart, yEnd, zStart, zEnd;
-                findStartEnd(finalWallPointsNotGround, xStart, xEnd, yStart, yEnd, zStart, zEnd);
-                lasWallPoint1 = pcl::PointXYZ(xStart, yMin, zStart);
-                lasWallPoint2 = pcl::PointXYZ(xEnd, yMin, zEnd);
+                findStartEnd(finalWallPointsNotGround, lasWallPoint1, lasWallPoint2);
+                lasWallPoint1.y = yMin;
+                lasWallPoint2.y = yMin;
 
                 // draw plane
                 float stepWidth = 0.5;
@@ -1315,6 +1328,10 @@ int DataStructure::findIndex(float border, std::vector<float> vector1) {
     return index;
 }
 
+bool xComparator2(pcl::PointXYZ& p1, pcl::PointXYZ& p2) {
+    return p1.x < p2.x;
+}
+
 bool xComparator(pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
     return p1.x < p2.x;
 }
@@ -1354,21 +1371,12 @@ void DataStructure::findYMinMax(vector<int>& pointIndices, float& yMin, float& y
     yMax = points[points.size() - 1].y;
 }
 
-void DataStructure::findStartEnd(vector<int>& pointIndices, float& xStart, float& xEnd, float& yStart, float& yEnd, float& zStart, float& zEnd) {
-    auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
-    for (auto i = 0; i < pointIndices.size(); i++) {
-        const auto& pointIdx = pointIndices[i];
-        points[i] = (*cloud)[pointIdx];
-    }
+void DataStructure::findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointXYZ& start, pcl::PointXYZ& end) {
     // x TODO funktioniert jetzt nicht gut wenn parallel zur x achse ist! wobei da sind die wände ja glaube ich schon geplättet? also sollte gehen?
-    std::nth_element(points.begin(), points.begin(), points.end(), xComparator);
-    xStart = points[0].x;
-    yStart = points[0].y;
-    zStart = points[0].z;
-    std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
-    xEnd = points[points.size() - 1].x;
-    yEnd = points[points.size() - 1].y;
-    zEnd = points[points.size() - 1].z;
+    std::nth_element(points.begin(), points.begin(), points.end(), xComparator2);
+    start = points[0];
+    std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator2);
+    end = points[points.size() - 1];
 //    //z
 //    std::nth_element(points.begin(), points.begin(), points.end(), zComparator);
 //    zMin = points[0].z;
