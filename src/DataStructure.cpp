@@ -48,8 +48,8 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
-    bool colorCertainLasWallRandom = false;
-    bool colorFinalLasWall = true;
+    bool colorCertainLasWallRandom = true;
+    bool colorFinalLasWall = false;
     bool colorFinalLasWallWithoutGround = false;
 
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
@@ -205,34 +205,64 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 // TODO in 2d betrachten udn regression könnte besser sein, weil manchmal zB nur dachkante -> liefert hier ieine ebene die vllt eher waagerecht ist und dann rasugeworfen wird.
                 //region fit *vertical* plane through certain wall points
 
-                pcl::IndicesPtr certainWallPointsPtr = make_shared<pcl::Indices>(certainWallPoints);
-                pca.setIndices(certainWallPointsPtr);
-                Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-                Eigen::Vector3f eigenValues = pca.getEigenValues();
 
-                // create plane
-                // get median point of certain wall points
+                // punkte auf xz ebene betrachten
+                // linie durch fitten 2d
+                float xSum = std::accumulate(begin(certainWallPoints), end(certainWallPoints), 0.0f,[this](float i, const int& pIdx){ return i + (*cloud)[pIdx].x; });
+                float zSum = std::accumulate(begin(certainWallPoints), end(certainWallPoints), 0.0f, [this](float i, const int& pIdx){ return i + (*cloud)[pIdx].z; });
+                float xzSum = std::accumulate(begin(certainWallPoints), end(certainWallPoints), 0.0f, [this](float i, const int& pIdx){ return i + (*cloud)[pIdx].x * (*cloud)[pIdx].z; });
+                float x2Sum = std::accumulate(begin(certainWallPoints), end(certainWallPoints), 0.0f,[this](float i, const int& pIdx){ return i + (*cloud)[pIdx].x * (*cloud)[pIdx].x; });
+                int n = certainWallPoints.size();
+
+                // y = mx + b
+                float m = (n * xzSum - xSum * zSum ) / (n * x2Sum - xSum * xSum );
+                float b = (zSum - m * xSum ) / n;
+
+                if (std::isnan(m) || std::isnan(b))
+                    continue;
+
+                // set point
                 float xMedian, yMedian, zMedian;
                 findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
-                lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
+                auto planePoint = pcl::PointXYZ(xMedian, yMedian, m * xMedian + b);
+                lasWallPlane = pcl::PointXYZRGBNormal(planePoint.x, planePoint.y, planePoint.z);
+                cloud->push_back(pcl::PointXYZRGBNormal(planePoint.x, planePoint.y, planePoint.z, 0, 0, 255));
+                // set normal
+                auto horPlaneVec = Util::vectorSubtract(planePoint, pcl::PointXYZ(xMedian + 5, yMedian, m * (xMedian + 5) + b));
+                auto planeNormal = Util::normalize(Util::crossProduct(horPlaneVec, pcl::PointXYZ(0,1,0)));
+                lasWallPlane.normal_x = planeNormal.x;
+                lasWallPlane.normal_y = planeNormal.y;
+                lasWallPlane.normal_z = planeNormal.z;
 
-                // normal
-                lasWallPlane.normal_x = eigenVectors(0, 2);
-                lasWallPlane.normal_y = eigenVectors(1, 2);
-                lasWallPlane.normal_z = eigenVectors(2, 2);
-                // should be vertical
-                auto horLen = sqrt(pow(lasWallPlane.normal_x, 2) + pow(lasWallPlane.normal_z, 2));
-                auto vertLen = abs(lasWallPlane.normal_y);
-                if (vertLen > horLen) {
-                    continue; //TODO skip this wall for now
-                } else {
-                    // make wall vertical
-                    auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-                    lasWallPlane.normal_x = lasWallNormal.x;
-                    lasWallPlane.normal_y = lasWallNormal.y;
-                    lasWallPlane.normal_z = lasWallNormal.z;
-                }
+
+//                pcl::IndicesPtr certainWallPointsPtr = make_shared<pcl::Indices>(certainWallPoints);
+//                pca.setIndices(certainWallPointsPtr);
+//                Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+//                Eigen::Vector3f eigenValues = pca.getEigenValues();
+//
+//                // create plane
+//                // get median point of certain wall points
+//                float xMedian, yMedian, zMedian;
+//                findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
+//                lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+//                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
+//
+//                // normal
+//                lasWallPlane.normal_x = eigenVectors(0, 2);
+//                lasWallPlane.normal_y = eigenVectors(1, 2);
+//                lasWallPlane.normal_z = eigenVectors(2, 2);
+//                // should be vertical
+//                auto horLen = sqrt(pow(lasWallPlane.normal_x, 2) + pow(lasWallPlane.normal_z, 2));
+//                auto vertLen = abs(lasWallPlane.normal_y);
+//                if (vertLen > horLen) {
+//                    continue; //TODO skip this wall for now
+//                } else {
+//                    // make wall vertical
+//                    auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
+//                    lasWallPlane.normal_x = lasWallNormal.x;
+//                    lasWallPlane.normal_y = lasWallNormal.y;
+//                    lasWallPlane.normal_z = lasWallNormal.z;
+//                }
                 //endregion
 
                 pcl::PointXYZ lasWallPoint1, lasWallPoint2;
@@ -316,6 +346,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 if (finalWallPoints.empty())
                     continue;
 
+                // TODO how to determine border points? walls are either too long or too short (depending on if ground points are considered)
                 //region fill wall with points
 
                 // get y min and max from finalWallPoints to cover wall from bottom to top
