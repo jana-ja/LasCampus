@@ -49,9 +49,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
     bool colorCertainLasWallRandom = false;
-    bool colorFinalLasWall = false;
+    bool colorFinalLasWall = true;
     bool colorFinalLasWallWithoutGround = false;
-    bool removeOldWallPoints = true;
+    bool removeOldWallPoints = false;
 
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
@@ -219,7 +219,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 float xMedian, yMedian, zMedian;
                 findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
                 lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
+//                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
                 // normal
                 lasWallPlane.normal_x = eigenVectors(0, 2);
                 lasWallPlane.normal_y = eigenVectors(1, 2);
@@ -351,7 +351,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     float currentMaxY = getMaxY(x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
                     if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                         while (y < currentMaxY) {
-                            cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 255, 255, 255));
+                            cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 100,100,100));//randR, randG, randB));
                             y += stepWidth;
                         }
                     }
@@ -1435,7 +1435,7 @@ float DataStructure::getMaxY(float& x, float& z, float& yMin, float& yMax, float
             float distToNormal = abs(wallPlane.x * (searchPoint.x - point.x) + wallPlane.z * (searchPoint.z - point.z));
             if (distToNormal > stepWidth * 1.1)
                 continue;
-            point.r = 255;
+//            point.r = 255;
             if (point.y > newMaxY) {
                 newMaxY = point.y;
             }
