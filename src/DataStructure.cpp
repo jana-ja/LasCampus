@@ -48,10 +48,10 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
-    bool colorCertainLasWallRandom = false;
-    bool colorFinalLasWall = true;
+    bool colorCertainLasWallRandom = true;
+    bool colorFinalLasWall = false;
     bool colorFinalLasWallWithoutGround = false;
-    bool removeOldWallPoints = true;
+    bool removeOldWallPoints = false;
 
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
@@ -241,28 +241,11 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 Eigen::Vector3f eigenValues = pca.getEigenValues();
 
                 // create plane
-//                // get median point of certain wall points
-//                float xMedian, yMedian, zMedian;
-//                findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
-//                lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-//                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
-                // get lowest point of certain wall points
-                float lowestY = INFINITY;
-                int lowestPointIdx;
-                for (auto pIdx: certainWallPoints) {
-                    if ((*cloud)[pIdx].y < lowestY) {
-                        lowestY = (*cloud)[pIdx].y;
-                        lowestPointIdx = pIdx;
-                    }
-                }
-                lasWallPlane = pcl::PointXYZRGBNormal((*cloud)[lowestPointIdx].x, (*cloud)[lowestPointIdx].y, (*cloud)[lowestPointIdx].z);
-                cloud->push_back(pcl::PointXYZRGBNormal((*cloud)[lowestPointIdx].x, (*cloud)[lowestPointIdx].y, (*cloud)[lowestPointIdx].z, 0, 0, 255));
-                (*cloud)[lowestPointIdx].r = 0;
-                (*cloud)[lowestPointIdx].g = 0;
-                (*cloud)[lowestPointIdx].b = 255;
-
-
-
+                // get median point of certain wall points
+                float xMedian, yMedian, zMedian;
+                findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
+                lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
                 // normal
                 lasWallPlane.normal_x = eigenVectors(0, 2);
                 lasWallPlane.normal_y = eigenVectors(1, 2);
@@ -394,7 +377,8 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     float y = yMin;
                     float xCopy = x;
                     float zCopy = z;
-                    while (y < yMax) {
+                    float currentMaxY = getMaxY(x, z, yMin, yMax, stepWidth, tree);
+                    while (y < currentMaxY) {
                         cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 255, 255, 255));
                         y += stepWidth;
                     }
@@ -416,7 +400,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
             }
         }
         // keep all new points
-        for (auto pIdx = removePoints.size(); pIdx < (*cloud).size(); pIdx++){
+        for (auto pIdx = removePoints.size(); pIdx < (*cloud).size(); pIdx++) {
             newPoints.push_back((*cloud)[pIdx]);
         }
         (*cloud).clear();
@@ -1445,6 +1429,35 @@ void DataStructure::findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointX
     start = points[0];
     std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator2);
     end = points[points.size() - 1];
+}
+
+// TODO sind die neuen punkte in tree mit drin? glaube nicht aber das wäre problem
+float DataStructure::getMaxY(float& x, float& z, float& yMin, float& yMax, float& stepWidth, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
+    // search points from x,minY,z with maxHeight radius
+    float newMaxY = yMin;
+    std::vector<int> pointIdxRadiusSearch;
+    std::vector<float> pointRadiusSquaredDistance;
+    auto searchPoint = pcl::PointXYZRGBNormal(x, yMin, z);
+    if (tree->radiusSearch(pcl::PointXYZRGBNormal(x, yMin, z), (yMax - yMin) * 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+        // filter cylinder with stepwidth and get newMaxY
+        for (auto pIdxIdx = 0; pIdxIdx < pointIdxRadiusSearch.size(); pIdxIdx++) {
+            const auto& point = (*cloud)[pointIdxRadiusSearch[pIdxIdx]];
+            searchPoint.y = point.y; // get horizontal distance
+            if (Util::vectorLength(Util::vectorSubtract(searchPoint, point)) > stepWidth) { // eig horizontaler abstand
+                // sqrt(pow(searchPoint.x - point.x, 2) + pow(searchPoint.z - point.z, 2))
+                continue;
+            }
+
+            if (point.y > newMaxY) {
+                newMaxY = point.y;
+            }
+        }
+
+    }
+    if (newMaxY > yMin)
+        return newMaxY;
+    else
+        return yMax;
 }
 
 
