@@ -48,9 +48,10 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
-    bool colorCertainLasWallRandom = true;
-    bool colorFinalLasWall = false;
+    bool colorCertainLasWallRandom = false;
+    bool colorFinalLasWall = true;
     bool colorFinalLasWallWithoutGround = false;
+    bool removeOldWallPoints = true;
 
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
@@ -62,6 +63,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
 
     float lasWallThreshold = 0.5; // 0.2, 0.3 oder so?
     float osmWallThreshold = 1.0; // TODO macht eig keinen sinn das hier größer zu haben als in DataIO filter funktion? weil die punkte dann eh raus sind
+
+    auto removePoints = std::vector<bool>(cloud->size());
+    std::fill(removePoints.begin(), removePoints.end(), false);
 
     int buildingCount = 0;
     int wallCount = 0;
@@ -193,6 +197,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         (*cloud)[nIdx].r = randB;
                     }
                     certainWallPoints.push_back(nIdx);
+                    removePoints[nIdx] = true;
 
                 }
                 //endregion
@@ -311,9 +316,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         (*cloud)[nIdx].r = randB;
                     }
 
+                    // dont need to project these, because they are only used to determine y values and projection normal is horizontal
+                    finalWallPoints.push_back(nIdx);
 
-                    finalWallPoints.push_back(
-                            nIdx); // dont need to project these, because they are only used to determine y values and projection normal is horizontal
                     if (!lasGroundPoints[nIdx]) {
                         if (colorFinalLasWallWithoutGround) {
                             (*cloud)[nIdx].b = randR;
@@ -325,6 +330,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                         auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
                                                                                           pointDist * lasWallPlane.normal_z));
                         finalWallPointsNotGround.push_back(newPosi);
+                        removePoints[nIdx] = true;
                     }
 
 
@@ -384,6 +390,21 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
 
             }
         }
+    }
+    if (removeOldWallPoints) {
+        auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
+        // only keep old points that do not belong to walls
+        for (auto pIdx = 0; pIdx < removePoints.size(); pIdx++) {
+            if (!removePoints[pIdx]) {
+                newPoints.push_back((*cloud)[pIdx]);
+            }
+        }
+        // keep all new points
+        for (auto pIdx = removePoints.size(); pIdx < (*cloud).size(); pIdx++){
+            newPoints.push_back((*cloud)[pIdx]);
+        }
+        (*cloud).clear();
+        (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
     }
 }
 
