@@ -353,7 +353,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 float yMin, yMax;
                 findYMinMax(finalWallPoints, yMin, yMax);
                 // get new border points based on finalWallPoints without ground points (so generated points don't go over the edges)
-                findStartEnd(finalWallPointsNotGround, lasWallPoint1, lasWallPoint2);
+//                findStartEnd(finalWallPointsNotGround, lasWallPoint1, lasWallPoint2);
                 lasWallPoint1.y = yMin;
                 lasWallPoint2.y = yMin;
 
@@ -375,9 +375,11 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     float xCopy = x;
                     float zCopy = z;
                     float currentMaxY = getMaxY(x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
-                    while (y < currentMaxY) {
-                        cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 255, 255, 255));
-                        y += stepWidth;
+                    if (currentMaxY > y + stepWidth) { // only build wall if more than init point
+                        while (y < currentMaxY) {
+                            cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 255, 255, 255));
+                            y += stepWidth;
+                        }
                     }
                     x = xCopy + stepWidth * horPerpVec.x;
                     z = zCopy + stepWidth * horPerpVec.z;
@@ -1428,7 +1430,6 @@ void DataStructure::findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointX
     end = points[points.size() - 1];
 }
 
-// TODO sind die neuen punkte in tree mit drin? glaube nicht aber das wäre problem
 /**
  *
  * @param x
@@ -1440,36 +1441,34 @@ void DataStructure::findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointX
  * @return
  */
 float DataStructure::getMaxY(float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
-    // search points from x,midY,z with maxHeight/2 + c radius
+
+    // search points from (x,midY,z)
     float newMaxY = yMin;
     pcl::PointXYZ wallPlane = Util::crossProduct(wallNormal, pcl::PointXYZ(0,1,0));
     std::vector<int> pointIdxRadiusSearch;
     std::vector<float> pointRadiusSquaredDistance;
     auto searchPoint = pcl::PointXYZRGBNormal(x, (yMax + yMin) / 2.0, z);
     if (tree->radiusSearch(searchPoint, (yMax - yMin) / 2.0 * 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
-        // filter cylinder with stepwidth and get newMaxY
-        // TODO entlang wall normal suchen, mit breite stepwidth aber länge mehr.
         for (auto pIdxIdx = 0; pIdxIdx < pointIdxRadiusSearch.size(); pIdxIdx++) {
             auto& point = (*cloud)[pointIdxRadiusSearch[pIdxIdx]];
             if (removePoints[pointIdxRadiusSearch[pIdxIdx]])
                 continue;
             // distance to wall plane > 1.5
             float distToWall = abs(wallNormal.x * (searchPoint.x - point.x) + wallNormal.z * (searchPoint.z - point.z));
-            if (distToWall > 1.3)
+            if (distToWall > 1.5)
                 continue;
             // distance to wall normal > stepWidth (n * searchPoint_point)
             float distToNormal = abs(wallPlane.x * (searchPoint.x - point.x) + wallPlane.z * (searchPoint.z - point.z));
-            if (distToNormal > stepWidth * 1.2)
+            if (distToNormal > stepWidth * 1.1)
                 continue;
             point.r = 255;
             if (point.y > newMaxY) {
                 newMaxY = point.y;
             }
         }
-
     }
-    if (newMaxY > yMin + stepWidth)
+//    if (newMaxY > yMin + stepWidth)
         return newMaxY;
-    else
-        return yMax;
+//    else
+//        return yMax;
 }
