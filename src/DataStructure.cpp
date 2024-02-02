@@ -1418,17 +1418,17 @@ void DataStructure::findYMinMax(vector<int>& pointIndices, float& yMin, float& y
     yMax = points[points.size() - 1].y;
 }
 
+/**
+ *
+ * @param points should be on a plane
+ * @param start
+ * @param end
+ */
 void DataStructure::findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointXYZ& start, pcl::PointXYZ& end) {
-    // x TODO funktioniert jetzt nicht gut wenn parallel zur x achse ist! wobei da sind die wände ja glaube ich schon geplättet? also sollte gehen?
     std::nth_element(points.begin(), points.begin(), points.end(), xComparator2);
     start = points[0];
     std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator2);
     end = points[points.size() - 1];
-//    //z
-//    std::nth_element(points.begin(), points.begin(), points.end(), zComparator);
-//    zMin = points[0].z;
-//    std::nth_element(points.begin(), points.end() - 1, points.end(), zComparator);
-//    zMax = points[points.size()-1].z;
 }
 
 
