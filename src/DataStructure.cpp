@@ -241,11 +241,27 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 Eigen::Vector3f eigenValues = pca.getEigenValues();
 
                 // create plane
-                // get median point of certain wall points
-                float xMedian, yMedian, zMedian;
-                findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
-                lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
+//                // get median point of certain wall points
+//                float xMedian, yMedian, zMedian;
+//                findXYZMedian(certainWallPoints, xMedian, yMedian, zMedian);
+//                lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+//                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
+                // get lowest point of certain wall points
+                float lowestY = INFINITY;
+                int lowestPointIdx;
+                for (auto pIdx: certainWallPoints) {
+                    if ((*cloud)[pIdx].y < lowestY) {
+                        lowestY = (*cloud)[pIdx].y;
+                        lowestPointIdx = pIdx;
+                    }
+                }
+                lasWallPlane = pcl::PointXYZRGBNormal((*cloud)[lowestPointIdx].x, (*cloud)[lowestPointIdx].y, (*cloud)[lowestPointIdx].z);
+                cloud->push_back(pcl::PointXYZRGBNormal((*cloud)[lowestPointIdx].x, (*cloud)[lowestPointIdx].y, (*cloud)[lowestPointIdx].z, 0, 0, 255));
+                (*cloud)[lowestPointIdx].r = 0;
+                (*cloud)[lowestPointIdx].g = 0;
+                (*cloud)[lowestPointIdx].b = 255;
+
+
 
                 // normal
                 lasWallPlane.normal_x = eigenVectors(0, 2);
