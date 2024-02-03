@@ -473,6 +473,7 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
                 Eigen::Vector3f eigenValues = pca.getEigenValues();
 
+                // TODO dont set for wall points - use index because inserted wall points are all at the end of the point cloud
                 // set normal
                 cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
                 cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
@@ -567,13 +568,6 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
     // ********** compute epsilon **********
     return uPtpDistSumNeighbourhoods / static_cast<float>(pointNeighbourhoods.size());
 }
-
-// TODO resampling? inspiration durch ada paper
-// TODO datensatz filtern anschauen: bäume raus. nochmal den "schlechteren" datensatz ansehen, da müssten dann auch noch die autos undso rausgefiltert werden aber falls das nicht schwer ist wäre das vllt ne gute option weil aufgefüllte böden unter den gebäuden undso brauche ich ja eh nicht.
-// TODO uv eliptical splats ansehen
-// TODO das ada paper nochmal zu ende lesen und schauen ob noch was relevantes kommt
-
-// farbwerte von jpeg2000 nehmen
 
 void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods,
                                          std::vector<pcl::Indices>& pointNeighbourhoods,
@@ -674,7 +668,7 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
             wallPoint2.y = ground + wallHeight;
             wallPoint2.z = static_cast<float>(building.points[pointIdx + 1].z);
 
-            // detect (and color) alle points on this wall
+            // detect alle points on this wall
             pcl::PointXYZRGBNormal mid;
             mid.x = (wallPoint1.x + wallPoint2.x) / 2;
             mid.y = (ground + wallHeight) / 2;
