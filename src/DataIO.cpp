@@ -146,7 +146,7 @@ void DataIO::readLas(const std::string& path) {
 
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
-        inf.seekg(11300000 * sizeof(PointDRF1), std::ios_base::cur); // skip to point tree TODO because i dont use all points for testing
+        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur); // skip to point tree TODO because i dont use all points for testing
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {
@@ -155,12 +155,12 @@ void DataIO::readLas(const std::string& path) {
                 inf.read((char*) (&x), sizeof(uint32_t));
                 inf.read((char*) (&y), sizeof(uint32_t));
                 inf.read((char*) (&z), sizeof(uint32_t));
-                inf.read((char*) (&point), sizeof(PointDRF1) - 3 * sizeof (uint32_t));
+                inf.read((char*) (&point), sizeof(PointDRF1) - 3 * sizeof(double));
 
                 // Xcoordinate = (Xrecord * Xscale) + Xoffset
-                point.x = static_cast<float>(x) * header.scaleX + header.offX;
-                point.y = static_cast<float>(y) * header.scaleY + header.offY;
-                point.z = static_cast<float>(z) * header.scaleZ + header.offZ;
+                point.x = (x * header.scaleX + header.offX);
+                point.y = (y * header.scaleY + header.offY);
+                point.z = (z * header.scaleZ + header.offZ);
 
                 lasPoints.push_back(point);
             }

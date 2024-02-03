@@ -109,7 +109,7 @@ private:
         uint8_t userData;
         uint16_t pointSourceId;
         double gpsTime;
-        float x, y, z; // originally uint32_t at first position in struct, but i want float
+        double x, y, z; // originally uint32_t at first position in struct, but i want double
 
     };
 
