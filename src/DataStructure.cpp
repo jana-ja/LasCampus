@@ -24,7 +24,9 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     std::vector<bool> lasWallPoints;
     std::vector<bool> lasGroundPoints;
     bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud, buildings, lasWallPoints, lasGroundPoints);
-
+    wallPointsStartIndex = cloud->size();
+    tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
+    tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
 
@@ -320,10 +322,8 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 if (finalWallPoints.empty())
                     continue;
 
-                // TODO how to determine border points? walls are either too long or too short (depending on if ground points are considered)
                 //region fill wall with points
 
-                // TODO assign normal to walls
                 // get y min and max from finalWallPoints to cover wall from bottom to top
                 float yMin, yMax;
                 findYMinMax(finalWallPoints, yMin, yMax);
@@ -344,6 +344,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 float x = lasWallPoint1.x;
                 float z = lasWallPoint1.z;
                 float distanceMoved = 0;
+
                 // move horizontal
                 while (distanceMoved < lasWallLength) {
                     float y = yMin;
@@ -352,7 +353,17 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     float currentMaxY = getMaxY(x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
                     if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                         while (y < currentMaxY) {
-                            cloud->push_back(pcl::PointXYZRGBNormal(x, y, z, 100,100,100));//randR, randG, randB));
+                            auto v = pcl::PointXYZRGBNormal(x, y, z, 100,100,100);//randR, randG, randB));
+                            // set normal
+                            v.normal_x = lasWallNormal.x;
+                            v.normal_y = lasWallNormal.y;
+                            v.normal_z = lasWallNormal.z;
+                            // also set tangents TODO reihenfolge egal?
+                            tangent1Vec.push_back(horPerpVec);
+                            tangent2Vec.emplace_back(0,1,0);
+
+                            cloud->push_back(v);
+
                             y += stepWidth;
                         }
                     }
@@ -373,10 +384,31 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 newPoints.push_back((*cloud)[pIdx]);
             }
         }
+        wallPointsStartIndex = newPoints.size();
+
+        // move partition of wall tangents in tangent1Vec and tangent2Vec to match point cloud by inserting or removing points
+        int initCloudLength = removePoints.size();
+        int pointCountDif = initCloudLength - wallPointsStartIndex; // is always >=0 because points just got removed
+//        if (pointCountDif > 0) {
+            // fewer points than before, remove points
+            tangent1Vec.erase(tangent1Vec.begin(), tangent1Vec.begin() + pointCountDif);
+            tangent2Vec.erase(tangent2Vec.begin(), tangent2Vec.begin() + pointCountDif);
+//        } else {
+//            // more points than before, add points
+//            // can not happen because the size before inserting new wall points is compared
+//            auto tangs = std::vector<pcl::PointXYZ>(pointCountDif);
+//            tangent1Vec.insert(tangent1Vec.begin(), tangs.begin(), tangs.end());
+//            tangent2Vec.insert(tangent2Vec.begin(), tangs.begin(), tangs.end());
+//        }
+
         // keep all new points
+        int tangentIdx = 0;
         for (auto pIdx = removePoints.size(); pIdx < (*cloud).size(); pIdx++) {
             newPoints.push_back((*cloud)[pIdx]);
         }
+
+
+
         (*cloud).clear();
         (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
     }
@@ -385,9 +417,6 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
 void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
-
-    tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
-    tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
 
 
     int k = 40;
@@ -400,16 +429,16 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
     float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
     std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
 
-    // ********** get neighbourhood with radius, use pca for classification and compute epsilon **********
+    // ********** get neighbourhood with radius, use pca for normal and classification and compute epsilon **********
     float splatGrowEpsilon = adaNeighbourhoodsClassificationAndEpsilon(avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
     std::cout << TAG << "splat grow epsilon is: " << splatGrowEpsilon << std::endl;
 
     // ********** get new neighbourhood with new k and new radius (depending on classification) and use pca for normal **********
     adaNewNeighbourhoods(k, tree, avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
 
-    // ********** normal orientation **********
-    float wallThreshold = 1.0;
-    adaNormalOrientation(wallThreshold, tree);
+    // ********** horizontal normal orientation (walls) **********
+//    float wallThreshold = 1.0;
+//    adaNormalOrientation(wallThreshold, tree);
 
     // ********** compute splats **********
     float alpha = 0.2;
@@ -473,33 +502,37 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
                 Eigen::Vector3f eigenValues = pca.getEigenValues();
 
-                // TODO dont set for wall points - use index because inserted wall points are all at the end of the point cloud
-                // set normal
-                cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
-                cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
-                cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
+                // only set normal and tangents for non-wall points
+                if (pointIdx < wallPointsStartIndex) {
+                    // set normal
+                    cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
+                    cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
+                    cloud->points[pointIdx].normal_z = eigenVectors(2, 2);
 
-                // also set tangents
-                auto tangent1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
-                tangent1Vec[pointIdx] = tangent1;
-                auto tangent2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
-                tangent2Vec[pointIdx] = tangent2;
+                    // also set tangents
+                    auto tangent1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
+                    tangent1Vec[pointIdx] = tangent1;
+                    auto tangent2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
+                    tangent2Vec[pointIdx] = tangent2;
 
-                // check if vertical normal is oriented up
-                const auto& point = cloud->points[pointIdx];
-                auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
-                auto vertLen = abs(point.normal_y);
-                if (horLen < vertLen) {
-                    if (point.normal_y < 0) {
-                        (*cloud)[pointIdx].normal_x *= -1;
-                        (*cloud)[pointIdx].normal_y *= -1;
-                        (*cloud)[pointIdx].normal_z *= -1;
+                    // check if vertical normal is oriented up
+                    const auto& point = cloud->points[pointIdx];
+                    auto horLen = sqrt(pow(point.normal_x, 2) + pow(point.normal_z, 2));
+                    auto vertLen = abs(point.normal_y);
+                    if (horLen < vertLen) {
+                        if (point.normal_y < 0) {
+                            (*cloud)[pointIdx].normal_x *= -1;
+                            (*cloud)[pointIdx].normal_y *= -1;
+                            (*cloud)[pointIdx].normal_z *= -1;
 
-                        // also flip tangents
-                        tangent1Vec[pointIdx] = tangent2;
-                        tangent2Vec[pointIdx] = tangent1;
+                            // also flip tangents
+                            tangent1Vec[pointIdx] = tangent2;
+                            tangent2Vec[pointIdx] = tangent1;
+                        }
                     }
-                }
+                } // else: are already set from wall detection
+
+
 
                 // local descriptors
                 const auto& l1 = eigenValues(0);

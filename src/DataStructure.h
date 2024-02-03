@@ -59,6 +59,8 @@ private:
 
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    int wallPointsStartIndex;
+
     std::vector<pcl::PointXYZ> tangent1Vec;
     std::vector<pcl::PointXYZ> tangent2Vec;
 

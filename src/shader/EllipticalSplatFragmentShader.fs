@@ -13,7 +13,7 @@ out vec4 f_color;
 
 vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, const vec3 light_dir)
 {
-    const float  ambient   = 0.1; // 0.1
+    const float  ambient   = 0.5; // 0.1
     const float  diffuse   = 0.8;
     const float  specular  = 0.6;
     const float  shininess = 100.0;
