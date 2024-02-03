@@ -34,7 +34,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
 
     if (!cachedFeatues) {
-//        adaSplats(tree);
+        adaSplats(tree);
 
 //        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
 //        const auto& file = lasFiles[0];
@@ -49,9 +49,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
     bool colorCertainLasWallRandom = false;
-    bool colorFinalLasWall = true;
+    bool colorFinalLasWall = false;
     bool colorFinalLasWallWithoutGround = false;
-    bool removeOldWallPoints = false;
+    bool removeOldWallPoints = true;
 
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
@@ -323,6 +323,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 // TODO how to determine border points? walls are either too long or too short (depending on if ground points are considered)
                 //region fill wall with points
 
+                // TODO assign normal to walls
                 // get y min and max from finalWallPoints to cover wall from bottom to top
                 float yMin, yMax;
                 findYMinMax(finalWallPoints, yMin, yMax);
@@ -420,9 +421,6 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
     std::cout << TAG << "finished ada in " << duration.count() << "s" << std::endl;
-
-    // TODO im datensatz de intensity der punkte ansehen ob ich darüber was filtern kann?= zB bäume raus
-
 }
 
 float
@@ -746,6 +744,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
     float currentSplatGrowEpsilon = splatGrowEpsilon;
 
+    // for every point
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
 
 //        if (pointIdx % 1000 != 0){
@@ -757,9 +756,10 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
             continue;
         }
 
+        // adapt splat parameters to point class
         switch (pointClasses[pointIdx]) {
             case 0: // linearity is main
-                currentSplatGrowEpsilon = splatGrowEpsilon * 2;//0.33;
+                currentSplatGrowEpsilon = splatGrowEpsilon * 0.33;
                 break;
             case 1: // planarity is main
                 currentSplatGrowEpsilon = splatGrowEpsilon * 2;
@@ -768,7 +768,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
                 currentSplatGrowEpsilon = splatGrowEpsilon * 0.25;
                 break;
         }
-// TODO vllt kann ich linearity punkte die eig ne fläche sein sollten einfach auch große nachbarschaft  geben und dann endet der splat wenn er auf ne fläche trifft??
+
         auto const& point = cloud->points[pointIdx];
         auto const& neighbourhood = pointNeighbourhoods[pointIdx];
 
@@ -788,6 +788,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         bool concernsTangent1;
 
         // grow
+        // for every neighbour
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
             if (!growTangent1 && !growTangent2) {
@@ -879,7 +880,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
         // no valid neighbours in at least one direction // TODO schauen ob sinn macht getrennt zu betrachten
         // TODO PROBLEM: glaube schon dass das sinn macht, aber die ungewollten kanten sind so grade dass die hier invalid werden weil in eine richtung nichts passiert
-        if (epsilonCount1 == 0 && epsilonCount2 == 0) {
+        if (epsilonCount1 == 0 || epsilonCount2 == 0) {
             // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
             if (colorInvalid) {
                 if ((*cloud)[pointIdx].g != 255) {

@@ -217,6 +217,8 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         v.r = 100; // b
         v.a = 255;
 
+        v.curvature = 0;
+
 
         // get info out of 8 bit classification:
         // classification, synthetic, keypoint, withheld
