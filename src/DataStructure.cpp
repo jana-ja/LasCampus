@@ -389,17 +389,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
         // move partition of wall tangents in tangent1Vec and tangent2Vec to match point cloud by inserting or removing points
         int initCloudLength = removePoints.size();
         int pointCountDif = initCloudLength - wallPointsStartIndex; // is always >=0 because points just got removed
-//        if (pointCountDif > 0) {
             // fewer points than before, remove points
             tangent1Vec.erase(tangent1Vec.begin(), tangent1Vec.begin() + pointCountDif);
             tangent2Vec.erase(tangent2Vec.begin(), tangent2Vec.begin() + pointCountDif);
-//        } else {
-//            // more points than before, add points
-//            // can not happen because the size before inserting new wall points is compared
-//            auto tangs = std::vector<pcl::PointXYZ>(pointCountDif);
-//            tangent1Vec.insert(tangent1Vec.begin(), tangs.begin(), tangs.end());
-//            tangent2Vec.insert(tangent2Vec.begin(), tangs.begin(), tangs.end());
-//        }
 
         // keep all new points
         int tangentIdx = 0;
