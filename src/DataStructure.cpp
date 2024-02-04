@@ -223,13 +223,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
 //                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
                 // normal
-                lasWallPlane.normal_x = eigenVectors(0, 2);
-                lasWallPlane.normal_y = eigenVectors(1, 2);
-                lasWallPlane.normal_z = eigenVectors(2, 2);
-                // should be vertical
-                auto horLen = sqrt(pow(lasWallPlane.normal_x, 2) + pow(lasWallPlane.normal_z, 2));
-                auto vertLen = abs(lasWallPlane.normal_y);
-                if (vertLen > horLen) {
+                // check if normal is more vertical
+                auto vertLen = abs(eigenVectors(1, 2));
+                if (vertLen > 0.5) { // length adds up to 1
                     continue; //TODO skip this wall for now
                 } else {
                     // make wall vertical
@@ -237,6 +233,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     lasWallPlane.normal_x = lasWallNormal.x;
                     lasWallPlane.normal_y = lasWallNormal.y;
                     lasWallPlane.normal_z = lasWallNormal.z;
+                    // TODO normal orientation
                 }
                 //endregion
 
