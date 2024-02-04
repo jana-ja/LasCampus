@@ -230,10 +230,20 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 } else {
                     // make wall vertical
                     auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-                    lasWallPlane.normal_x = lasWallNormal.x;
-                    lasWallPlane.normal_y = lasWallNormal.y;
-                    lasWallPlane.normal_z = lasWallNormal.z;
-                    // TODO normal orientation
+                    // check normal orientation with osm wall points
+                    auto osmNormal = Util::crossProduct(Util::vectorSubtract(osmWallPoint1, osmWallPoint2), pcl::PointXYZ(0,1,0));
+                    // TODO what to do if only one sign is flipped?
+                    if ((signbit(osmNormal.x) != signbit(lasWallNormal.x)) || (signbit(osmNormal.z) != signbit(lasWallNormal.z))) {
+                        // flip
+                        lasWallPlane.normal_x = -lasWallNormal.x;
+                        lasWallPlane.normal_y = -lasWallNormal.y;
+                        lasWallPlane.normal_z = -lasWallNormal.z;
+                    } else {
+                        // don't flip
+                        lasWallPlane.normal_x = lasWallNormal.x;
+                        lasWallPlane.normal_y = lasWallNormal.y;
+                        lasWallPlane.normal_z = lasWallNormal.z;
+                    }
                 }
                 //endregion
 
