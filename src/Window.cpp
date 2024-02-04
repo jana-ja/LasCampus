@@ -38,7 +38,7 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
     Shader splatShader = Shader("../src/shader/EllipticalSplatVertexShader.vs", "../src/shader/EllipticalSplatFragmentShader.fs");
     shaderSettings(splatShader);
         // colors / lighting
-        splatShader.setVec3("light_dir", -25.0f, -75.0f, -50.0f); // SplatShader
+        splatShader.setVec3("light_dir", -0.25f, -0.5f, 0.25f); // south-west
         float viewport[4];
         glGetFloatv(GL_VIEWPORT, viewport);
         float wv = viewport[2];
