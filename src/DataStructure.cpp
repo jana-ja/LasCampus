@@ -16,8 +16,7 @@
 
 using namespace std;
 
-DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile) {
-
+DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): imgFile(imgFile) {
 
     DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
 

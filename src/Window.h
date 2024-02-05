@@ -74,7 +74,7 @@ private:
     void shaderSettings(Shader &shader);
 
     // pass by ref
-    void dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint &VAO, DataStructure& pointCloud);
+    void dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint& texCoordVBO, GLuint &VAO, DataStructure& pointCloud);
     void dataStuffCoordSys(GLuint &VBO, GLuint &VAO);
     void dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure& pointCloud);
 

@@ -2,12 +2,14 @@
 
 uniform vec4 vp;
 uniform vec3 zb;
+uniform sampler2D ortho_texture;
 
 in vec3 v2f_color;
 in vec3 v2f_center;
 in vec3  v2f_tangent0;
 in vec3  v2f_tangent1;
 in vec3 v2f_light_dir;
+in vec2 v2f_tex_coord;
 
 out vec4 f_color;
 
@@ -57,7 +59,7 @@ void main()
     if (pow(dot(qc,u), 2.0) + pow(dot(qc,v), 2.0) > 1.0) discard;
 
     // lighting
-    f_color = vec4(phong_lighting(n, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
+    f_color = texture(ortho_texture, v2f_tex_coord);//vec4(phong_lighting(n, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
 
     // depth correction
 	gl_FragDepth = zb.y * q.z + zb.x;

@@ -3,6 +3,7 @@ layout(location = 0) in vec3 v_world_pos;
 layout(location = 2) in vec3 v_color;
 layout(location = 4) in vec3 v_tangent0;
 layout(location = 5) in vec3 v_tangent1;
+layout(location = 6) in vec2 v_tex_coord;
 
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
@@ -16,6 +17,7 @@ out vec3 v2f_center;
 out vec3 v2f_tangent0;
 out vec3 v2f_tangent1;
 out vec3 v2f_light_dir;
+out vec2 v2f_tex_coord;
 
 void main(){
 
@@ -26,6 +28,7 @@ void main(){
     v2f_center = (view_matrix * vec4(v_world_pos, 1.0)).xyz;
     v2f_color = v_color;
     v2f_light_dir = (view_matrix * vec4(light_dir, 0.0)).xyz;
+    v2f_tex_coord = v_tex_coord;
 
     gl_Position = projection_matrix * view_matrix * vec4(v_world_pos, 1.0);
     float radius = 1.0 / min(length(v_tangent0), length(v_tangent1));

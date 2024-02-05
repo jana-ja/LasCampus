@@ -3,10 +3,12 @@
 uniform vec3 light_color;
 uniform vec3 light_pos;
 uniform vec3 camera_pos;
+uniform sampler2D ortho_texture;
 
 in vec3 v2f_color;
 in vec3 v2f_normal;
 in vec3 v2f_pos;
+in vec2 v2f_tex_coord;
 
 out vec4 f_color;
 
@@ -27,5 +29,5 @@ void main(){
     vec3 specular_color = specular_strength * specular * light_color;
 
     vec3 result_color = (ambient_color + diffuse_color + specular_color) * v2f_color;
-    f_color = vec4(result_color, 1.0);
+    f_color = texture(ortho_texture, v2f_tex_coord);//vec4(result_color, 1.0);
 }

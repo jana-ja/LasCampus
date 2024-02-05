@@ -2,6 +2,7 @@
 layout(location = 0) in vec3 v_world_pos;
 layout(location = 1) in vec3 v_normal;
 layout(location = 2) in vec3 v_color;
+layout(location = 6) in vec2 v_tex_coord;
 
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
@@ -11,6 +12,7 @@ uniform vec3 camera_pos;
 out vec3 v2f_color;
 out vec3 v2f_normal;
 out vec3 v2f_pos;
+out vec2 v2f_tex_coord;
 
 void main(){
     gl_Position = projection_matrix * view_matrix * vec4(v_world_pos, 1.0);
@@ -19,4 +21,5 @@ void main(){
     v2f_normal = v_normal;
     v2f_pos = v_world_pos;
     v2f_color = v_color;
+    v2f_tex_coord = v_tex_coord;
 }

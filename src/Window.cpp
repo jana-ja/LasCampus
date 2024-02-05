@@ -3,9 +3,10 @@
 //
 
 
+#include "Window.h"
 #include <stdexcept>
 #include <vector>
-#include "Window.h"
+#include "util.h"
 
 
 Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Campus"), POINT_SIZE(10.0f),
@@ -28,7 +29,6 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
 
     // point cloud
     // shader
-
     Shader pointShader = Shader("../src/shader/PointCloudVertexShader.vs", "../src/shader/PointCloudFragmentShader.fs");
     shaderSettings(pointShader);
     // colors / lighting
@@ -52,10 +52,35 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
         splatShader.setVec4("vp", vp);
         splatShader.setVec3("zb", zb);
 
+    // texture
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    // set the texture wrapping/filtering options (on the currently bound texture object)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // read image
+    int width, height;
+    const int desiredChannels = 3;
+    std::string imgDir = ".." + Util::PATH_SEPARATOR + "img" + Util::PATH_SEPARATOR;
+    std::string imgPath = imgDir + pointCloud.getImgFile();
+    // if file has less then desired channels, remaining fields will be 255
+    int actualChannels;
+    unsigned char* data = stbi_load(imgPath.c_str(), &width, &height, &actualChannels, desiredChannels);
+    if (data != nullptr) {
+        // texture target, mipmap level, color format for texture, width, height, always zero, color format of source image, datatype of source (here char/bytes), image data
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::cout << TAG << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
 
     // data
-    GLuint pcVBO, t1VBO, t2VBO, pcVAO;
-    dataStuffPointCloud(pcVBO, t1VBO, t2VBO, pcVAO, pointCloud);
+    GLuint pcVBO, t1VBO, t2VBO, texCoordVBO, pcVAO;
+    dataStuffPointCloud(pcVBO, t1VBO, t2VBO, texCoordVBO, pcVAO, pointCloud);
 
     // coordinate system
     // shader
@@ -113,6 +138,8 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
 
 
         // draw point cloud
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture); //TODO nach oben schieben weil immer gleich?
         glBindVertexArray(pcVAO);
         glDrawArrays(GL_POINTS, 0, pointCloud.getVertexCount()); // Starting from vertex 0
 
@@ -295,7 +322,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.setFloat("point_size", POINT_SIZE); // TODO weg?
 }
 
-void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint &VAO, DataStructure& pointCloud) {
+void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint& texCoordVBO, GLuint& VAO, DataStructure& pointCloud) {
     glGenVertexArrays(1, &VAO);
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(VAO);
@@ -336,6 +363,13 @@ void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLui
     glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(pcl::PointXYZ), (void *) 0);
     glEnableVertexAttribArray(5);
 
+    // texture coords
+    glGenBuffers(1, &texCoordVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, texCoordVBO);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(pcl::PointXY) * pointCloud.getVertexCount()), pointCloud.getTexCoords(), GL_STATIC_DRAW);
+    // index, size, type, normalized, stride, offset
+    glVertexAttribPointer(6, 2, GL_FLOAT, GL_FALSE, sizeof(pcl::PointXY), (void *) 0);
+    glEnableVertexAttribArray(6);
 
     // OPTIONAL: unbind
     // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind

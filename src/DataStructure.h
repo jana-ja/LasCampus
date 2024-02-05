@@ -38,6 +38,10 @@ public:
         return texCoords.data();
     }
 
+    std::string getImgFile(){
+        return imgFile;
+    }
+
 //    Vertex getUTMForOpenGL(Vertex* vertex);
 //
 //    Vertex getWGSForOpenGL(Vertex* vertex);
@@ -70,7 +74,7 @@ private:
     std::vector<DataIO::Polygon> buildings;
 
     std::vector<pcl::PointXY> texCoords;
-
+    std::string imgFile;
 
     // offset is in opengl coord system!
 //    float xOffset;
