@@ -316,7 +316,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 
         int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
         int imageY = (point.y - 5705999.95) * -10;
-        texCoords.emplace_back(imageX, imageY);
+        texCoords.emplace_back(static_cast<float>(imageX)/10000, static_cast<float>(imageY)/10000);
         if (colorImgFile) {
             // get color from image
             // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
