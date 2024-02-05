@@ -34,6 +34,9 @@ public:
     pcl::PointXYZ* getTangent2Vec(){
         return tangent2Vec.data();
     }
+    pcl::PointXY* getTexCoords(){
+        return texCoords.data();
+    }
 
 //    Vertex getUTMForOpenGL(Vertex* vertex);
 //
@@ -66,6 +69,9 @@ private:
 
     std::vector<DataIO::Polygon> buildings;
 
+    std::vector<pcl::PointXY> texCoords;
+
+
     // offset is in opengl coord system!
 //    float xOffset;
 //    float yOffset;
@@ -79,7 +85,7 @@ private:
 
 
 
-    void detectWalls(std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
+    void detectWalls(std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords);
 
 
     void adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);

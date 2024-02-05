@@ -23,7 +23,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
     std::vector<bool> lasWallPoints;
     std::vector<bool> lasGroundPoints;
-    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud, buildings, lasWallPoints, lasGroundPoints);
+    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud, buildings, lasWallPoints, lasGroundPoints, texCoords);
     wallPointsStartIndex = cloud->size();
     tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
     tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
@@ -31,7 +31,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
 
 
-    detectWalls(lasWallPoints, lasGroundPoints, tree);
+    detectWalls(lasWallPoints, lasGroundPoints, tree, texCoords);
     // cloud has changed
     tree->setInputCloud(cloud);
 
@@ -47,7 +47,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
 }
 
-void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
+void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords) {
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
     bool colorCertainLasWallRandom = false;
@@ -385,10 +385,12 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
     }
     if (removeOldWallPoints) {
         auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
+        auto newTexCoords = std::vector<pcl::PointXY>();
         // only keep old points that do not belong to walls
         for (auto pIdx = 0; pIdx < removePoints.size(); pIdx++) {
             if (!removePoints[pIdx]) {
                 newPoints.push_back((*cloud)[pIdx]);
+                newTexCoords.push_back(texCoords[pIdx]);
             }
         }
         wallPointsStartIndex = newPoints.size();
@@ -404,12 +406,15 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
         int tangentIdx = 0;
         for (auto pIdx = removePoints.size(); pIdx < (*cloud).size(); pIdx++) {
             newPoints.push_back((*cloud)[pIdx]);
+            newTexCoords.emplace_back(0,0); // TODO give texture to walls
         }
 
 
 
         (*cloud).clear();
         (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
+        texCoords.clear();
+        texCoords.insert(texCoords.end(), newTexCoords.begin(), newTexCoords.end());
     }
 }
 

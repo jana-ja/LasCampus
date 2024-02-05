@@ -9,7 +9,8 @@
 #include "util.h"
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
-                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints) {
+                      const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints,
+                      std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords) {
 
 
     std::cout << TAG << "begin loading data" << std::endl;
@@ -40,7 +41,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    return loadedCachedFeatures;
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
-    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints);
+    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints, texCoords);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -181,7 +182,7 @@ void DataIO::readLas(const std::string& path) {
 }
 
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints){
+                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords){
     // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
@@ -313,10 +314,11 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
 
 
+        int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
+        int imageY = (point.y - 5705999.95) * -10;
+        texCoords.emplace_back(imageX, imageY);
         if (colorImgFile) {
             // get color from image
-            int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
-            int imageY = (point.y - 5705999.95) * -10;
             // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
             size_t index = channels * (imageY * width + imageX);
             v.b = static_cast<int>(image[index + 0]);

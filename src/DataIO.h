@@ -40,7 +40,8 @@ public:
 
 //    DataIO(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): {}
     bool readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
-                  const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints);
+                  const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints,
+                  std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
 
 private:
     const std::string TAG = "DataIO\t";
@@ -170,7 +171,7 @@ private:
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
-                              pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints);
+                              pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
 
     // ********** shp **********
     // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
