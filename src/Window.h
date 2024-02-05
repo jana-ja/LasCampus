@@ -36,6 +36,7 @@ private:
     bool f1Pressed = false;
     bool f2Pressed = false;
     bool f3Pressed = false;
+    bool f4Pressed = false;
 
     // camera
     Camera camera = Camera(glm::vec3(0.0f, 10.0f, 0.0f));//Camera(glm::vec3(0.0f, 10.0f, 3.0f));
@@ -56,6 +57,7 @@ private:
     bool showInfo = false;
     bool useSplatShader = false;
     bool backfaceCulling = false;
+    bool enableTextures = true;
 
     void processInput(GLFWwindow *window);
 

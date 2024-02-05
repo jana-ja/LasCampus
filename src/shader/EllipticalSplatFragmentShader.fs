@@ -4,6 +4,7 @@ uniform vec4 vp;
 uniform vec3 zb;
 uniform sampler2D ortho_texture;
 uniform mat4 view_matrix;
+uniform bool enable_textures;
 
 in vec3 v2f_color;
 in vec3 v2f_center;
@@ -60,18 +61,23 @@ void main()
     if (pow(dot(qc,u), 2.0) + pow(dot(qc,v), 2.0) > 1.0) discard;
 
     // texture
-    if (v2f_tex_coord != vec2(0,0)) {
-        // tex coords of non center fragments
-        // dist vec in world space
-        vec3 qcWorld = (inverse(view_matrix) * vec4(qc, 0.0)).xyz;
-        // divide by 1000 because source image has 10k px with 1m = 10px and textures are in range [0,1] -> texDist = meterDist * 10 / 10000
-        vec2 frag_tex_coord = vec2(v2f_tex_coord.x + qcWorld.x / 1000, v2f_tex_coord.y + qcWorld.z / 1000);
+    if (enable_textures) {
+        if (v2f_tex_coord != vec2(0,0)) {
+            // tex coords of non center fragments
+            // dist vec in world space
+            vec3 qcWorld = (inverse(view_matrix) * vec4(qc, 0.0)).xyz;
+            // divide by 1000 because source image has 10k px with 1m = 10px and textures are in range [0,1] -> texDist = meterDist * 10 / 10000
+            vec2 frag_tex_coord = vec2(v2f_tex_coord.x + qcWorld.x / 1000, v2f_tex_coord.y + qcWorld.z / 1000);
 
-        // lighting
-        f_color = texture(ortho_texture, frag_tex_coord);//vec4(phong_lighting(n, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
+            // lighting
+            f_color = texture(ortho_texture, frag_tex_coord);//vec4(phong_lighting(n, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
+        } else {
+            f_color = texture(ortho_texture, v2f_tex_coord);
+        }
     } else {
-        f_color = texture(ortho_texture, v2f_tex_coord);
+        f_color = vec4(phong_lighting(n, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
     }
+
     // depth correction
 	gl_FragDepth = zb.y * q.z + zb.x;
 }

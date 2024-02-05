@@ -127,6 +127,7 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
             glm::mat4 view = camera.GetViewMatrix();
             splatShader.setMat4("view_matrix", view);
             splatShader.setBool("backface_culling", backfaceCulling);
+            splatShader.setBool("enable_textures", enableTextures);
         } else {
             pointShader.use();
             // transforms: camera - view space
@@ -134,6 +135,7 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
             pointShader.setMat4("view_matrix", view);
             // update cameraPos in pointShader for dynamic point size
             pointShader.setVec3("camera_pos", camera.position);
+            pointShader.setBool("enable_textures", enableTextures);
         }
 
 
@@ -200,7 +202,6 @@ void Window::processInput(GLFWwindow *window) {
 
     if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
         f1Pressed = true;
-
     if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_RELEASE && f1Pressed){
         f1Pressed = false;
         showInfo = !showInfo;
@@ -208,7 +209,6 @@ void Window::processInput(GLFWwindow *window) {
 
     if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS)
         f2Pressed = true;
-
     if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_RELEASE && f2Pressed){
         f2Pressed = false;
         useSplatShader = !useSplatShader;
@@ -216,11 +216,19 @@ void Window::processInput(GLFWwindow *window) {
 
     if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS)
         f3Pressed = true;
-
     if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_RELEASE && f3Pressed){
         f3Pressed = false;
         backfaceCulling = !backfaceCulling;
     }
+
+    // f4 - enable textures
+    if (glfwGetKey(window, GLFW_KEY_F4) == GLFW_PRESS)
+        f4Pressed = true;
+    if (glfwGetKey(window, GLFW_KEY_F4) == GLFW_RELEASE && f4Pressed){
+        f4Pressed = false;
+        enableTextures = !enableTextures;
+    }
+
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, deltaTime);
