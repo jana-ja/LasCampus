@@ -268,7 +268,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                     }
                 }
                 if (!belongsToWall) {
-                    continue;
+//                    continue;
                 }
             } else if (returnNumber != numOfReturns) {
                 // intermediate points
@@ -278,7 +278,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                     v.g = 0;
                     v.r = 255;
                 }
-                continue;
+//                continue;
             } else {
                 // last of many
                 // boden, bisschen wände, kein baum. einfach lassen
@@ -307,7 +307,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                         }
                     }
                     if (!belongsToWall) {
-                        continue;
+//                        continue;
                     }
                 }
             }

@@ -30,12 +30,12 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
 
 
-    detectWalls(lasWallPoints, lasGroundPoints, tree, texCoords);
+//    detectWalls(lasWallPoints, lasGroundPoints, tree, texCoords);
     // cloud has changed
     tree->setInputCloud(cloud);
 
     if (!cachedFeatues) {
-        adaSplats(tree);
+//        adaSplats(tree);
 
 //        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
 //        const auto& file = lasFiles[0];

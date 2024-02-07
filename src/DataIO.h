@@ -155,7 +155,7 @@ private:
 
     // ########## FIELDS & METHODS ##########
 
-    bool colorReturnNumberClasses = false;
+    bool colorReturnNumberClasses = true;
     bool colorImgFile = false; // TODO remove image pixel color code from DataIO?
 
 
