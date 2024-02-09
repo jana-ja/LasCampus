@@ -192,23 +192,22 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
 
         // create ray for this point
         auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
-        auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO hä
+        auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO choose sth smart?
 
+        // TODO mit building bbox suchen?
         for (auto searchWallIdx = 0; searchWallIdx < wallIdxRadiusSearch.size(); searchWallIdx++) {
             const auto& searchWall = walls[wallIdxRadiusSearch[searchWallIdx]];
 
 
-
-//            // skip building belonging to this wall, if it has already been visited because of another wall
+            // skip building belonging to this wall, if it has already been visited because of another wall
             if (std::find(visitedBuildings.begin(), visitedBuildings.end(), searchWall.buildingIdx) != visitedBuildings.end()) {
                 continue;
             }
 
             visitedBuildings.push_back(searchWall.buildingIdx);
 
-            // for these walls
+            // check if belongs to building
             int intersectionCount = 0;
-//            auto belongsToBuilding = true;
             auto& bWalls = buildingWallMap[searchWall.buildingIdx];
             for (auto bWallIdx: bWalls) {
                 const auto& bWall = walls[bWallIdx];
@@ -217,7 +216,7 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
                 float dist = Util::pointPlaneDistance(point, bWall.mid);
                 if (dist <= wallThreshold) {
                     if (point.x <= bWall.maxX && point.x >= bWall.minX && point.z <= bWall.maxZ && point.z >= bWall.minZ) {
-                        // belongs to wall
+                        // belongs to wall -> belongs to building
                         point.r = 0;
                         point.g = 0;
                         point.b = 255;
@@ -225,34 +224,11 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
                     }
                 }
 
-                // check if inside od building
-                // intersect ray with walls of this building
+                // intersect ray with wall
                 intersectionCount += Util::intersectWall(bWall, rayPoint, rayDir);// { // return 0 if no intersection, -1 for intersection from outside to inside, 1 for intersection in - out
-//                    cloud->emplace_back(bWall.mid.x, bWall.mid.y, bWall.mid.z, 255, 0, 0); // TODO crasht dan nbeim rendern, denke mal weil ich keine tex coords undso dafür pushe. vllt schnuttpunkt mit der ebene von der intersect funktion bekommmen und func schreiben colro nn und die nachbarn
-//                    auto signedDist = Util::signedPointPlaneDistance(point, bWall.mid);
-//                    if (signedDist < 0) {
-//                        // inside
-//                        intersectionCount++;
-////                        point.r =  0;
-////                        point.g = 0;
-////                        point.b = 255;
-//                    } else {
-//                        // outside
-//                        intersectionCount--;
-////                    point.r = 0;
-////                    point.g = 255;
-////                    point.b = 0;
-//                    }
-//                }
-//                // if point is outside of one of the walls -> is outside of building
-//                auto signedDist = Util::signedPointPlaneDistance(point, bWall.mid);
-//                if (signedDist < 0 - wallThreshold) {
-//                    belongsToBuilding = false;
-//                    break;
-//                }
             }
 
-            if (intersectionCount % 2 != 0) {//(belongsToBuilding) {
+            if (intersectionCount % 2 != 0) {
                 // point is inside of building
                 point.r = 0;
                     point.g = 255;
@@ -262,7 +238,7 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
             // else continue search with other buildings
         }
     }
-    // found no building that contains this point
+    // point belongs to no building
     return false;
 }
 
@@ -304,7 +280,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         v.normal_z = -1;
 
         // pcl library switched r and b component
-        v.b = 100; // r
+        v.b = 255; // r
         v.g = 100; // g
         v.r = 100; // b
         v.a = 255;
@@ -325,14 +301,19 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
 //        if(idxxx < 1000) {
             if (buildingCheck(v, cloud, wallOctree, maxWallRadius)) {
-//            v.b = 255; // r
-//            v.g = 100; // g
-//            v.r = 100; // b
+            v.b = 100; // r
+            v.g = 100; // g
+            v.r = 100; // b
             }
 //        }
 //        idxxx++;
 //        if (idxxx >= 1000)
 //            break;
+        if (classification == 2) {
+            v.b = 100; // r
+            v.g = 100; // g
+            v.r = 100; // b
+        }
 
 
 
