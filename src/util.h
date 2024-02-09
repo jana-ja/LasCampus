@@ -33,6 +33,13 @@ namespace Util {
         result.z = (a.z - b.z);
         return result;
     }
+    inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZ& b) {
+        pcl::PointXYZ result;
+        result.x = (a.x - b.x);
+        result.y = (a.y - b.y);
+        result.z = (a.z - b.z);
+        return result;
+    }
 
     inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZ& a, const pcl::PointXYZRGBNormal& b) {
         pcl::PointXYZ result;
@@ -118,6 +125,11 @@ namespace Util {
         pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
         return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
     }
+    inline float pointPlaneDistance(const pcl::PointXYZ point, const pcl::PointXYZRGBNormal& planePoint) {
+
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
+    }
 
     inline float pointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& neighbourPoint, const pcl::PointXYZ& normal) {
         return abs(dotProduct(normal, (vectorSubtract(neighbourPoint, point))));
@@ -142,6 +154,9 @@ namespace Util {
     inline float horizontalDistance(const pcl::PointXYZ& point1, const pcl::PointXYZRGBNormal& point2) {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
     }
+    inline float horizontalDistance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2) {
+        return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
+    }
 
     inline int intersectPlane(const Wall& wall, const pcl::PointXYZ& rayOrigin, const pcl::PointXYZ& rayDir,
                               float& wallThreshold) // t kommt in func ray länge bis intersection punkt rein
@@ -154,25 +169,29 @@ namespace Util {
         if (abs(denom) > 1e-6) {
             pcl::PointXYZ distVec = Util::vectorSubtract(planePoint, rayOrigin);
             float t = Util::dotProduct(distVec, planeNormal) / denom;
+            if (t < 0)
+                return 0;
+
             auto intersectionPoint = pcl::PointXYZ(rayOrigin.x + t * rayDir.x, rayOrigin.y + t * rayDir.y, rayOrigin.z + t * rayDir.z);
+            auto dist = horizontalDistance(intersectionPoint, wall.mid);
+                if (dist > wall.length / 2 ) {
+                    auto bla = "das sollte nicht passieren";
+
+                }
+            if(intersectionPoint.x > wall.maxX  || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX  || intersectionPoint.z < wall.minZ ) {
+                if (dist <= wall.length / 2 ){
+                    auto dist2 = pointPlaneDistance(intersectionPoint, wall.mid);
+                    auto bla = "das sollte nicht passieren";
+                }
+                return 0;
+            }
+
             auto signedDist = signedPointPlaneDistance(rayOrigin, wall.mid);
             if (signedDist < 0) {
                 // inside to outside
-                if (t < 0)
-                    return 0;
-                auto dist = horizontalDistance(intersectionPoint, wall.mid);
-//                if (dist > (wall.length / 2) )//
-                if( intersectionPoint.x > wall.maxX || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX || intersectionPoint.z < wall.minZ)
-                    return 0;
                 return 1;
             } else {
                 // outside to inside
-                if (t < 0) // intersection detection from outside gets extra buffer to make detection bounds bigger
-                    return 0;
-                auto dist = horizontalDistance(intersectionPoint, wall.mid);
-//                if (dist > wall.length / 2 )//
-                    if(intersectionPoint.x > wall.maxX  || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX  || intersectionPoint.z < wall.minZ )
-                    return 0;
                 return -1;
             }
         }

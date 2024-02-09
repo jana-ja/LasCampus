@@ -614,13 +614,16 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             }
 
             wall.minX = std::min(wallPoint1.x, wallPoint2.x);
+            if (bIdx == 59) {
+                    auto bal = 33;
+            }
             wall.maxX = std::max(wallPoint1.x, wallPoint2.x);
             wall.minZ = std::min(wallPoint1.z, wallPoint2.z);
             wall.maxZ = std::max(wallPoint1.z, wallPoint2.z);
 
             wall.buildingIdx = bIdx;
 
-            wall.length = Util::distance(wallPoint1, wallPoint2);
+            wall.length = Util::horizontalDistance(wallPoint1, wallPoint2);
 
             walls.push_back(wall);
             wallMidPoints->push_back(wall.mid);
