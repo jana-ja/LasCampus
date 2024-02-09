@@ -33,6 +33,7 @@ namespace Util {
         result.z = (a.z - b.z);
         return result;
     }
+
     inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZ& b) {
         pcl::PointXYZ result;
         result.x = (a.x - b.x);
@@ -125,6 +126,7 @@ namespace Util {
         pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
         return abs(dotProduct(normal, (vectorSubtract(planePoint, point))));
     }
+
     inline float pointPlaneDistance(const pcl::PointXYZ point, const pcl::PointXYZRGBNormal& planePoint) {
 
         pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
@@ -147,53 +149,41 @@ namespace Util {
         return abs(dist);
     }
 
-    inline float distance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2){
+    inline float distance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2) {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.y - point2.y, 2) + pow(point1.z - point2.z, 2));
     }
 
     inline float horizontalDistance(const pcl::PointXYZ& point1, const pcl::PointXYZRGBNormal& point2) {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
     }
+
     inline float horizontalDistance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2) {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
     }
 
-    inline int intersectPlane(const Wall& wall, const pcl::PointXYZ& rayOrigin, const pcl::PointXYZ& rayDir,
-                              float& wallThreshold) // t kommt in func ray länge bis intersection punkt rein
-    {
+    inline int intersectWall(const Wall& wall, const pcl::PointXYZ& rayOrigin, const pcl::PointXYZ& rayDir){
 
-        const auto planePoint = pcl::PointXYZ(wall.mid.x, wall.mid.y, wall.mid.z);//pcl::PointXYZ(wall.mid.x + wallThreshold * wall.mid.normal_x, wall.mid.y + wallThreshold * wall.mid.normal_y, wall.mid.z + wallThreshold * wall.mid.normal_z);
+        const auto planePoint = pcl::PointXYZ(wall.mid.x, wall.mid.y, wall.mid.z);
         auto planeNormal = pcl::PointXYZ(wall.mid.normal_x, wall.mid.normal_y, wall.mid.normal_z);
-        // assuming vectors are all normalized
         float denom = Util::dotProduct(planeNormal, rayDir);
         if (abs(denom) > 1e-6) {
             pcl::PointXYZ distVec = Util::vectorSubtract(planePoint, rayOrigin);
             float t = Util::dotProduct(distVec, planeNormal) / denom;
+
+            // ray intersection (no negative distance)
             if (t < 0)
                 return 0;
 
+            // check if plane intersection is outside of wall
             auto intersectionPoint = pcl::PointXYZ(rayOrigin.x + t * rayDir.x, rayOrigin.y + t * rayDir.y, rayOrigin.z + t * rayDir.z);
             auto dist = horizontalDistance(intersectionPoint, wall.mid);
-                if (dist > wall.length / 2 ) {
-                    auto bla = "das sollte nicht passieren";
-
-                }
-            if(intersectionPoint.x > wall.maxX  || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX  || intersectionPoint.z < wall.minZ ) {
-                if (dist <= wall.length / 2 ){
-                    auto dist2 = pointPlaneDistance(intersectionPoint, wall.mid);
-                    auto bla = "das sollte nicht passieren";
-                }
+            // if(intersectionPoint.x > wall.maxX  || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX  || intersectionPoint.z < wall.minZ ) {
+            if (dist > wall.length / 2) {
                 return 0;
             }
 
-            auto signedDist = signedPointPlaneDistance(rayOrigin, wall.mid);
-            if (signedDist < 0) {
-                // inside to outside
-                return 1;
-            } else {
-                // outside to inside
-                return -1;
-            }
+            // ray intersects this wall
+            return 1;
         }
         return 0;
     }

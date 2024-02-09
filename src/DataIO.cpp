@@ -227,8 +227,7 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
 
                 // check if inside od building
                 // intersect ray with walls of this building
-                float t;
-                intersectionCount += Util::intersectPlane(bWall, rayPoint, rayDir, wallThreshold);// { // return 0 if no intersection, -1 for intersection from outside to inside, 1 for intersection in - out
+                intersectionCount += Util::intersectWall(bWall, rayPoint, rayDir);// { // return 0 if no intersection, -1 for intersection from outside to inside, 1 for intersection in - out
 //                    cloud->emplace_back(bWall.mid.x, bWall.mid.y, bWall.mid.z, 255, 0, 0); // TODO crasht dan nbeim rendern, denke mal weil ich keine tex coords undso dafür pushe. vllt schnuttpunkt mit der ebene von der intersect funktion bekommmen und func schreiben colro nn und die nachbarn
 //                    auto signedDist = Util::signedPointPlaneDistance(point, bWall.mid);
 //                    if (signedDist < 0) {
@@ -253,7 +252,7 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
 //                }
             }
 
-            if (intersectionCount != 0) {//(belongsToBuilding) {
+            if (intersectionCount % 2 != 0) {//(belongsToBuilding) {
                 // point is inside of building
                 point.r = 0;
                     point.g = 255;
