@@ -30,7 +30,7 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
 
 
-//    detectWalls(lasWallPoints, lasGroundPoints, tree, texCoords);
+    detectWalls(lasWallPoints, lasGroundPoints, tree, texCoords);
     // cloud has changed
     tree->setInputCloud(cloud);
 
@@ -68,10 +68,16 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
     auto removePoints = std::vector<bool>(cloud->size());
     std::fill(removePoints.begin(), removePoints.end(), false);
 
+    auto usedLasWallPoints = vector<bool>(lasWallPoints.size());
+    std::fill(usedLasWallPoints.begin(), usedLasWallPoints.end(), false);
+
+
     int buildingCount = 0;
     int wallCount = 0;
     int buildingsNumber = 184;
     int wallNumber = 12; // ich will wand 12 und 14, 13 ist iwie son dummer stumpf??
+
+    // match osm and las walls
     for (auto building: buildings) {
 
         //region skippi
@@ -199,6 +205,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                     }
                     certainWallPoints.push_back(nIdx);
                     removePoints[nIdx] = true;
+                    usedLasWallPoints[nIdx] = true;
 
                 }
                 //endregion
@@ -382,6 +389,15 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
             }
         }
     }
+
+    // find walls that have no corresponding osm wall
+    for (auto pIdx = 0; pIdx < lasWallPoints.size(); pIdx++) {
+        if (lasWallPoints[pIdx] && !usedLasWallPoints[pIdx]) {
+            auto& point = (*cloud)[pIdx];
+            point.r = 255;
+        }
+    }
+
     if (removeOldWallPoints) {
         auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
         auto newTexCoords = std::vector<pcl::PointXY>();
