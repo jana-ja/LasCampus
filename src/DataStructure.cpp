@@ -353,8 +353,6 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 // get y min and max from finalWallPoints to cover wall from bottom to top
                 float yMin, yMax;
                 findYMinMax(finalWallPoints, yMin, yMax);
-                // get new border points based on finalWallPoints without ground points (so generated points don't go over the edges)
-//                findStartEnd(finalWallPointsNotGround, lasWallPoint1, lasWallPoint2);
                 lasWallPoint1.y = yMin;
                 lasWallPoint2.y = yMin;
 
@@ -364,8 +362,6 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 auto lasWallVec = Util::vectorSubtract(lasWallPoint2, lasWallPoint1);
                 auto horPerpVec = Util::normalize(lasWallVec); // horizontal
                 auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0,-1,0));
-//                auto vertPerpVec = Util::crossProduct(horPerpVec, lasWallNormal); // vertical -> =(0,1,0)
-//                auto osmNormal = Util::crossProduct(Util::vectorSubtract(osmWallPoint1, osmWallPoint2), pcl::PointXYZ(0,1,0));
 
                 float lasWallLength = Util::vectorLength(lasWallVec);
                 float x = lasWallPoint1.x;
@@ -385,17 +381,9 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                             v.normal_x = lasWallNormal.x;
                             v.normal_y = lasWallNormal.y;
                             v.normal_z = lasWallNormal.z;
-                            // also set tangents TODO reihenfolge egal?
+                            // also set tangents
                             tangent1Vec.push_back(horPerpVec);
                             tangent2Vec.emplace_back(0,1,0);
-
-                            auto test = Util::crossProduct(tangent1Vec[tangent1Vec.size()-1], tangent2Vec[tangent2Vec.size()-1]);
-
-                            if (round(test.x) != round(lasWallNormal.x) || round(test.z) != round(lasWallNormal.z)){
-                                auto blib = " josf";
-                            } else {
-                                auto bleb = " josfseg";
-                            }
 
                             cloud->push_back(v);
 
