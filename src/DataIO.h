@@ -7,6 +7,8 @@
 
 #include <pcl/octree/octree_search.h>
 #include "stb_image.h"
+#include <map>
+#include "util.h"
 
 class DataIO {
 
@@ -26,12 +28,12 @@ public:
         std::vector<uint32_t> parts; // size = numParts
         std::vector<ShpPoint> points; // size = numPoints
     };
-    struct Wall {
-        pcl::PointXYZRGBNormal mid;
-        float minX, maxX;
-        float minZ, maxZ;
-
-    };
+//    struct Wall {
+//        pcl::PointXYZRGBNormal mid;
+//        float minX, maxX;
+//        float minZ, maxZ;
+//        int buildingIdx;
+//    };
 
     // ********** cache **********
     void writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
@@ -158,6 +160,7 @@ private:
     bool colorReturnNumberClasses = true;
     bool colorImgFile = false; // TODO remove image pixel color code from DataIO?
 
+    bool buildingCheck(pcl::PointXYZRGBNormal& v, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
 
     // ********** las **********
     // in opengl coord sys
@@ -170,9 +173,8 @@ private:
 
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
-    void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
+    void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings,
                               pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
-
     // ********** shp **********
     // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
     double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY; // in wgs84 lat lon in degrees
@@ -187,7 +189,8 @@ private:
     }
     void readShp(const std::string& path, std::vector<Polygon>* buildings);
     float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings);
-    std::vector<DataIO::Wall> walls;
+    std::vector<Util::Wall> walls;
+    std::map<int, std::vector<int>> buildingWallMap;
 
     // ********** img **********
     bool readImg(std::vector<unsigned char>& image, const std::string& filename, const int& desiredChannels, int& width, int& height);

@@ -4,6 +4,7 @@
 
 #ifndef LASCAMPUS_UTIL_H
 #define LASCAMPUS_UTIL_H
+
 #include <pcl/features/impl/normal_3d.hpp> // make sure to include the .hpp file
 
 namespace Util {
@@ -15,11 +16,25 @@ namespace Util {
     "/";
 #endif
 
-
+    struct Wall {
+        pcl::PointXYZRGBNormal mid;
+        float minX, maxX;
+        float minZ, maxZ;
+        int buildingIdx;
+        float length;
+    };
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
 
     // keep those functions inlined because they are small and used frequently
-     inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
+    inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
+        pcl::PointXYZ result;
+        result.x = (a.x - b.x);
+        result.y = (a.y - b.y);
+        result.z = (a.z - b.z);
+        return result;
+    }
+
+    inline pcl::PointXYZ vectorSubtract(const pcl::PointXYZ& a, const pcl::PointXYZRGBNormal& b) {
         pcl::PointXYZ result;
         result.x = (a.x - b.x);
         result.y = (a.y - b.y);
@@ -58,8 +73,6 @@ namespace Util {
     }
 
 
-
-
     inline float
     isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
         float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
@@ -75,6 +88,11 @@ namespace Util {
     }
 
     inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
+        pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
+        return dotProduct(normal, (vectorSubtract(point, planePoint)));
+    }
+
+    inline float signedPointPlaneDistance(const pcl::PointXYZ& point, const pcl::PointXYZRGBNormal& planePoint) {
         pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
         return dotProduct(normal, (vectorSubtract(point, planePoint)));
     }
@@ -115,6 +133,50 @@ namespace Util {
         float dist = dotProduct(planeNormal, (vectorSubtract(point, plane[0])));
 
         return abs(dist);
+    }
+
+    inline float distance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2){
+        return sqrt(pow(point1.x - point2.x, 2) + pow(point1.y - point2.y, 2) + pow(point1.z - point2.z, 2));
+    }
+
+    inline float horizontalDistance(const pcl::PointXYZ& point1, const pcl::PointXYZRGBNormal& point2) {
+        return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
+    }
+
+    inline int intersectPlane(const Wall& wall, const pcl::PointXYZ& rayOrigin, const pcl::PointXYZ& rayDir,
+                              float& wallThreshold) // t kommt in func ray länge bis intersection punkt rein
+    {
+
+        const auto planePoint = pcl::PointXYZ(wall.mid.x, wall.mid.y, wall.mid.z);//pcl::PointXYZ(wall.mid.x + wallThreshold * wall.mid.normal_x, wall.mid.y + wallThreshold * wall.mid.normal_y, wall.mid.z + wallThreshold * wall.mid.normal_z);
+        auto planeNormal = pcl::PointXYZ(wall.mid.normal_x, wall.mid.normal_y, wall.mid.normal_z);
+        // assuming vectors are all normalized
+        float denom = Util::dotProduct(planeNormal, rayDir);
+        if (abs(denom) > 1e-6) {
+            pcl::PointXYZ distVec = Util::vectorSubtract(planePoint, rayOrigin);
+            float t = Util::dotProduct(distVec, planeNormal) / denom;
+            auto intersectionPoint = pcl::PointXYZ(rayOrigin.x + t * rayDir.x, rayOrigin.y + t * rayDir.y, rayOrigin.z + t * rayDir.z);
+            auto signedDist = signedPointPlaneDistance(rayOrigin, wall.mid);
+            if (signedDist < 0) {
+                // inside to outside
+                if (t < 0)
+                    return 0;
+                auto dist = horizontalDistance(intersectionPoint, wall.mid);
+//                if (dist > (wall.length / 2) )//
+                if( intersectionPoint.x > wall.maxX || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX || intersectionPoint.z < wall.minZ)
+                    return 0;
+                return 1;
+            } else {
+                // outside to inside
+                if (t < 0) // intersection detection from outside gets extra buffer to make detection bounds bigger
+                    return 0;
+                auto dist = horizontalDistance(intersectionPoint, wall.mid);
+//                if (dist > wall.length / 2 )//
+                    if(intersectionPoint.x > wall.maxX  || intersectionPoint.z > wall.maxZ || intersectionPoint.x < wall.minX  || intersectionPoint.z < wall.minZ )
+                    return 0;
+                return -1;
+            }
+        }
+        return 0;
     }
 }
 

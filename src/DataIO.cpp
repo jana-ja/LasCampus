@@ -6,7 +6,6 @@
 #include <numeric>
 #include <fstream>
 #include "UTM.h"
-#include "util.h"
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
                       const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints,
@@ -41,7 +40,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    return loadedCachedFeatures;
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
-    filterAndColorPoints(cloud, walls, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints, texCoords);
+    filterAndColorPoints(cloud, buildings, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints, texCoords);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -181,8 +180,97 @@ void DataIO::readLas(const std::string& path) {
     }
 }
 
-void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Wall>& walls,
+
+bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius) {
+    float wallThreshold = 1.0;
+
+    std::vector<int> visitedBuildings;
+
+    std::vector<int> wallIdxRadiusSearch;
+    std::vector<float> wallRadiusSquaredDistance;
+    if (wallOctree.radiusSearch(point, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
+
+        // create ray for this point
+        auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
+        auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO hä
+
+        for (auto searchWallIdx = 0; searchWallIdx < wallIdxRadiusSearch.size(); searchWallIdx++) {
+            const auto& searchWall = walls[wallIdxRadiusSearch[searchWallIdx]];
+
+
+
+//            // skip building belonging to this wall, if it has already been visited because of another wall
+            if (std::find(visitedBuildings.begin(), visitedBuildings.end(), searchWall.buildingIdx) != visitedBuildings.end()) {
+                continue;
+            }
+
+            visitedBuildings.push_back(searchWall.buildingIdx);
+
+            // for these walls
+            int intersectionCount = 0;
+//            auto belongsToBuilding = true;
+            auto& bWalls = buildingWallMap[searchWall.buildingIdx];
+            for (auto bWallIdx: bWalls) {
+                const auto& bWall = walls[bWallIdx];
+
+                // check if near wall
+                float dist = Util::pointPlaneDistance(point, bWall.mid);
+                if (dist <= wallThreshold) {
+                    if (point.x <= bWall.maxX && point.x >= bWall.minX && point.z <= bWall.maxZ && point.z >= bWall.minZ) {
+                        // belongs to wall
+                        point.r = 0;
+                        point.g = 0;
+                        point.b = 255;
+                       return true;
+                    }
+                }
+
+                // check if inside od building
+                // intersect ray with walls of this building
+                float t;
+                intersectionCount += Util::intersectPlane(bWall, rayPoint, rayDir, wallThreshold);// { // return 0 if no intersection, -1 for intersection from outside to inside, 1 for intersection in - out
+//                    cloud->emplace_back(bWall.mid.x, bWall.mid.y, bWall.mid.z, 255, 0, 0); // TODO crasht dan nbeim rendern, denke mal weil ich keine tex coords undso dafür pushe. vllt schnuttpunkt mit der ebene von der intersect funktion bekommmen und func schreiben colro nn und die nachbarn
+//                    auto signedDist = Util::signedPointPlaneDistance(point, bWall.mid);
+//                    if (signedDist < 0) {
+//                        // inside
+//                        intersectionCount++;
+////                        point.r =  0;
+////                        point.g = 0;
+////                        point.b = 255;
+//                    } else {
+//                        // outside
+//                        intersectionCount--;
+////                    point.r = 0;
+////                    point.g = 255;
+////                    point.b = 0;
+//                    }
+//                }
+//                // if point is outside of one of the walls -> is outside of building
+//                auto signedDist = Util::signedPointPlaneDistance(point, bWall.mid);
+//                if (signedDist < 0 - wallThreshold) {
+//                    belongsToBuilding = false;
+//                    break;
+//                }
+            }
+
+            if (intersectionCount != 0) {//(belongsToBuilding) {
+                // point is inside of building
+                point.r = 0;
+                    point.g = 255;
+                    point.b = 0;
+                return true;
+            }
+            // else continue search with other buildings
+        }
+    }
+    // found no building that contains this point
+    return false;
+}
+
+void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings,
                                   pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords){
+    float wallThreshold = 1.0;
+
     // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
@@ -197,8 +285,12 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
 
     // filter stuff
-    float wallThreshold = 1.0;
-    for (const auto& point: lasPoints) {
+    int idxxx = 0;
+        int sizeo = lasPoints.size();
+//    for (const auto& point: lasPoints) {
+    for (int pIdx = 0; pIdx < sizeo; pIdx++) {
+
+        const auto& point = lasPoints[pIdx];
 
         bool belongsToWall = false;
 
@@ -232,86 +324,76 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         if (synthetic) { // point.pointSourceId == 2
             continue;
         }
-
-        // get info out of 8 bit flags:
-        // return number, number of returns, stuff, stuff
-        // little endian
-        // _ _ n n n r r r
-        int8_t returnNumber = point.flags & 7;
-        int8_t numOfReturns = (point.flags >> 3) & 7;
-        if (numOfReturns > 1) {
-            if (returnNumber == 1) {
-                // first of many
-                if (colorReturnNumberClasses) {
-                    v.b = 255;
-                    v.g = 0;
-                    v.r = 0;
-                }
-                // bäume oberer teil, teile von wänden, ein dach?
-                // keep wall points, skip others
-                std::vector<int> wallIdxRadiusSearch;
-                std::vector<float> wallRadiusSquaredDistance;
-                if (wallOctree.radiusSearch(v, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
-                    for (auto wallIdx = 0; wallIdx < wallIdxRadiusSearch.size(); wallIdx++) {
-                        const auto& wall = walls[wallIdxRadiusSearch[wallIdx]];
-
-                        float dist = Util::pointPlaneDistance(v, wall.mid);
-                        if (dist > wallThreshold) {
-                            continue;
-                        }
-                        if (v.x > wall.maxX || v.x < wall.minX || v.z > wall.maxZ || v.z < wall.minZ) {
-                            continue;
-                        }
-                        // belongs to wall
-                        belongsToWall = true;
-                        break;
-                    }
-                }
-                if (!belongsToWall) {
-//                    continue;
-                }
-            } else if (returnNumber != numOfReturns) {
-                // intermediate points
-                // viel baum, ganz wenig wand -> raus
-                if (colorReturnNumberClasses) {
-                    v.b = 0;
-                    v.g = 0;
-                    v.r = 255;
-                }
-//                continue;
-            } else {
-                // last of many
-                // boden, bisschen wände, kein baum. einfach lassen
-                if (classification != 2) { // not ground
-                    if (colorReturnNumberClasses){//} && belongsToWall) {
-                        v.b = 0;
-                        v.g = 255;
-                        v.r = 0;
-                    }
-                    std::vector<int> wallIdxRadiusSearch;
-                    std::vector<float> wallRadiusSquaredDistance;
-                    if (wallOctree.radiusSearch(v, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
-                        for (auto wallIdx = 0; wallIdx < wallIdxRadiusSearch.size(); wallIdx++) {
-                            const auto& wall = walls[wallIdxRadiusSearch[wallIdx]];
-
-                            float dist = Util::pointPlaneDistance(v, wall.mid);
-                            if (dist > wallThreshold) {
-                                continue;
-                            }
-                            if (v.x > wall.maxX || v.x < wall.minX || v.z > wall.maxZ || v.z < wall.minZ) {
-                                continue;
-                            }
-                            // belongs to wall
-                            belongsToWall = true;
-                            break;
-                        }
-                    }
-                    if (!belongsToWall) {
-//                        continue;
-                    }
-                }
+//        if(idxxx < 1000) {
+            if (buildingCheck(v, cloud, wallOctree, maxWallRadius)) {
+//            v.b = 255; // r
+//            v.g = 100; // g
+//            v.r = 100; // b
             }
-        }
+//        }
+//        idxxx++;
+//        if (idxxx >= 1000)
+//            break;
+
+
+
+//        //region filter multiple return points
+//
+//        // get info out of 8 bit flags:
+//        // return number, number of returns, stuff, stuff
+//        // little endian
+//        // _ _ n n n r r r
+//        int8_t returnNumber = point.flags & 7;
+//        int8_t numOfReturns = (point.flags >> 3) & 7;
+//        if (numOfReturns > 1) {
+//            if (returnNumber == 1) {
+//                // first of many
+//                if (colorReturnNumberClasses) {
+//                    v.b = 55;
+//                    v.g = 0;
+//                    v.r = 0;
+//                }
+//                // bäume oberer teil, teile von wänden, ein dach?
+//                // keep wall points, skip others
+//                belongsToWall = buildingCheck(v, buildings, wallOctree, maxWallRadius);
+//
+//                if (!belongsToWall) {
+////                    continue;
+//                } else {
+//                    v.b = 255;
+//                    v.g = 0;
+//                    v.r = 0;
+//                }
+//            } else if (returnNumber != numOfReturns) {
+//                // intermediate points
+//                // viel baum, ganz wenig wand -> raus
+//                if (colorReturnNumberClasses) {
+//                    v.b = 0;
+//                    v.g = 0;
+//                    v.r = 55;
+//                }
+////                continue;
+//            } else {
+//                // last of many
+//                // boden, bisschen wände, kein baum. einfach lassen
+//                if (classification != 2) { // not ground
+//                    if (colorReturnNumberClasses){//} && belongsToWall) {
+//                        v.b = 0;
+//                        v.g = 55;
+//                        v.r = 0;
+//                    }
+//                    belongsToWall = buildingCheck(v, buildings, wallOctree, maxWallRadius);
+//                    if (!belongsToWall) {
+////                        continue;
+//                    } else {
+//                        v.b = 0;
+//                        v.g = 255;
+//                        v.r = 0;
+//                    }
+//                }
+//            }
+//        }
+//        //endregion
 
 
         int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
@@ -330,6 +412,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         cloud->push_back(v);
         lasWallPoints.push_back(belongsToWall);
         lasGroundPoints.push_back(classification == 2);
+
     }
 }
 
@@ -477,10 +560,11 @@ DataIO::readShp(const std::string& path, std::vector<Polygon>* buildings) {
 float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings) {
     // preprocessing of buildings
     // save all walls (min, mid, max point & radius)
-    // dann beim normalen orientieren  spatial search nach mid point mit max radius von allen walls
+    // dann beim normalen orientieren spatial search nach mid point mit max radius von allen walls
     float maxR = 0;
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-    for (auto building: buildings) {
+    for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
+        const auto& building = buildings[bIdx];
         // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
         auto partIdx = building.parts.begin();
         uint32_t nextPartIndex = *partIdx;
@@ -502,7 +586,7 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
                 continue;
             }
 
-            Wall wall;
+            Util::Wall wall;
 
 
             pcl::PointXYZRGBNormal wallPoint1, wallPoint2;
@@ -513,7 +597,6 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             wallPoint2.y = ground + wallHeight;
             wallPoint2.z = building.points[pointIdx + 1].z;
 
-            // detect (and color) alle points on this wall
             wall.mid.x = (wallPoint1.x + wallPoint2.x) / 2;
             wall.mid.y = (ground + wallHeight) / 2;
             wall.mid.z = (wallPoint1.z + wallPoint2.z) / 2;
@@ -535,8 +618,17 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             wall.minZ = std::min(wallPoint1.z, wallPoint2.z);
             wall.maxZ = std::max(wallPoint1.z, wallPoint2.z);
 
+            wall.buildingIdx = bIdx;
+
+            wall.length = Util::distance(wallPoint1, wallPoint2);
+
             walls.push_back(wall);
             wallMidPoints->push_back(wall.mid);
+
+            buildingWallMap[bIdx].push_back(walls.size()-1);
+
+            const auto& lol = buildingWallMap[bIdx];
+            auto bjkuaf = 3;
 
 
         }
