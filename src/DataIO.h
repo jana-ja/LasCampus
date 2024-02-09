@@ -158,7 +158,6 @@ private:
     // ########## FIELDS & METHODS ##########
 
     bool colorReturnNumberClasses = true;
-    bool colorImgFile = false; // TODO remove image pixel color code from DataIO?
 
     bool buildingCheck(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
 

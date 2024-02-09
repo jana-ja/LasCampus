@@ -257,10 +257,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
     // filter stuff
     int idxxx = 0;
         int sizeo = lasPoints.size();
-//    for (const auto& point: lasPoints) {
-    for (int pIdx = 0; pIdx < sizeo; pIdx++) {
-
-        const auto& point = lasPoints[pIdx];
+    for (const auto& point: lasPoints) {
 
         bool belongsToWall = false;
 
@@ -294,7 +291,6 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         if (synthetic) { // point.pointSourceId == 2
             continue;
         }
-
 
 
         //region filter multiple return points
@@ -347,24 +343,13 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
         //endregion
 
-
         int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
         int imageY = (point.y - 5705999.95) * -10;
         texCoords.emplace_back(static_cast<float>(imageX)/10000, static_cast<float>(imageY)/10000);
-        if (colorImgFile) {
-            // get color from image
-            // werte sollten immer zwischen 0 und 999 (oder 1 und 1000?) sein.
-            size_t index = channels * (imageY * width + imageX);
-            v.b = static_cast<int>(image[index + 0]);
-            v.g = static_cast<int>(image[index + 1]);
-            v.r = static_cast<int>(image[index + 2]);
-//                int intensity = image[index + 3];
-        }
 
         cloud->push_back(v);
         lasWallPoints.push_back(belongsToWall);
         lasGroundPoints.push_back(classification == 2);
-
     }
 }
 
