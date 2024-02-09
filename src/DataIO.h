@@ -160,7 +160,7 @@ private:
     bool colorReturnNumberClasses = true;
     bool colorImgFile = false; // TODO remove image pixel color code from DataIO?
 
-    bool buildingCheck(pcl::PointXYZRGBNormal& v, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius);
+    bool buildingCheck(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
 
     // ********** las **********
     // in opengl coord sys
@@ -173,8 +173,8 @@ private:
 
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
-    void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings,
-                              pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
+    void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
+                              const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
     // ********** shp **********
     // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
     double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY; // in wgs84 lat lon in degrees

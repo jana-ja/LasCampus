@@ -40,7 +40,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 //    return loadedCachedFeatures;
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
-    filterAndColorPoints(cloud, buildings, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints, texCoords);
+    filterAndColorPoints(cloud, wallOctree, maxWallRadius, imgFile, lasWallPoints, lasGroundPoints, texCoords);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -181,7 +181,7 @@ void DataIO::readLas(const std::string& path) {
 }
 
 
-bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius) {
+bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius) {
     float wallThreshold = 1.0;
 
     std::vector<int> visitedBuildings;
@@ -217,9 +217,6 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
                 if (dist <= wallThreshold) {
                     if (point.x <= bWall.maxX && point.x >= bWall.minX && point.z <= bWall.maxZ && point.z >= bWall.minZ) {
                         // belongs to wall -> belongs to building
-                        point.r = 0;
-                        point.g = 0;
-                        point.b = 255;
                        return true;
                     }
                 }
@@ -230,9 +227,6 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
 
             if (intersectionCount % 2 != 0) {
                 // point is inside of building
-                point.r = 0;
-                    point.g = 255;
-                    point.b = 0;
                 return true;
             }
             // else continue search with other buildings
@@ -242,8 +236,9 @@ bool DataIO::buildingCheck(pcl::PointXYZRGBNormal& point, const pcl::PointCloud<
     return false;
 }
 
-void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings,
-                                  pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, float& maxWallRadius, std::string imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords){
+void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
+                                  const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints,
+                                  std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords){
     float wallThreshold = 1.0;
 
     // init cloud
@@ -314,20 +309,16 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
             if (returnNumber == 1) {
                 // first of many
                 if (colorReturnNumberClasses) {
-                    v.b = 55;
+                    v.b = 255;
                     v.g = 0;
                     v.r = 0;
                 }
                 // bäume oberer teil, teile von wänden, ein dach?
                 // keep wall points, skip others
-                belongsToWall = buildingCheck(v, cloud, wallOctree, maxWallRadius);
+                belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
 
                 if (!belongsToWall) {
                     continue;
-                } else {
-                    v.b = 255;
-                    v.g = 0;
-                    v.r = 0;
                 }
             } else if (returnNumber != numOfReturns) {
                 // intermediate points
@@ -335,7 +326,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 if (colorReturnNumberClasses) {
                     v.b = 0;
                     v.g = 0;
-                    v.r = 55;
+                    v.r = 255;
                 }
                 continue;
             } else {
@@ -344,16 +335,12 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 if (classification != 2) { // not ground
                     if (colorReturnNumberClasses){//} && belongsToWall) {
                         v.b = 0;
-                        v.g = 55;
-                        v.r = 0;
-                    }
-                    belongsToWall = buildingCheck(v, cloud, wallOctree, maxWallRadius);
-                    if (!belongsToWall) {
-                        continue;
-                    } else {
-                        v.b = 0;
                         v.g = 255;
                         v.r = 0;
+                    }
+                    belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
+                    if (!belongsToWall) {
+                        continue;
                     }
                 }
             }
