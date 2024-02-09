@@ -280,7 +280,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         v.normal_z = -1;
 
         // pcl library switched r and b component
-        v.b = 255; // r
+        v.b = 100; // r
         v.g = 100; // g
         v.r = 100; // b
         v.a = 255;
@@ -299,81 +299,66 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         if (synthetic) { // point.pointSourceId == 2
             continue;
         }
-//        if(idxxx < 1000) {
-            if (buildingCheck(v, cloud, wallOctree, maxWallRadius)) {
-            v.b = 100; // r
-            v.g = 100; // g
-            v.r = 100; // b
+
+
+
+        //region filter multiple return points
+
+        // get info out of 8 bit flags:
+        // return number, number of returns, stuff, stuff
+        // little endian
+        // _ _ n n n r r r
+        int8_t returnNumber = point.flags & 7;
+        int8_t numOfReturns = (point.flags >> 3) & 7;
+        if (numOfReturns > 1) {
+            if (returnNumber == 1) {
+                // first of many
+                if (colorReturnNumberClasses) {
+                    v.b = 55;
+                    v.g = 0;
+                    v.r = 0;
+                }
+                // bäume oberer teil, teile von wänden, ein dach?
+                // keep wall points, skip others
+                belongsToWall = buildingCheck(v, cloud, wallOctree, maxWallRadius);
+
+                if (!belongsToWall) {
+                    continue;
+                } else {
+                    v.b = 255;
+                    v.g = 0;
+                    v.r = 0;
+                }
+            } else if (returnNumber != numOfReturns) {
+                // intermediate points
+                // viel baum, ganz wenig wand -> raus
+                if (colorReturnNumberClasses) {
+                    v.b = 0;
+                    v.g = 0;
+                    v.r = 55;
+                }
+                continue;
+            } else {
+                // last of many
+                // boden, bisschen wände, kein baum. einfach lassen
+                if (classification != 2) { // not ground
+                    if (colorReturnNumberClasses){//} && belongsToWall) {
+                        v.b = 0;
+                        v.g = 55;
+                        v.r = 0;
+                    }
+                    belongsToWall = buildingCheck(v, cloud, wallOctree, maxWallRadius);
+                    if (!belongsToWall) {
+                        continue;
+                    } else {
+                        v.b = 0;
+                        v.g = 255;
+                        v.r = 0;
+                    }
+                }
             }
-//        }
-//        idxxx++;
-//        if (idxxx >= 1000)
-//            break;
-        if (classification == 2) {
-            v.b = 100; // r
-            v.g = 100; // g
-            v.r = 100; // b
         }
-
-
-
-//        //region filter multiple return points
-//
-//        // get info out of 8 bit flags:
-//        // return number, number of returns, stuff, stuff
-//        // little endian
-//        // _ _ n n n r r r
-//        int8_t returnNumber = point.flags & 7;
-//        int8_t numOfReturns = (point.flags >> 3) & 7;
-//        if (numOfReturns > 1) {
-//            if (returnNumber == 1) {
-//                // first of many
-//                if (colorReturnNumberClasses) {
-//                    v.b = 55;
-//                    v.g = 0;
-//                    v.r = 0;
-//                }
-//                // bäume oberer teil, teile von wänden, ein dach?
-//                // keep wall points, skip others
-//                belongsToWall = buildingCheck(v, buildings, wallOctree, maxWallRadius);
-//
-//                if (!belongsToWall) {
-////                    continue;
-//                } else {
-//                    v.b = 255;
-//                    v.g = 0;
-//                    v.r = 0;
-//                }
-//            } else if (returnNumber != numOfReturns) {
-//                // intermediate points
-//                // viel baum, ganz wenig wand -> raus
-//                if (colorReturnNumberClasses) {
-//                    v.b = 0;
-//                    v.g = 0;
-//                    v.r = 55;
-//                }
-////                continue;
-//            } else {
-//                // last of many
-//                // boden, bisschen wände, kein baum. einfach lassen
-//                if (classification != 2) { // not ground
-//                    if (colorReturnNumberClasses){//} && belongsToWall) {
-//                        v.b = 0;
-//                        v.g = 55;
-//                        v.r = 0;
-//                    }
-//                    belongsToWall = buildingCheck(v, buildings, wallOctree, maxWallRadius);
-//                    if (!belongsToWall) {
-////                        continue;
-//                    } else {
-//                        v.b = 0;
-//                        v.g = 255;
-//                        v.r = 0;
-//                    }
-//                }
-//            }
-//        }
-//        //endregion
+        //endregion
 
 
         int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
