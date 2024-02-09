@@ -121,6 +121,7 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
             }
             //endregion
 
+            auto flippi = false;
 //            int randR = 0;//rand() % (256);
 //            int randG = 255;//rand() % (256);
 //            int randB = 0;//rand() % (256);
@@ -236,20 +237,32 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 } else {
                     // make wall vertical
                     auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-                    // check normal orientation with osm wall points
-                    auto osmNormal = Util::crossProduct(Util::vectorSubtract(osmWallPoint1, osmWallPoint2), pcl::PointXYZ(0,1,0));
-                    // TODO what to do if only one sign is flipped?
-                    if ((signbit(osmNormal.x) != signbit(lasWallNormal.x)) || (signbit(osmNormal.z) != signbit(lasWallNormal.z))) {
-                        // flip
-                        lasWallPlane.normal_x = -lasWallNormal.x;
-                        lasWallPlane.normal_y = -lasWallNormal.y;
-                        lasWallPlane.normal_z = -lasWallNormal.z;
-                    } else {
-                        // don't flip
-                        lasWallPlane.normal_x = lasWallNormal.x;
-                        lasWallPlane.normal_y = lasWallNormal.y;
-                        lasWallPlane.normal_z = lasWallNormal.z;
-                    }
+                    lasWallPlane.normal_x = lasWallNormal.x;
+                    lasWallPlane.normal_y = lasWallNormal.y;
+                    lasWallPlane.normal_z = lasWallNormal.z;
+//                    // check normal orientation with osm wall points
+//                    auto osmNormal = Util::crossProduct(Util::vectorSubtract(osmWallPoint1, osmWallPoint2), pcl::PointXYZ(0,1,0));
+//                    // TODO what to do if only one sign is flipped?
+//                    if ((signbit(osmNormal.x) != signbit(lasWallNormal.x)) || (signbit(osmNormal.z) != signbit(lasWallNormal.z))) {
+//                        auto lasWallNormal2 = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
+//
+//                        // flip
+//                        lasWallPlane.normal_x = -lasWallNormal.x;
+//                        lasWallPlane.normal_y = -lasWallNormal.y;
+//                        lasWallPlane.normal_z = -lasWallNormal.z;
+//
+//                        flippi = true;
+//
+//                        // TODO man landet immer hier
+////                        // also flip tangents
+////                        tangent1Vec[pointIdx] = tangent2;
+////                        tangent2Vec[pointIdx] = tangent1;
+//                    } else {
+//                        // don't flip
+//                        lasWallPlane.normal_x = lasWallNormal.x;
+//                        lasWallPlane.normal_y = lasWallNormal.y;
+//                        lasWallPlane.normal_z = lasWallNormal.z;
+//                    }
                 }
                 //endregion
 
@@ -348,10 +361,11 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                 // draw plane
                 float stepWidth = 0.5;
                 // get perp vec
-                auto lasWallNormal = pcl::PointXYZ(lasWallPlane.normal_x, lasWallPlane.normal_y, lasWallPlane.normal_z);
-                auto lasWallVec = Util::vectorSubtract(lasWallPoint2, lasWallPoint1); // von 1 nach 2
+                auto lasWallVec = Util::vectorSubtract(lasWallPoint2, lasWallPoint1);
                 auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+                auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0,-1,0));
 //                auto vertPerpVec = Util::crossProduct(horPerpVec, lasWallNormal); // vertical -> =(0,1,0)
+//                auto osmNormal = Util::crossProduct(Util::vectorSubtract(osmWallPoint1, osmWallPoint2), pcl::PointXYZ(0,1,0));
 
                 float lasWallLength = Util::vectorLength(lasWallVec);
                 float x = lasWallPoint1.x;
@@ -374,6 +388,14 @@ void DataStructure::detectWalls(vector<bool>& lasWallPoints, vector<bool>& lasGr
                             // also set tangents TODO reihenfolge egal?
                             tangent1Vec.push_back(horPerpVec);
                             tangent2Vec.emplace_back(0,1,0);
+
+                            auto test = Util::crossProduct(tangent1Vec[tangent1Vec.size()-1], tangent2Vec[tangent2Vec.size()-1]);
+
+                            if (round(test.x) != round(lasWallNormal.x) || round(test.z) != round(lasWallNormal.z)){
+                                auto blib = " josf";
+                            } else {
+                                auto bleb = " josfseg";
+                            }
 
                             cloud->push_back(v);
 
@@ -460,8 +482,7 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
 //    adaNormalOrientation(wallThreshold, tree);
 
     // ********** compute splats **********
-    float alpha = 0.2;
-    adaComputeSplats(alpha, splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
+    adaComputeSplats(splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
 
 //    adaResampling(avgRadiusNeighbourhoods, tree, pointClasses);
 
@@ -780,8 +801,10 @@ void DataStructure::adaNormalOrientation(float wallThreshold, pcl::search::KdTre
 }
 
 void
-DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
+DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
+    float alpha = 0.4;
+
     // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
     float angleThreshold = 0.86; // ~30°
 
@@ -792,6 +815,15 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
 
     // for every point
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+//        if (pointIdx < wallPointsStartIndex ) {
+//            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+//            continue;
+//        }
+//        if (pointIdx > wallPointsStartIndex + 3000) {
+//            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+//            continue;
+//        }
+
 
 //        if (pointIdx % 1000 != 0){
 //            continue;
@@ -837,7 +869,7 @@ DataStructure::adaComputeSplats(float alpha, float splatGrowEpsilon, std::vector
         // for every neighbour
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
-            if (!growTangent1 && !growTangent2) {
+            if (!growTangent1 || !growTangent2) {
                 break;
             }
 
