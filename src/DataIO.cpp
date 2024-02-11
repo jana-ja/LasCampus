@@ -231,7 +231,8 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
                 // check if near wall
                 float dist = Util::pointPlaneDistance(point, bWall.mid);
                 if (dist <= osmWallThreshold) {
-                    if (point.x <= bWall.maxX && point.x >= bWall.minX && point.z <= bWall.maxZ && point.z >= bWall.minZ) {
+                    if (Util::horizontalDistance(point, bWall.mid) <= bWall.length / 2) {
+//                    if (point.x <= bWall.maxX && point.x >= bWall.minX && point.z <= bWall.maxZ && point.z >= bWall.minZ) {
                         // belongs to wall -> belongs to building
                        return true;
                     }
@@ -441,11 +442,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 pcl::Indices certainWallPoints;
                 //region filter search results for certain las wall points
 
-                auto osmMinX = std::min(osmWallPoint1.x, osmWallPoint2.x);
-                auto osmMaxX = std::max(osmWallPoint1.x, osmWallPoint2.x);
-                auto osmMinZ = std::min(osmWallPoint1.z, osmWallPoint2.z);
-                auto osmMaxZ = std::max(osmWallPoint1.z, osmWallPoint2.z);
-
                 // only take osm wall points that are also las wall points
                 for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
@@ -455,7 +451,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                         continue;
                     }
                     // TODO durch dist check ersetzen
-                    if (point.x > osmMaxX || point.x < osmMinX || point.z > osmMaxZ || point.z < osmMinZ) {
+                    if (Util::horizontalDistance(point, osmWallPlane) > bWall.length / 2) {
+//                    if (point.x > osmMaxX || point.x < osmMinX || point.z > osmMaxZ || point.z < osmMinZ) {
                         continue;
                     }
                     if (colorOsmWall) {
@@ -954,14 +951,6 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             if (r > maxR) {
                 maxR = r;
             }
-
-            wall.minX = std::min(wall.point1.x, wall.point2.x);
-            if (bIdx == 59) {
-                    auto bal = 33;
-            }
-            wall.maxX = std::max(wall.point1.x, wall.point2.x);
-            wall.minZ = std::min(wall.point1.z, wall.point2.z);
-            wall.maxZ = std::max(wall.point1.z, wall.point2.z);
 
             wall.buildingIdx = bIdx;
 
