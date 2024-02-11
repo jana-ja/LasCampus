@@ -970,7 +970,7 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             wall.mid.z = (wall.point1.z + wall.point2.z) / 2;
 
             auto vec1 = Util::vectorSubtract(wall.point1, wall.point2);
-            auto vec2 = Util::vectorSubtract(wall.point1, wall.mid);
+            auto vec2 = Util::vectorSubtract(wall.mid, wall.point1);
             auto planeNormal = Util::normalize(Util::crossProduct(vec1, vec2));
             wall.mid.normal_x = planeNormal.x;
             wall.mid.normal_y = planeNormal.y;
