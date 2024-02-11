@@ -8,7 +8,6 @@
 #include <pcl/common/pca.h>
 #include <cstdlib>
 #include "UTM.h"
-#include <numeric>
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
                       const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
@@ -200,7 +199,6 @@ void DataIO::readLas(const std::string& path) {
 
 
 bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius) {
-    float wallThreshold = 1.0;
 
     std::vector<int> visitedBuildings;
 
@@ -232,7 +230,7 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
 
                 // check if near wall
                 float dist = Util::pointPlaneDistance(point, bWall.mid);
-                if (dist <= wallThreshold) {
+                if (dist <= osmWallThreshold) {
                     if (point.x <= bWall.maxX && point.x >= bWall.minX && point.z <= bWall.maxZ && point.z >= bWall.minZ) {
                         // belongs to wall -> belongs to building
                        return true;
@@ -257,7 +255,6 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                                   const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints,
                                   std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords){
-    float wallThreshold = 1.0;
 
     // init cloud
     cloud->width = numOfPoints;
@@ -390,9 +387,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(cloud);
 
-    float lasWallThreshold = 0.5; // 0.2, 0.3 oder so?
-    float osmWallThreshold = 1.0; // TODO macht eig keinen sinn das hier größer zu haben als in DataIO filter funktion? weil die punkte dann eh raus sind
-
     auto removePoints = std::vector<bool>(cloud->size());
     std::fill(removePoints.begin(), removePoints.end(), false);
 
@@ -405,7 +399,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     int buildingsNumber = 184;
     int wallNumber = 12; // ich will wand 12 und 14, 13 ist iwie son dummer stumpf??
 
-    // TODO stattdessen über building wall map machen
+
     // match osm and las walls
     for (auto bIdx = 0; bIdx < buildingWallMap.size(); bIdx++) {
 //    for (auto building: buildings) {
@@ -571,29 +565,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     lasWallPlane.normal_x = lasWallNormal.x;
                     lasWallPlane.normal_y = lasWallNormal.y;
                     lasWallPlane.normal_z = lasWallNormal.z;
-//                    // check normal orientation with osm wall points
-//                    auto osmNormal = Util::crossProduct(Util::vectorSubtract(osmWallPoint1, osmWallPoint2), pcl::PointXYZ(0,1,0));
-//                    // TODO what to do if only one sign is flipped?
-//                    if ((signbit(osmNormal.x) != signbit(lasWallNormal.x)) || (signbit(osmNormal.z) != signbit(lasWallNormal.z))) {
-//                        auto lasWallNormal2 = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-//
-//                        // flip
-//                        lasWallPlane.normal_x = -lasWallNormal.x;
-//                        lasWallPlane.normal_y = -lasWallNormal.y;
-//                        lasWallPlane.normal_z = -lasWallNormal.z;
-//
-//                        flippi = true;
-//
-//                        // TODO man landet immer hier
-////                        // also flip tangents
-////                        tangent1Vec[pointIdx] = tangent2;
-////                        tangent2Vec[pointIdx] = tangent1;
-//                    } else {
-//                        // don't flip
-//                        lasWallPlane.normal_x = lasWallNormal.x;
-//                        lasWallPlane.normal_y = lasWallNormal.y;
-//                        lasWallPlane.normal_z = lasWallNormal.z;
-//                    }
                 }
                 //endregion
 
@@ -615,11 +586,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 std::vector<pcl::PointXYZ> finalWallPointsNotGround;
                 //region get all las wall points with lasWallPlane and las border points   +   project these points onto plane
 
-                // vllt puffer einbauen?
-//                    float buffer = 0.5;
-//                    auto wallVec = Util::normalize(Util::vectorSubtract(lasWallPoint2, lasWallPoint1)); // von 1 nach 2
-//                    lasWallPoint1 = pcl::PointXYZ(lasWallPoint1.x - buffer * wallVec.x, lasWallPoint1.y - buffer * wallVec.y, lasWallPoint1.z - buffer * wallVec.z); // 1 -= vec
-//                    lasWallPoint2 = pcl::PointXYZ(lasWallPoint2.x + buffer * wallVec.x, lasWallPoint2.y + buffer * wallVec.y, lasWallPoint2.z + buffer * wallVec.z); // 2 += vec
                 // get min max wall borders
                 auto lasMinX = std::min(lasWallPoint1.x, lasWallPoint2.x);
                 auto lasMaxX = std::max(lasWallPoint1.x, lasWallPoint2.x);
@@ -627,8 +593,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 auto lasMaxZ = std::max(lasWallPoint1.z, lasWallPoint2.z);
 
                 // select points with las wall plane with smaller threshold
-                // yeah
-                // TODO find solution for borders top, bot, left, right (pca classes give top and bottom, but also linear class lines in te middle. no left/right border info)
                 for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
                     const auto& nIdx = *nIdxIt;
@@ -765,17 +729,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             newTexCoords.emplace_back(0,0); // TODO give texture to walls
         }
 
-
-
         (*cloud).clear();
         (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
         texCoords.clear();
         texCoords.insert(texCoords.end(), newTexCoords.begin(), newTexCoords.end());
     }
-}
-
-bool xComparator2(pcl::PointXYZ& p1, pcl::PointXYZ& p2) {
-    return p1.x < p2.x;
 }
 
 bool xComparator(pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
@@ -848,16 +806,12 @@ float DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud,
             float distToNormal = abs(wallPlane.x * (searchPoint.x - point.x) + wallPlane.z * (searchPoint.z - point.z));
             if (distToNormal > stepWidth * 1.1)
                 continue;
-//            point.r = 255;
             if (point.y > newMaxY) {
                 newMaxY = point.y;
             }
         }
     }
-//    if (newMaxY > yMin + stepWidth)
     return newMaxY;
-//    else
-//        return yMax;
 }
 
 // ********** shp **********

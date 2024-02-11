@@ -159,7 +159,9 @@ private:
 
     bool colorReturnNumberClasses = true;
 
-    bool buildingCheck(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
+    float lasWallThreshold = 0.5;
+    float osmWallThreshold = 1.0;
+
 
     // ********** las **********
     // in opengl coord sys
@@ -172,6 +174,7 @@ private:
 
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
+    bool buildingCheck(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                               const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
     void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
