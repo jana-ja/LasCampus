@@ -18,7 +18,8 @@ namespace Util {
 
     struct Wall {
         pcl::PointXYZRGBNormal mid;
-        float minX, maxX;
+        pcl::PointXYZ point1, point2;
+        float minX, maxX; // maybe remove those and use distance
         float minZ, maxZ;
         int buildingIdx;
         float length;
@@ -157,7 +158,7 @@ namespace Util {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
     }
 
-    inline float horizontalDistance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2) {
+    inline float horizontalDistance(const pcl::PointXYZ& point1, const pcl::PointXYZ& point2) {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
     }
 
