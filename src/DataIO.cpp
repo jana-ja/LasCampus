@@ -28,7 +28,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     readShp(shpDir + shpFile, &buildings);
 
     std::cout << TAG << "begin processing shp data" << std::endl;
-    // preprocess buildings to walls
+    // preprocess buildings to osmWalls
     float resolution = 8.0f; // TODO find good value
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
             resolution);
@@ -52,7 +52,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
     tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
 
-    std::cout << TAG << "begin detecting walls" << std::endl;
+    std::cout << TAG << "begin detecting osmWalls" << std::endl;
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
     detectWalls(cloud, buildings, lasWallPoints, lasGroundPoints, tree, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
@@ -213,7 +213,7 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
 
         // TODO mit building bbox suchen?
         for (auto searchWallIdx = 0; searchWallIdx < wallIdxRadiusSearch.size(); searchWallIdx++) {
-            const auto& searchWall = walls[wallIdxRadiusSearch[searchWallIdx]];
+            const auto& searchWall = osmWalls[wallIdxRadiusSearch[searchWallIdx]];
 
 
             // skip building belonging to this wall, if it has already been visited because of another wall
@@ -227,7 +227,7 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
             int intersectionCount = 0;
             auto& bWalls = buildingOsmWallMap[searchWall.buildingIdx];
             for (auto bWallIdx: bWalls) {
-                const auto& bWall = walls[bWallIdx];
+                const auto& bWall = osmWalls[bWallIdx];
 
                 // check if near wall
                 float dist = Util::pointPlaneDistance(point, bWall.mid);
@@ -410,12 +410,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //    for (auto building: buildings) {
         auto const& building = buildings[bIdx];
 
+        std::map<int, pcl::Indices> osmWallSearchResults;
+
+
         // for each wall
         wallCount = 0;
         for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
 
             // get wall
-            const auto& osmWall = walls[osmWallIdx];
+            const auto& osmWall = osmWalls[osmWallIdx];
 
 //            int randR = 0;//rand() % (256);
 //            int randG = 255;//rand() % (256);
@@ -428,11 +431,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             //region search points from osmWall mid-point with big radius
 
-            pcl::Indices pointIdxRadiusSearch;
+            pcl::Indices& pointIdxRadiusSearch = osmWallSearchResults[osmWallIdx];
             std::vector<float> pointRadiusSquaredDistance;
             float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
             auto searchRadius = static_cast<float>(sqrt(pow(osmWall.point2.x - osmWall.mid.x, 2) +
-                    pow(wallHeight - osmWall.mid.y, 2) + pow(osmWall.point2.z - osmWall.mid.z, 2)));;
+                                                        pow(wallHeight - osmWall.mid.y, 2) + pow(osmWall.point2.z - osmWall.mid.z, 2)));;
             if (tree->radiusSearch(osmWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
                 continue;
             }
@@ -509,15 +512,30 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 lasWall.mid.normal_y = lasWallNormal.y;
                 lasWall.mid.normal_z = lasWallNormal.z;
             }
-            // TODO find matrix, get las wall border points?
+            lasWalls.push_back(lasWall);
+            osmWallLasWallMap[osmWallIdx] = lasWalls.size()-1;
             //endregion
+        }
 
+        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
             // TODO get all wall planes for this building and compute transf matrix from osm wall to las wall.
-            //  then ransac to find best matrix with least error for all the walls
-            //  use this matrix to recompute the las walls, continue with those
-            //  -> avoid single skewed walls caused by outliers (from trees near walls)
-
+            //  then ransac to find best matrix with least error for all the osmWalls
+            //  use this matrix to recompute the las osmWalls, continue with those
+            //  -> avoid single skewed osmWalls caused by outliers (from trees near osmWalls)
+        }
             // TODO danach vllt nochmal punkte rauswerfen die nicht an las wall sind, falls die outlier probleme machen
+
+        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
+
+            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
+            if (lasWallIt == osmWallLasWallMap.end())
+                continue;
+            const auto& osmWall = osmWalls[osmWallIdx];
+            const auto& lasWall = lasWalls[lasWallIt->second];
+
+            int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+            int randG = rand() % (156) + 100;
+            int randB = rand() % (156) + 100;
 
             pcl::PointXYZ lasWallPoint1, lasWallPoint2; // TODO hier matrix verwenden wenn ich sie hab
             //region get border points for las wall by projecting osm border points onto lasWallPlane
@@ -542,6 +560,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             auto lasMaxX = std::max(lasWallPoint1.x, lasWallPoint2.x);
             auto lasMinZ = std::min(lasWallPoint1.z, lasWallPoint2.z);
             auto lasMaxZ = std::max(lasWallPoint1.z, lasWallPoint2.z);
+
+            if (osmWallSearchResults[osmWallIdx].size() == 0)
+                continue;
+            const auto& pointIdxRadiusSearch = osmWallSearchResults[osmWallIdx];
 
             // select points with las wall plane with smaller threshold
             for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
@@ -645,7 +667,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         }
     }
 
-//    // find walls that have no corresponding osm wall
+//    // find osmWalls that have no corresponding osm wall
 //    for (auto pIdx = 0; pIdx < lasWallPoints.size(); pIdx++) {
 //        if (lasWallPoints[pIdx] && !usedLasWallPoints[pIdx]) {
 //            auto& point = (*cloud)[pIdx];
@@ -656,7 +678,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     if (removeOldWallPoints) {
         auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
         auto newTexCoords = std::vector<pcl::PointXY>();
-        // only keep old points that do not belong to walls
+        // only keep old points that do not belong to osmWalls
         for (auto pIdx = 0; pIdx < removePoints.size(); pIdx++) {
             if (!removePoints[pIdx]) {
                 newPoints.push_back((*cloud)[pIdx]);
@@ -676,7 +698,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         int tangentIdx = 0;
         for (auto pIdx = removePoints.size(); pIdx < (*cloud).size(); pIdx++) {
             newPoints.push_back((*cloud)[pIdx]);
-            newTexCoords.emplace_back(0, 0); // TODO give texture to walls
+            newTexCoords.emplace_back(0, 0); // TODO give texture to osmWalls
         }
 
         (*cloud).clear();
@@ -906,20 +928,20 @@ void DataIO::readShp(const std::string& path, std::vector<Polygon>* buildings) {
 
 float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings) {
     // preprocessing of buildings
-    // save all walls (min, mid, max point & radius)
-    // dann beim normalen orientieren spatial search nach mid point mit max radius von allen walls
+    // save all osmWalls (min, mid, max point & radius)
+    // dann beim normalen orientieren spatial search nach mid point mit max radius von allen osmWalls
     float maxR = 0;
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
         const auto& building = buildings[bIdx];
-        // get point index of next part/ring if there are more than one, skip "walls" which connect different parts
+        // get point index of next part/ring if there are more than one, skip "osmWalls" which connect different parts
         auto partIdx = building.parts.begin();
         uint32_t nextPartIndex = *partIdx;
         partIdx++;
         if (partIdx != building.parts.end()) {
             nextPartIndex = *partIdx;
         }
-        // for all walls
+        // for all osmWalls
         float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
         float ground = -38; // minY // TODO boden ist wegen opengl offset grad bei -38
         for (auto pointIdx = 0; pointIdx < building.points.size() - 1; pointIdx++) {
@@ -963,10 +985,10 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
 
             wall.length = Util::horizontalDistance(wall.point1, wall.point2);
 
-            walls.push_back(wall);
+            osmWalls.push_back(wall);
             wallMidPoints->push_back(wall.mid);
 
-            buildingOsmWallMap[bIdx].push_back(walls.size() - 1);
+            buildingOsmWallMap[bIdx].push_back(osmWalls.size() - 1);
 
         }
     }
