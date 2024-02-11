@@ -42,8 +42,8 @@ public:
 
 //    DataIO(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): {}
     bool readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
-                  const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints,
-                  std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
+                  const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
+                  std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
 
 private:
     const std::string TAG = "DataIO\t";
@@ -174,6 +174,13 @@ private:
     void readLas(const std::string& path);
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                               const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
+    void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
+                     const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords,
+                     std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+    void findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
+    void findYMinMax(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& yMin, float& yMax);
+    float getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
+
     // ********** shp **********
     // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
     double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY; // in wgs84 lat lon in degrees

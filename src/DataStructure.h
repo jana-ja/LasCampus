@@ -71,7 +71,6 @@ private:
     std::vector<pcl::PointXYZ> tangent1Vec;
     std::vector<pcl::PointXYZ> tangent2Vec;
 
-    std::vector<DataIO::Polygon> buildings;
 
     std::vector<pcl::PointXY> texCoords;
     std::string imgFile;
@@ -89,22 +88,16 @@ private:
 
 
 
-    void detectWalls(std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords);
 
 
     void adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
 
-    void normalOrientation(const uint32_t &startIdx, const uint32_t &endIdx, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr);
 
 
     int findIndex(float border, std::vector<float> vector1);
 
-    void findXYZMedian(std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
-    void findYMinMax(std::vector<int>& pointIndices, float& yMin, float& yMax);
-    void findStartEnd(std::vector<pcl::PointXYZ>& points, pcl::PointXYZ& start, pcl::PointXYZ& end);
-    float getMaxY(float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
 
     float adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
     float adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
@@ -112,7 +105,6 @@ private:
     // update neighbourhoods with classification
 //    float adaKnnAndAvgRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treePtr, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance);
     void adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
-    void adaNormalOrientation(float wallThreshold, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& treeP);
     void adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods, std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses);
     void adaResampling(float avgRadiusNeighbourhoods, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<int>& pointClasses);
 };
