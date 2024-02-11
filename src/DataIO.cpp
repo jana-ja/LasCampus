@@ -225,7 +225,7 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
 
             // check if belongs to building
             int intersectionCount = 0;
-            auto& bWalls = buildingWallMap[searchWall.buildingIdx];
+            auto& bWalls = buildingOsmWallMap[searchWall.buildingIdx];
             for (auto bWallIdx: bWalls) {
                 const auto& bWall = walls[bWallIdx];
 
@@ -406,13 +406,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
     // match osm and las walls
-    for (auto bIdx = 0; bIdx < buildingWallMap.size(); bIdx++) {
+    for (auto bIdx = 0; bIdx < buildingOsmWallMap.size(); bIdx++) {
 //    for (auto building: buildings) {
         auto const& building = buildings[bIdx];
 
         // for each wall
         wallCount = 0;
-        for (auto osmWallIdx: buildingWallMap[bIdx]) {
+        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
 
             // get wall
             const auto& osmWall = walls[osmWallIdx];
@@ -482,7 +482,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             if (certainWallPoints.size() < 3)
                 continue;
 
-            pcl::PointXYZRGBNormal lasWallPlane;
+            Util::Wall lasWall;
             // TODO test different approaches to get wall plane (some 2d line fitting? least squares regression was bad)
             //region fit *vertical* plane through certain wall points
 
@@ -495,7 +495,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // get median point of certain wall points
             float xMedian, yMedian, zMedian;
             findXYZMedian(cloud, certainWallPoints, xMedian, yMedian, zMedian);
-            lasWallPlane = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+            lasWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
 //                cloud->push_back(pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian, 0, 0, 255));
             // normal
             // check if normal is more vertical
@@ -505,10 +505,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             } else {
                 // make wall vertical
                 auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-                lasWallPlane.normal_x = lasWallNormal.x;
-                lasWallPlane.normal_y = lasWallNormal.y;
-                lasWallPlane.normal_z = lasWallNormal.z;
+                lasWall.mid.normal_x = lasWallNormal.x;
+                lasWall.mid.normal_y = lasWallNormal.y;
+                lasWall.mid.normal_z = lasWallNormal.z;
             }
+            // TODO find matrix, get las wall border points?
             //endregion
 
             // TODO get all wall planes for this building and compute transf matrix from osm wall to las wall.
@@ -523,13 +524,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             // project wall start and end point to certain wall point plane
             // get distance to plane
-            auto dist1 = Util::signedPointPlaneDistance(osmWall.point1, lasWallPlane);
-            auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWallPlane);
+            auto dist1 = Util::signedPointPlaneDistance(osmWall.point1, lasWall.mid);
+            auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
             // move point um distance along plane normal (point - (dist * normal))
-            lasWallPoint1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWallPlane.normal_x,
-                                                                                        dist1 * lasWallPlane.normal_y, dist1 * lasWallPlane.normal_z));
-            lasWallPoint2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWallPlane.normal_x,
-                                                                                        dist2 * lasWallPlane.normal_y, dist2 * lasWallPlane.normal_z));
+            lasWallPoint1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWall.mid.normal_x,
+                                                                                        dist1 * lasWall.mid.normal_y, dist1 * lasWall.mid.normal_z));
+            lasWallPoint2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
+                                                                                        dist2 * lasWall.mid.normal_y, dist2 * lasWall.mid.normal_z));
             //endregion
 
             pcl::Indices finalWallPoints;
@@ -548,7 +549,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 const auto& nIdx = *nIdxIt;
                 const auto& point = (*cloud)[*nIdxIt];
 
-                if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWallPlane) > lasWallThreshold) {
+                if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWall.mid) > lasWallThreshold) {
                     continue;
                 }
 
@@ -572,9 +573,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                         (*cloud)[nIdx].r = randB;
                     }
                     // project wall points onto las wallpoint plane
-                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
-                                                                                      pointDist * lasWallPlane.normal_z));
+                    auto pointDist = Util::signedPointPlaneDistance(point, lasWall.mid);
+                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWall.mid.normal_x, pointDist * lasWall.mid.normal_y,
+                                                                                      pointDist * lasWall.mid.normal_z));
                     finalWallPointsNotGround.push_back(newPosi);
                     removePoints[nIdx] = true;
                 }
@@ -965,7 +966,7 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             walls.push_back(wall);
             wallMidPoints->push_back(wall.mid);
 
-            buildingWallMap[bIdx].push_back(walls.size() - 1);
+            buildingOsmWallMap[bIdx].push_back(walls.size() - 1);
 
         }
     }

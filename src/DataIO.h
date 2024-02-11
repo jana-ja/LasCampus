@@ -199,7 +199,8 @@ private:
     void readShp(const std::string& path, std::vector<Polygon>* buildings);
     float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings);
     std::vector<Util::Wall> walls;
-    std::map<int, std::vector<int>> buildingWallMap;
+    std::map<int, std::vector<int>> buildingOsmWallMap;
+    std::map<int, std::vector<int>> buildingLasWallMap;
 
     // ********** img **********
     bool readImg(std::vector<unsigned char>& image, const std::string& filename, const int& desiredChannels, int& width, int& height);
