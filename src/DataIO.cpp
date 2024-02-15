@@ -891,6 +891,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             auto& lasWall = lasWalls[lasWallIt->second];
 
 
+            const auto transformOsmWallIdx = buildingOsmWallMap[bIdx][minErrorIdx];
+            const auto& transformOsmWall = osmWalls[transformOsmWallIdx];
             // matrix: cos angle, sin angle, transl x, transl z
             const auto& matrix = matrices[minErrorIdx];
 
@@ -899,17 +901,23 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             const auto& translateX = matrix[2];
             const auto& translateZ = matrix[3];
 
+            auto scaleFactor = 0.99f;
+
             // transform osm wall to las wall
             // update las wall
-            float newPoint1X = osmWall.point1.x - osmWall.mid.x;
-            float newPoint1Z = osmWall.point1.z - osmWall.mid.z;
-            newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  osmWall.mid.x  +  translateX;
-            newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  osmWall.mid.z  +  translateZ;
+            float newPoint1X = osmWall.point1.x - transformOsmWall.mid.x;
+            float newPoint1Z = osmWall.point1.z - transformOsmWall.mid.z;
+            newPoint1X *= scaleFactor;
+            newPoint1Z *= scaleFactor;
+            newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  transformOsmWall.mid.x  +  translateX;
+            newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  transformOsmWall.mid.z  +  translateZ;
 
-            float newPoint2X = osmWall.point2.x - osmWall.mid.x;
-            float newPoint2Z = osmWall.point2.z - osmWall.mid.z;
-            newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  osmWall.mid.x  +  translateX;
-            newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  osmWall.mid.z  +  translateZ;
+            float newPoint2X = osmWall.point2.x - transformOsmWall.mid.x;
+            float newPoint2Z = osmWall.point2.z - transformOsmWall.mid.z;
+            newPoint2X *= scaleFactor;
+            newPoint2Z *= scaleFactor;
+            newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  transformOsmWall.mid.x  +  translateX;
+            newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  transformOsmWall.mid.z  +  translateZ;
 
             lasWall.point1.x = newPoint1X;
             lasWall.point1.z = newPoint1Z;
@@ -924,8 +932,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             lasWall.mid.normal_x = newNormal.x;
             lasWall.mid.normal_z = newNormal.z;
 
-            float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
-            float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
+            float newMidPointX = osmWall.mid.x - transformOsmWall.mid.x;
+            newMidPointX *= scaleFactor;
+            float newMidPointZ = osmWall.mid.z - transformOsmWall.mid.z;
+            newMidPointZ *= scaleFactor;
+            newMidPointX = cosAngle * newMidPointX - sinAngle * newMidPointZ + transformOsmWall.mid.x + translateX;
+            newMidPointZ = sinAngle * newMidPointX + cosAngle * newMidPointZ + transformOsmWall.mid.z + translateZ;
+
             lasWall.mid.x = newMidPointX;
             lasWall.mid.z = newMidPointZ;
 
