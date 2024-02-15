@@ -728,208 +728,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
 
-//            //region draw old las wall
-//
-//        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
-//
-//            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-//            if (lasWallIt == osmWallLasWallMap.end())
-//                continue;
-////            const auto& osmWall = osmWalls[osmWallIdx];
-//            auto& lasWall = lasWalls[lasWallIt->second];
-//
-//            int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
-//            int randG = rand() % (156) + 100;
-//            int randB = rand() % (156) + 100;
-//
-//
-//            pcl::Indices finalWallPoints;
-//            std::vector<pcl::PointXYZ> finalWallPointsNotGround;
-//            //region get all las wall points with lasWallPlane and las border points   +   project these points onto plane
-//
-//            // get min max wall borders
-//            auto lasMinX = std::min(lasWall.point1.x, lasWall.point2.x);
-//            auto lasMaxX = std::max(lasWall.point1.x, lasWall.point2.x);
-//            auto lasMinZ = std::min(lasWall.point1.z, lasWall.point2.z);
-//            auto lasMaxZ = std::max(lasWall.point1.z, lasWall.point2.z);
-//
-//            if (osmWallSearchResults[osmWallIdx].size() == 0)
-//                continue;
-//            const auto& pointIdxRadiusSearch = osmWallSearchResults[osmWallIdx];
-//
-//            // select points with las wall plane with smaller threshold
-//            for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
-//
-//                const auto& nIdx = *nIdxIt;
-//                const auto& point = (*cloud)[*nIdxIt];
-//
-//                if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWall.mid) > lasWallThreshold) {
-//                    continue;
-//                }
-//
-//                if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) {
-//                    continue;
-//                }
-//
-//                if (colorFinalLasWall) {
-//                    (*cloud)[nIdx].b = randR;
-//                    (*cloud)[nIdx].g = randG;
-//                    (*cloud)[nIdx].r = randB;
-//                }
-//
-//                // dont need to project these, because they are only used to determine y values and projection normal is horizontal
-//                finalWallPoints.push_back(nIdx);
-//
-//                if (!lasGroundPoints[nIdx]) {
-//                    if (colorFinalLasWallWithoutGround) {
-//                        (*cloud)[nIdx].b = randR;
-//                        (*cloud)[nIdx].g = randG;
-//                        (*cloud)[nIdx].r = randB;
-//                    }
-//                    // project wall points onto las wallpoint plane
-//                    auto pointDist = Util::signedPointPlaneDistance(point, lasWall.mid);
-//                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWall.mid.normal_x, pointDist * lasWall.mid.normal_y,
-//                                                                                      pointDist * lasWall.mid.normal_z));
-//                    finalWallPointsNotGround.push_back(newPosi);
-//                    removePoints[nIdx] = true;
-//                }
-//
-//
-////                    // project wall points onto las wallpoint plane
-////                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-////                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
-////                                                                                      pointDist * lasWallPlane.normal_z));
-////                    (*cloud)[nIdx].x = newPosi.x;
-////                    (*cloud)[nIdx].y = newPosi.y;
-////                    (*cloud)[nIdx].z = newPosi.z;
-//            }
-//            //endregion
-//
-//            if (finalWallPoints.empty())
-//                continue;
-//
-//            //region fill wall with points
-//
-//            // get y min and max from finalWallPoints to cover wall from bottom to top
-//            float yMin, yMax;
-//            findYMinMax(cloud, finalWallPoints, yMin, yMax);
-//            lasWall.point1.y = yMin; // TODo muss ich dashier üerhaupt setzen? sonst wieder const machen
-//            lasWall.point2.y = yMin;
-//
-//            // draw plane
-//            float stepWidth = 0.5;
-//            // get perp vec
-//            auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
-//            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-//            auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-//
-//            float lasWallLength = Util::vectorLength(lasWallVec);
-//            float x = lasWall.point1.x;
-//            float z = lasWall.point1.z;
-//            float distanceMoved = 0;
-//
-//            // move horizontal
-//            while (distanceMoved < lasWallLength) {
-//                float y = yMin;
-//                float xCopy = x;
-//                float zCopy = z;
-//                float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
-////                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-//                while (y < currentMaxY) {
-//                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 100, 0);//randR, randG, randB));
-//                    // set normal
-//                    v.normal_x = lasWallNormal.x;
-//                    v.normal_y = lasWallNormal.y;
-//                    v.normal_z = lasWallNormal.z;
-//                    // also set tangents
-//                    tangent1Vec.push_back(horPerpVec);
-//                    tangent2Vec.emplace_back(0, 1, 0);
-//                    texCoords.emplace_back(0, 0);
-//
-//                    cloud->push_back(v);
-//
-//                    y += stepWidth;
-//                }
-////                }
-//                x = xCopy + stepWidth * horPerpVec.x;
-//                z = zCopy + stepWidth * horPerpVec.z;
-//                distanceMoved += stepWidth;
-//            }
-//            //endregion
-//
-//            auto v = pcl::PointXYZRGBNormal(lasWall.mid.x, lasWall.mid.y, lasWall.mid.z, 0, 255, 0);//randR, randG, randB));
-//            // set normal
-//            v.normal_x = lasWallNormal.x;
-//            v.normal_y = lasWallNormal.y;
-//            v.normal_z = lasWallNormal.z;
-//            // also set tangents
-//            tangent1Vec.push_back(horPerpVec);
-//            tangent2Vec.emplace_back(0, 1, 0);
-//            texCoords.emplace_back(0, 0);
-//
-//            cloud->push_back(v);
-//
-//        }
-//        //endregion
-
-
-
-
-
-
-
-        // use this matrix to transform all osm walls to new las walls
-        // TODO danach vllt nochmal punkte rauswerfen die nicht an las wall sind, falls die outlier probleme machen
-
-        for (auto osmWallMapIdx = 0; osmWallMapIdx < buildingOsmWallMap[bIdx].size(); osmWallMapIdx++) {
-
-            const auto osmWallIdx = buildingOsmWallMap[bIdx][osmWallMapIdx];
-            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-            if (lasWallIt == osmWallLasWallMap.end()) // TODo die wände hier einfach neu dazu tun?
-                continue;
-            const auto& osmWall = osmWalls[osmWallIdx];
-            auto& lasWall = lasWalls[lasWallIt->second];
-
-
-            // matrix: cos angle, sin angle, transl x, transl z
-            const auto& matrix = matrices[minErrorIdx];
-
-            const auto& cosAngle = matrix[0];
-            const auto& sinAngle = matrix[1];
-            const auto& translateX = matrix[2];
-            const auto& translateZ = matrix[3];
-
-            // transform osm wall to las wall
-            // update las wall
-            float newPoint1X = osmWall.point1.x - osmWall.mid.x;
-            float newPoint1Z = osmWall.point1.z - osmWall.mid.z;
-            newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  osmWall.mid.x  +  translateX;
-            newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  osmWall.mid.z  +  translateZ;
-
-            float newPoint2X = osmWall.point2.x - osmWall.mid.x;
-            float newPoint2Z = osmWall.point2.z - osmWall.mid.z;
-            newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  osmWall.mid.x  +  translateX;
-            newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  osmWall.mid.z  +  translateZ;
-
-            lasWall.point1.x = newPoint1X;
-            lasWall.point1.z = newPoint1Z;
-            lasWall.point2.x = newPoint2X;
-            lasWall.point2.z = newPoint2Z;
-
-            pcl::PointXYZ newNormal;
-            newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
-            newNormal.y = 0;
-            newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
-
-            lasWall.mid.normal_x = newNormal.x;
-            lasWall.mid.normal_z = newNormal.z;
-
-            float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
-            float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
-            lasWall.mid.x = newMidPointX;
-            lasWall.mid.z = newMidPointZ;
-
-        }
+            //region draw old las wall
 
         for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
 
@@ -1036,8 +835,210 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float zCopy = z;
                 float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
 //                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
+                while (y < currentMaxY) {
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 100, 0);//randR, randG, randB));
+                    // set normal
+                    v.normal_x = lasWallNormal.x;
+                    v.normal_y = lasWallNormal.y;
+                    v.normal_z = lasWallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    cloud->push_back(v);
+
+                    y += stepWidth;
+                }
+//                }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
+                distanceMoved += stepWidth;
+            }
+            //endregion
+
+            auto v = pcl::PointXYZRGBNormal(lasWall.mid.x, lasWall.mid.y, lasWall.mid.z, 0, 255, 0);//randR, randG, randB));
+            // set normal
+            v.normal_x = lasWallNormal.x;
+            v.normal_y = lasWallNormal.y;
+            v.normal_z = lasWallNormal.z;
+            // also set tangents
+            tangent1Vec.push_back(horPerpVec);
+            tangent2Vec.emplace_back(0, 1, 0);
+            texCoords.emplace_back(0, 0);
+
+            cloud->push_back(v);
+
+        }
+        //endregion
+
+
+
+
+
+
+
+        // use this matrix to transform all osm walls to new las walls
+        // TODO danach vllt nochmal punkte rauswerfen die nicht an las wall sind, falls die outlier probleme machen
+
+        for (auto osmWallMapIdx = 0; osmWallMapIdx < buildingOsmWallMap[bIdx].size(); osmWallMapIdx++) {
+
+            const auto osmWallIdx = buildingOsmWallMap[bIdx][osmWallMapIdx];
+            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
+            if (lasWallIt == osmWallLasWallMap.end()) // TODo die wände hier einfach neu dazu tun?
+                continue;
+            const auto& osmWall = osmWalls[osmWallIdx];
+            auto& lasWall = lasWalls[lasWallIt->second];
+
+
+            // matrix: cos angle, sin angle, transl x, transl z
+            const auto& matrix = matrices[minErrorIdx];
+
+            const auto& cosAngle = matrix[0];
+            const auto& sinAngle = matrix[1];
+            const auto& translateX = matrix[2];
+            const auto& translateZ = matrix[3];
+
+            // transform osm wall to las wall
+            // update las wall
+            float newPoint1X = osmWall.point1.x - osmWall.mid.x;
+            float newPoint1Z = osmWall.point1.z - osmWall.mid.z;
+            newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  osmWall.mid.x  +  translateX;
+            newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  osmWall.mid.z  +  translateZ;
+
+            float newPoint2X = osmWall.point2.x - osmWall.mid.x;
+            float newPoint2Z = osmWall.point2.z - osmWall.mid.z;
+            newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  osmWall.mid.x  +  translateX;
+            newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  osmWall.mid.z  +  translateZ;
+
+            lasWall.point1.x = newPoint1X;
+            lasWall.point1.z = newPoint1Z;
+            lasWall.point2.x = newPoint2X;
+            lasWall.point2.z = newPoint2Z;
+
+            pcl::PointXYZ newNormal;
+            newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
+            newNormal.y = 0;
+            newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
+
+            lasWall.mid.normal_x = newNormal.x;
+            lasWall.mid.normal_z = newNormal.z;
+
+            float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
+            float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
+            lasWall.mid.x = newMidPointX;
+            lasWall.mid.z = newMidPointZ;
+
+        }
+
+        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
+
+            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
+            if (lasWallIt == osmWallLasWallMap.end())
+                continue;
+//            const auto& osmWall = osmWalls[osmWallIdx];
+            auto& lasWall = lasWalls[lasWallIt->second];
+
+            int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+            int randG = rand() % (156) + 100;
+            int randB = rand() % (156) + 100;
+
+
+            pcl::Indices finalWallPoints; // TODO vllt sind die hier nicht so gut weil doch von den certain las wall points weggeschoben?
+            std::vector<pcl::PointXYZ> finalWallPointsNotGround;
+            //region get all las wall points with lasWallPlane and las border points   +   project these points onto plane
+
+            // get min max wall borders
+            auto lasMinX = std::min(lasWall.point1.x, lasWall.point2.x);
+            auto lasMaxX = std::max(lasWall.point1.x, lasWall.point2.x);
+            auto lasMinZ = std::min(lasWall.point1.z, lasWall.point2.z);
+            auto lasMaxZ = std::max(lasWall.point1.z, lasWall.point2.z);
+
+            if (osmWallSearchResults[osmWallIdx].size() == 0)
+                continue;
+            const auto& pointIdxRadiusSearch = osmWallSearchResults[osmWallIdx];
+
+            // select points with las wall plane with smaller threshold
+            for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+
+                const auto& nIdx = *nIdxIt;
+                const auto& point = (*cloud)[*nIdxIt];
+
+                if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWall.mid) > lasWallThreshold) {
+                    continue;
+                }
+
+                if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) {
+                    continue;
+                }
+
+                if (colorFinalLasWall) {
+                    (*cloud)[nIdx].b = randR;
+                    (*cloud)[nIdx].g = randG;
+                    (*cloud)[nIdx].r = randB;
+                }
+
+                // dont need to project these, because they are only used to determine y values and projection normal is horizontal
+                finalWallPoints.push_back(nIdx);
+
+                if (!lasGroundPoints[nIdx]) {
+                    if (colorFinalLasWallWithoutGround) {
+                        (*cloud)[nIdx].b = randR;
+                        (*cloud)[nIdx].g = randG;
+                        (*cloud)[nIdx].r = randB;
+                    }
+                    // project wall points onto las wallpoint plane
+                    auto pointDist = Util::signedPointPlaneDistance(point, lasWall.mid);
+                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWall.mid.normal_x, pointDist * lasWall.mid.normal_y,
+                                                                                      pointDist * lasWall.mid.normal_z));
+                    finalWallPointsNotGround.push_back(newPosi);
+                    removePoints[nIdx] = true;
+                }
+
+
+//                    // project wall points onto las wallpoint plane
+//                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
+//                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
+//                                                                                      pointDist * lasWallPlane.normal_z));
+//                    (*cloud)[nIdx].x = newPosi.x;
+//                    (*cloud)[nIdx].y = newPosi.y;
+//                    (*cloud)[nIdx].z = newPosi.z;
+            }
+            //endregion
+
+            if (finalWallPoints.empty())
+                continue;
+
+            //region fill wall with points
+
+            // get y min and max from finalWallPoints to cover wall from bottom to top
+            float yMin, yMax;
+            // TODO vllt minY pro gebäude finden?
+            findYMinMax(cloud, finalWallPoints, yMin, yMax);
+            lasWall.point1.y = yMin; // TODo muss ich dashier üerhaupt setzen? sonst wieder const machen
+            lasWall.point2.y = yMin;
+
+            // draw plane
+            float stepWidth = 0.5;
+            // get perp vec
+            auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
+            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+            auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+
+            float lasWallLength = Util::vectorLength(lasWallVec);
+            float x = lasWall.point1.x;
+            float z = lasWall.point1.z;
+            float distanceMoved = 0;
+
+            // move horizontal
+            while (distanceMoved < lasWallLength) {
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
+//                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                     while (y < currentMaxY) {
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 0, 0);//randR, randG, randB));
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, 200, 200, 200);//randR, randG, randB));
                         // set normal
                         v.normal_x = lasWallNormal.x;
                         v.normal_y = lasWallNormal.y;
