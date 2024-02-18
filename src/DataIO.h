@@ -149,6 +149,13 @@ private:
         float xMin, zMin, xMax, zMax;
     };
 
+    struct Building {
+        std::vector<Util::Wall> osmWalls;
+        std::vector<std::optional<Util::Wall>> lasWalls;
+        std::vector<int> parts; // start indices of parts
+        float xMin, zMin, xMax, zMax;
+    };
+
     // ########## FIELDS & METHODS ##########
 
     bool colorReturnNumberClasses = false;
@@ -174,18 +181,13 @@ private:
     void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
                      const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords,
                      std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+    void complexStableWalls(Building& building);
     void findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
     void findYMinMax(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& yMin, float& yMax);
     float getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
 
     // ********** shp **********
 
-    struct Building {
-        std::vector<Util::Wall> osmWalls;
-        std::vector<std::optional<Util::Wall>> lasWalls;
-        std::vector<int> parts; // start indices of parts
-        float xMin, zMin, xMax, zMax;
-    };
     std::vector<Building> buildings;
 //    std::vector<Util::Wall> lasWalls;
     double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY; // in wgs84 lat lon in degrees

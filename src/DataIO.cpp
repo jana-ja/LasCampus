@@ -381,14 +381,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     std::fill(usedLasWallPoints.begin(), usedLasWallPoints.end(), false);
 
 
-
-
-    // match osm and las walls
     for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
-
-
-
-
 
 
 
@@ -457,9 +450,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
 
-
         auto& building = buildings[bIdx];
         building.lasWalls = std::vector<std::optional<Util::Wall>>(building.osmWalls.size());
+        //region match osm and las walls
 
         std::map<int, pcl::Indices> osmWallSearchResults;
         std::map<int, pcl::Indices> lasCertainWallPoints;
@@ -586,124 +579,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             //endregion
         }
+        //endregion
 
         // skip if building has no las walls
         if (!std::any_of(building.lasWalls.begin(), building.lasWalls.end(), [](std::optional<Util::Wall> wall){return wall.has_value();}))
             continue;
 
 
-        // get matrices and indices of corresponding las walls
-        // matrix: cos angle, sin angle, transl x, transl z
-        auto matrices = std::vector<std::array<float, 4>>(building.osmWalls.size());
-        std::vector<int> osmWallsWithLasWallIndices; // TODO weiter oben anlegen und darüber check machen ob es las walls gibt
 
-        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
-
-            // get all wall planes for this building and compute transf matrix from osm wall to las wall.
-            //  then ransac to find best matrix with least error for all the osmWalls
-            //  use this matrix to recompute the las walls, continue with those
-            //  -> avoid single skewed osmWalls caused by outliers (from trees near osmWalls)
-
-            auto& lasWallOpt = building.lasWalls[osmWallIdx];
-            if (!lasWallOpt.has_value())
-                continue;
-            auto& lasWall = lasWallOpt.value();
-            const auto& osmWall = building.osmWalls[osmWallIdx];
-
-            osmWallsWithLasWallIndices.emplace_back(osmWallIdx);
-
-            // comp matrix from osm wall to las wall
-            // need angle between normals and transform from osm point to las point
-            // horizontal
-            auto osmToLasVec = pcl::PointXYZ(lasWall.mid.x - osmWall.mid.x, 0, lasWall.mid.z - osmWall.mid.z);
-            // counter clockwise from osm to las, range [-180, 180]
-            auto osmToLasAngle = atan2(osmWall.mid.normal_x * lasWall.mid.normal_z - osmWall.mid.normal_z * lasWall.mid.normal_x, osmWall.mid.normal_x * lasWall.mid.normal_x + osmWall.mid.normal_z * lasWall.mid.normal_z);
-
-            auto cosAngle = cos(osmToLasAngle);
-            auto sinAngle = sin(osmToLasAngle);
-
-            auto& matrix = matrices[osmWallIdx];
-            matrix[0] = cosAngle;
-            matrix[1] = sinAngle;
-            matrix[2] = osmToLasVec.x;
-            matrix[3] = osmToLasVec.z;
-
-            // TODo vllt dann für las am anfagn doch mittelwert nehmen statt median?
-        }
-
-        // find matrix with smallest error
-        float minError = INFINITY;
-        int minErrorIdx;
-        // get index sample;
-        std::vector<int> out;
-        size_t nelems = osmWallsWithLasWallIndices.size();// / 2; //TODO wie oft ransac?
-        std::sample(
-                osmWallsWithLasWallIndices.begin(),
-                osmWallsWithLasWallIndices.end(),
-                std::back_inserter(out),
-                nelems,
-                std::mt19937{std::random_device{}()}
-        );
-
-        for (auto testWallIdx: out) {
-
-            // get random index
-//            int testOsmWallMapIdx = std::rand() % (buildingOsmWallMap[bIdx].size());
-
-            // matrix: cos angle, sin angle, transl x, transl z
-            const auto& matrix = matrices[testWallIdx];
-
-            const auto& cosAngle = matrix[0];
-            const auto& sinAngle = matrix[1];
-            const auto& translateX = matrix[2];
-            const auto& translateZ = matrix[3];
-
-            float error = 0;
-            // sum up error for walls of this building
-            for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
-
-                auto& lasWallOpt = building.lasWalls[osmWallIdx];
-                if (!lasWallOpt.has_value())
-                    continue;
-                auto& lasWall = lasWallOpt.value();
-                const auto& osmWall = building.osmWalls[osmWallIdx];
-
-                // check matrix
-                pcl::PointXYZ newNormal;
-                newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
-                newNormal.y = 0;
-                newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
-                auto lasWallNormal = pcl::PointXYZ(lasWall.mid.normal_x, lasWall.mid.normal_y, lasWall.mid.normal_z);
-
-                float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
-                float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
-                auto newMidPoint = pcl::PointXYZRGBNormal(newMidPointX, 0, newMidPointZ);
-
-                // TODO bei normalen vllt winkel? dann iwie relativieren mit 90° oder so?
-                float normalError = Util::vectorLength(Util::vectorSubtract(newNormal, lasWallNormal));
-                // TODO ebenen abstand von matrix*osm mid zu korrespondierende las wall ebene
-                float distError = Util::horizontalDistance(newMidPoint, lasWall.mid);
-                // TODO vllt auch error der rand punkte mit nehmen? damit mid verschiebungen bei zu kurzen wänden rausfallen?  könnte sein dass die sowieso rausfallen
-                error += normalError + distError; // TODO wie gewichten?
-            }
-
-            if (error < minError) {
-                minError = error;
-                minErrorIdx = testWallIdx;
-            }
-        }
-
-        if(minError == INFINITY)
-            continue; //TODo notlösung: manche gebäude liegen nur teilweise in der las da ta range, dadurch haben nur manche wände davon eine entsprechende las wand.
-            //  da kanns dann sein dass die oben bei den random dingern nicht dabei ist, dadurch der min error nicht gesetzt wird und dann crasht es unten.
-            //  ich muss mir überlegen was ich dann machen will? vermutlich oben den random index so wählen dass er nur aus tatsächlichen las wänden gewählt wird
-
-
-
-
-
-
-            //region draw old las wall
+        //region draw old las wall
         for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
             auto& lasWallOpt = building.lasWalls[osmWallIdx];
@@ -839,77 +723,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
 
+        complexStableWalls(building);
 
+        // region draw las walls
 
-
-
-        // use this matrix to transform all osm walls to new las walls
-        // TODO danach vllt nochmal punkte rauswerfen die nicht an las wall sind, falls die outlier probleme machen
-        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
-
-            auto& lasWallOpt = building.lasWalls[osmWallIdx];
-            if (!lasWallOpt.has_value())
-                continue;
-            auto& lasWall = lasWallOpt.value();
-            const auto& osmWall = building.osmWalls[osmWallIdx];
-
-
-            const auto& transformOsmWall = building.osmWalls[minErrorIdx];
-            // matrix: cos angle, sin angle, transl x, transl z
-            const auto& matrix = matrices[minErrorIdx];
-
-            const auto& cosAngle = matrix[0];
-            const auto& sinAngle = matrix[1];
-            const auto& translateX = matrix[2];
-            const auto& translateZ = matrix[3];
-
-            auto scaleFactor = 0.99f;
-
-            // transform osm wall to las wall
-            // update las wall
-            float newPoint1X = osmWall.point1.x - transformOsmWall.mid.x;
-            float newPoint1Z = osmWall.point1.z - transformOsmWall.mid.z;
-            newPoint1X *= scaleFactor;
-            newPoint1Z *= scaleFactor;
-            newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  transformOsmWall.mid.x  +  translateX;
-            newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  transformOsmWall.mid.z  +  translateZ;
-
-            float newPoint2X = osmWall.point2.x - transformOsmWall.mid.x;
-            float newPoint2Z = osmWall.point2.z - transformOsmWall.mid.z;
-            newPoint2X *= scaleFactor;
-            newPoint2Z *= scaleFactor;
-            newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  transformOsmWall.mid.x  +  translateX;
-            newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  transformOsmWall.mid.z  +  translateZ;
-
-            lasWall.point1.x = newPoint1X;
-            lasWall.point1.z = newPoint1Z;
-            lasWall.point2.x = newPoint2X;
-            lasWall.point2.z = newPoint2Z;
-
-            pcl::PointXYZ newNormal;
-            newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
-            newNormal.y = 0;
-            newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
-
-            lasWall.mid.normal_x = newNormal.x;
-            lasWall.mid.normal_z = newNormal.z;
-
-            float newMidPointX = osmWall.mid.x - transformOsmWall.mid.x;
-            newMidPointX *= scaleFactor;
-            float newMidPointZ = osmWall.mid.z - transformOsmWall.mid.z;
-            newMidPointZ *= scaleFactor;
-            newMidPointX = cosAngle * newMidPointX - sinAngle * newMidPointZ + transformOsmWall.mid.x + translateX;
-            newMidPointZ = sinAngle * newMidPointX + cosAngle * newMidPointZ + transformOsmWall.mid.z + translateZ;
-
-            lasWall.mid.x = newMidPointX;
-            lasWall.mid.z = newMidPointZ;
-
-            // TODO merge conflict
-            auto& bla = lasWall.point1;
-            auto& blsdfa = lasWall.point2;
-
-
-        }
         for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
             auto& lasWallOpt = building.lasWalls[osmWallIdx];
@@ -1040,6 +857,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
         }
+        //endregion
+
     }
 
 //    // find walls that have no corresponding osm wall
@@ -1492,5 +1311,184 @@ void DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::Poin
     } else {
         throw std::runtime_error("Can't find .normal file");
     }
+}
+
+void DataIO::complexStableWalls(DataIO::Building& building) {
+
+    // matrix: cos angle, sin angle, transl x, transl z
+    auto matrices = std::vector<std::array<float, 4>>(building.osmWalls.size());
+    std::vector<int> osmWallsWithLasWallIndices; // TODO weiter oben anlegen und darüber check machen ob es las walls gibt
+    //region calculate transform matrices for corresponding osm and las walls
+
+    for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+
+        // get all wall planes for this building and compute transf matrix from osm wall to las wall.
+        //  then ransac to find best matrix with least error for all the osmWalls
+        //  use this matrix to recompute the las walls, continue with those
+        //  -> avoid single skewed osmWalls caused by outliers (from trees near osmWalls)
+
+        auto& lasWallOpt = building.lasWalls[osmWallIdx];
+        if (!lasWallOpt.has_value())
+            continue;
+        auto& lasWall = lasWallOpt.value();
+        const auto& osmWall = building.osmWalls[osmWallIdx];
+
+        osmWallsWithLasWallIndices.emplace_back(osmWallIdx);
+
+        // comp matrix from osm wall to las wall
+        // need angle between normals and transform from osm point to las point
+        // horizontal
+        auto osmToLasVec = pcl::PointXYZ(lasWall.mid.x - osmWall.mid.x, 0, lasWall.mid.z - osmWall.mid.z);
+        // counter clockwise from osm to las, range [-180, 180]
+        auto osmToLasAngle = atan2(osmWall.mid.normal_x * lasWall.mid.normal_z - osmWall.mid.normal_z * lasWall.mid.normal_x, osmWall.mid.normal_x * lasWall.mid.normal_x + osmWall.mid.normal_z * lasWall.mid.normal_z);
+
+        auto cosAngle = cos(osmToLasAngle);
+        auto sinAngle = sin(osmToLasAngle);
+
+        auto& matrix = matrices[osmWallIdx];
+        matrix[0] = cosAngle;
+        matrix[1] = sinAngle;
+        matrix[2] = osmToLasVec.x;
+        matrix[3] = osmToLasVec.z;
+
+        // TODo vllt dann für las am anfagn doch mittelwert nehmen statt median?
+    }
+    //endregion
+
+
+    float minError = INFINITY;
+    int minErrorIdx;
+    //region find matrix with smallest error
+
+    // get index sample;
+    std::vector<int> out;
+    size_t nelems = osmWallsWithLasWallIndices.size();// / 2; //TODO wie oft ransac?
+    std::sample(
+            osmWallsWithLasWallIndices.begin(),
+            osmWallsWithLasWallIndices.end(),
+            std::back_inserter(out),
+            nelems,
+            std::mt19937{std::random_device{}()}
+    );
+
+    for (auto testWallIdx: out) {
+
+        // get random index
+//            int testOsmWallMapIdx = std::rand() % (buildingOsmWallMap[bIdx].size());
+
+        // matrix: cos angle, sin angle, transl x, transl z
+        const auto& matrix = matrices[testWallIdx];
+
+        const auto& cosAngle = matrix[0];
+        const auto& sinAngle = matrix[1];
+        const auto& translateX = matrix[2];
+        const auto& translateZ = matrix[3];
+
+        float error = 0;
+        // sum up error for walls of this building
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+
+            auto& lasWallOpt = building.lasWalls[osmWallIdx];
+            if (!lasWallOpt.has_value())
+                continue;
+            auto& lasWall = lasWallOpt.value();
+            const auto& osmWall = building.osmWalls[osmWallIdx];
+
+            // check matrix
+            pcl::PointXYZ newNormal;
+            newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
+            newNormal.y = 0;
+            newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
+            auto lasWallNormal = pcl::PointXYZ(lasWall.mid.normal_x, lasWall.mid.normal_y, lasWall.mid.normal_z);
+
+            float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
+            float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
+            auto newMidPoint = pcl::PointXYZRGBNormal(newMidPointX, 0, newMidPointZ);
+
+            // TODO bei normalen vllt winkel? dann iwie relativieren mit 90° oder so?
+            float normalError = Util::vectorLength(Util::vectorSubtract(newNormal, lasWallNormal));
+            // TODO ebenen abstand von matrix*osm mid zu korrespondierende las wall ebene
+            float distError = Util::horizontalDistance(newMidPoint, lasWall.mid);
+            // TODO vllt auch error der rand punkte mit nehmen? damit mid verschiebungen bei zu kurzen wänden rausfallen?  könnte sein dass die sowieso rausfallen
+            error += normalError + distError; // TODO wie gewichten?
+        }
+
+        if (error < minError) {
+            minError = error;
+            minErrorIdx = testWallIdx;
+        }
+    }
+    //endregion
+
+    if(minError == INFINITY)
+        return; //TODo notlösung: manche gebäude liegen nur teilweise in der las da ta range, dadurch haben nur manche wände davon eine entsprechende las wand.
+    //  da kanns dann sein dass die oben bei den random dingern nicht dabei ist, dadurch der min error nicht gesetzt wird und dann crasht es unten.
+    //  ich muss mir überlegen was ich dann machen will? vermutlich oben den random index so wählen dass er nur aus tatsächlichen las wänden gewählt wird
+
+    // region use this matrix to transform all osm walls to new las walls
+
+    // TODO danach vllt nochmal punkte rauswerfen die nicht an las wall sind, falls die outlier probleme machen
+    for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+
+        auto& lasWallOpt = building.lasWalls[osmWallIdx];
+        if (!lasWallOpt.has_value())
+            continue;
+        auto& lasWall = lasWallOpt.value();
+        const auto& osmWall = building.osmWalls[osmWallIdx];
+
+
+        const auto& transformOsmWall = building.osmWalls[minErrorIdx];
+        // matrix: cos angle, sin angle, transl x, transl z
+        const auto& matrix = matrices[minErrorIdx];
+
+        const auto& cosAngle = matrix[0];
+        const auto& sinAngle = matrix[1];
+        const auto& translateX = matrix[2];
+        const auto& translateZ = matrix[3];
+
+        auto scaleFactor = 0.99f;
+
+        // transform osm wall to las wall
+        // update las wall
+        float newPoint1X = osmWall.point1.x - transformOsmWall.mid.x;
+        float newPoint1Z = osmWall.point1.z - transformOsmWall.mid.z;
+        newPoint1X *= scaleFactor;
+        newPoint1Z *= scaleFactor;
+        newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  transformOsmWall.mid.x  +  translateX;
+        newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  transformOsmWall.mid.z  +  translateZ;
+
+        float newPoint2X = osmWall.point2.x - transformOsmWall.mid.x;
+        float newPoint2Z = osmWall.point2.z - transformOsmWall.mid.z;
+        newPoint2X *= scaleFactor;
+        newPoint2Z *= scaleFactor;
+        newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  transformOsmWall.mid.x  +  translateX;
+        newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  transformOsmWall.mid.z  +  translateZ;
+
+        lasWall.point1.x = newPoint1X;
+        lasWall.point1.z = newPoint1Z;
+        lasWall.point2.x = newPoint2X;
+        lasWall.point2.z = newPoint2Z;
+
+        pcl::PointXYZ newNormal;
+        newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
+        newNormal.y = 0;
+        newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
+
+        lasWall.mid.normal_x = newNormal.x;
+        lasWall.mid.normal_z = newNormal.z;
+
+        float newMidPointX = osmWall.mid.x - transformOsmWall.mid.x;
+        newMidPointX *= scaleFactor;
+        float newMidPointZ = osmWall.mid.z - transformOsmWall.mid.z;
+        newMidPointZ *= scaleFactor;
+        newMidPointX = cosAngle * newMidPointX - sinAngle * newMidPointZ + transformOsmWall.mid.x + translateX;
+        newMidPointZ = sinAngle * newMidPointX + cosAngle * newMidPointZ + transformOsmWall.mid.z + translateZ;
+
+        lasWall.mid.x = newMidPointX;
+        lasWall.mid.z = newMidPointZ;
+
+    }
+    //endregion
+
 }
 
