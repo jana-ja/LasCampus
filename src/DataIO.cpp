@@ -452,10 +452,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
         auto& building = buildings[bIdx];
         building.lasWalls = std::vector<std::optional<Util::Wall>>(building.osmWalls.size());
-        //region match osm and las walls
-
         std::map<int, pcl::Indices> osmWallSearchResults;
         std::map<int, pcl::Indices> lasCertainWallPoints;
+        //region match osm and las walls
 
         // for each wall
         for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
@@ -723,7 +722,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
 
-        complexStableWalls(building);
+        simpleStableWalls(building, lasCertainWallPoints, cloud);
+//        complexStableWalls(building);
 
         // region draw las walls
 
@@ -1310,6 +1310,115 @@ void DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::Poin
 
     } else {
         throw std::runtime_error("Can't find .normal file");
+    }
+}
+
+void DataIO::simpleStableWalls(DataIO::Building& building, std::map<int, pcl::Indices>& lasCertainWallPoints, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+    float epsilon = 0.4;
+    // find walls with high scattering
+    for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+
+        auto& lasWallOpt = building.lasWalls[osmWallIdx];
+        if (!lasWallOpt.has_value())
+            continue;
+        auto& lasWall = lasWallOpt.value();
+
+        auto& certainWallPoints = lasCertainWallPoints[osmWallIdx];
+
+        float scatter = 0;
+        for (int certainWallPointIdx : certainWallPoints) {
+            scatter += Util::pointPlaneDistance((*cloud)[certainWallPointIdx], lasWall.mid);
+        }
+        scatter /= certainWallPoints.size();
+
+        if (scatter > epsilon) {
+            auto bla = "groß";
+            certainWallPoints.clear();
+        } else {
+            auto bla = "klein";
+        }
+    }
+
+    // try to update las walls with high scatter and draw las walls
+    for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+
+        auto& lasWallOpt = building.lasWalls[osmWallIdx];
+        if (!lasWallOpt.has_value())
+            continue;
+        auto& lasWall = lasWallOpt.value();
+
+        int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (156) + 100;
+        int randB = rand() % (156) + 100;
+
+        float r = 200;
+        float g = 200;
+        float b = 200;
+
+        //region update wall points for walls with high scatter if neighbour walls are gut
+        const auto& certainWallPoints = lasCertainWallPoints[osmWallIdx];
+        if (certainWallPoints.empty()) {
+
+            g = 255; // grün wand schief
+            r = 0;
+            b = 0;
+
+            auto prevIdx = (osmWallIdx - 1) % building.osmWalls.size();
+            if (building.parts.size() != 1) {
+                // check if leaving part
+                auto partIt = find(building.parts.begin(), building.parts.end(), osmWallIdx);
+                if (partIt != building.parts.end()) {
+                    // leaving part at the start -> go back to last point of part
+                    // skip to next part, go back one -> last wall of current part
+                    partIt++;
+                    if (partIt == building.parts.end()) {
+                        // current part is last part -> use last wall
+                        prevIdx = building.osmWalls.size() - 1;
+                    } else {
+                        prevIdx = *partIt - 1;
+                    }
+                }
+            }
+
+            auto nextIdx = (osmWallIdx + 1) % building.osmWalls.size();
+            if (building.parts.size() != 1) {
+                // if nextIdx is start of a part -> skip back to prev part. can be from first ring (idx0) to last part
+                auto partIt = find(building.parts.begin(), building.parts.end(), nextIdx);
+                if (partIt != building.parts.end()) {
+                    // leaving part at the end -> go back to first point of that part
+                    if (partIt == building.parts.begin()) {
+                        // nextIdx is at start of walls -> current part is last part, use first wall of last part
+                        nextIdx = building.parts.back();
+                    } else {
+                        // go back one part
+                        partIt--;
+                        nextIdx = *partIt;
+                    }
+                }
+            }
+
+            // wenn nachbar wand nicht auch doof ist und existiert dann von der den punkt nehmen
+            if (building.lasWalls[prevIdx].has_value() && !lasCertainWallPoints[prevIdx].empty()) {
+                auto& prevWall = building.lasWalls[prevIdx].value();
+                lasWall.point1 = prevWall.point2;
+                // update length
+                lasWall.length = Util::horizontalDistance(lasWall.point1, lasWall.point2);
+                g = 0;
+                r = 255; // blau wand gefixt
+                b = 0;
+            }
+            if (building.lasWalls[nextIdx].has_value() && !lasCertainWallPoints[nextIdx].empty()) {
+                auto& nextWall = building.lasWalls[nextIdx].value();
+                lasWall.point2 = nextWall.point1;
+                // update length
+                lasWall.length = Util::horizontalDistance(lasWall.point1, lasWall.point2);
+                g = 0;
+                r = 255; // blau wand gefixt
+                b = 0;
+            }
+
+        }
+        //endregion
     }
 }
 
