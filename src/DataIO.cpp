@@ -942,6 +942,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             lasWall.mid.x = newMidPointX;
             lasWall.mid.z = newMidPointZ;
 
+            // TODO merge conflict
+            auto& bla = lasWall.point1;
+            auto& blsdfa = lasWall.point2;
+
+
         }
 
         for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
