@@ -582,7 +582,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         //endregion
 
         // skip if building has no las walls
-        if (!std::any_of(building.lasWalls.begin(), building.lasWalls.end(), [](std::optional<Util::Wall> wall){return wall.has_value();}))
+        if (!std::any_of(building.lasWalls.begin(), building.lasWalls.end(), [](std::optional<Util::Wall> wall) { return wall.has_value(); }))
             continue;
 
 
@@ -1340,7 +1340,8 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
         // horizontal
         auto osmToLasVec = pcl::PointXYZ(lasWall.mid.x - osmWall.mid.x, 0, lasWall.mid.z - osmWall.mid.z);
         // counter clockwise from osm to las, range [-180, 180]
-        auto osmToLasAngle = atan2(osmWall.mid.normal_x * lasWall.mid.normal_z - osmWall.mid.normal_z * lasWall.mid.normal_x, osmWall.mid.normal_x * lasWall.mid.normal_x + osmWall.mid.normal_z * lasWall.mid.normal_z);
+        auto osmToLasAngle = atan2(osmWall.mid.normal_x * lasWall.mid.normal_z - osmWall.mid.normal_z * lasWall.mid.normal_x,
+                                   osmWall.mid.normal_x * lasWall.mid.normal_x + osmWall.mid.normal_z * lasWall.mid.normal_z);
 
         auto cosAngle = cos(osmToLasAngle);
         auto sinAngle = sin(osmToLasAngle);
@@ -1420,7 +1421,7 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
     }
     //endregion
 
-    if(minError == INFINITY)
+    if (minError == INFINITY)
         return; //TODo notlösung: manche gebäude liegen nur teilweise in der las da ta range, dadurch haben nur manche wände davon eine entsprechende las wand.
     //  da kanns dann sein dass die oben bei den random dingern nicht dabei ist, dadurch der min error nicht gesetzt wird und dann crasht es unten.
     //  ich muss mir überlegen was ich dann machen will? vermutlich oben den random index so wählen dass er nur aus tatsächlichen las wänden gewählt wird
@@ -1454,15 +1455,15 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
         float newPoint1Z = osmWall.point1.z - transformOsmWall.mid.z;
         newPoint1X *= scaleFactor;
         newPoint1Z *= scaleFactor;
-        newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X  +  transformOsmWall.mid.x  +  translateX;
-        newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z  +  transformOsmWall.mid.z  +  translateZ;
+        newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X + transformOsmWall.mid.x + translateX;
+        newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z + transformOsmWall.mid.z + translateZ;
 
         float newPoint2X = osmWall.point2.x - transformOsmWall.mid.x;
         float newPoint2Z = osmWall.point2.z - transformOsmWall.mid.z;
         newPoint2X *= scaleFactor;
         newPoint2Z *= scaleFactor;
-        newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X  +  transformOsmWall.mid.x  +  translateX;
-        newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z  +  transformOsmWall.mid.z  +  translateZ;
+        newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X + transformOsmWall.mid.x + translateX;
+        newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z + transformOsmWall.mid.z + translateZ;
 
         lasWall.point1.x = newPoint1X;
         lasWall.point1.z = newPoint1Z;
