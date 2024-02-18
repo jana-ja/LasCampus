@@ -8,32 +8,12 @@
 #include <pcl/octree/octree_search.h>
 #include "stb_image.h"
 #include <map>
+#include <optional>
 #include "util.h"
 
 class DataIO {
 
 public:
-
-    // ********** shp **********
-    struct ShpPoint {
-        double x, z;
-    };
-    /*
-     * Polygon may contain one or more rings.
-     * The rings are closed (the first and last vertex of a ring MUST be the same).
-     * Waling along the ring in vertex order -> inside of polygon is on the right hand side.
-     *  -> Polygons with only one ring always in clockwise order. Holes in Polygons are counterclockwise.
-     */
-    struct Polygon {
-        std::vector<uint32_t> parts; // size = numParts
-        std::vector<ShpPoint> points; // size = numPoints
-    };
-//    struct Wall {
-//        pcl::PointXYZRGBNormal mid;
-//        float minX, maxX;
-//        float minZ, maxZ;
-//        int buildingIdx;
-//    };
 
     // ********** cache **********
     void writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
@@ -153,7 +133,21 @@ private:
 //        ShpPoint points[numPoints];
     };
 #pragma pack(pop)
-
+// these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
+    struct ShpPoint {
+        double x, z;
+    };
+    /*
+     * Polygon may contain one or more rings.
+     * The rings are closed (the first and last vertex of a ring MUST be the same).
+     * Waling along the ring in vertex order -> inside of polygon is on the right hand side.
+     *  -> Polygons with only one ring always in clockwise order. Holes in Polygons are counterclockwise.
+     */
+    struct Polygon {
+        std::vector<uint32_t> parts; // size = numParts
+        std::vector<ShpPoint> points; // size = numPoints
+        float xMin, zMin, xMax, zMax;
+    };
 
     // ########## FIELDS & METHODS ##########
 
@@ -177,7 +171,7 @@ private:
     bool buildingCheck(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                               const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
-    void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& buildings, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
+    void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
                      const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords,
                      std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
     void findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
@@ -185,7 +179,15 @@ private:
     float getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
 
     // ********** shp **********
-    // these are to only read buildings that match the las file, because shp file covers whole regierungsbezirk arnsberg
+
+    struct Building {
+        std::vector<Util::Wall> osmWalls;
+        std::vector<std::optional<Util::Wall>> lasWalls;
+        std::vector<int> parts; // start indices of parts
+        float xMin, zMin, xMax, zMax;
+    };
+    std::vector<Building> buildings;
+//    std::vector<Util::Wall> lasWalls;
     double boundsMaxX, boundsMaxY, boundsMinX, boundsMinY; // in wgs84 lat lon in degrees
     bool isPolygonInBounds(ShpPolygonRecContent& polygon){
         if (polygon.xMin > boundsMaxX || polygon.xMax < boundsMinX) {
@@ -196,12 +198,18 @@ private:
         }
         return true;
     }
-    void readShp(const std::string& path, std::vector<Polygon>* buildings);
-    float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& buildings);
-    std::vector<Util::Wall> osmWalls;
-    std::map<int, std::vector<int>> buildingOsmWallMap;
-    std::vector<Util::Wall> lasWalls;
-    std::unordered_map<int, int> osmWallLasWallMap;
+    void readShp(const std::string& path, std::vector<Polygon>* polygons);
+    bool isPointInBuildingBbox(const Building& building, const pcl::PointXYZRGBNormal& point){
+        if (building.xMin > point.x || building.xMax < point.x) {
+            return false; // out of bounds in x direction
+        }
+        if (building.zMin > point.z || building.zMax < point.z) {
+            return false; // out of bounds in z direction
+        }
+        return true;
+    }
+    float preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& polygons);
+
 
     // ********** img **********
     bool readImg(std::vector<unsigned char>& image, const std::string& filename, const int& desiredChannels, int& width, int& height);

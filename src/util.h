@@ -19,7 +19,6 @@ namespace Util {
     struct Wall {
         pcl::PointXYZRGBNormal mid;
         pcl::PointXYZ point1, point2;
-        int buildingIdx;
         float length;
     };
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
@@ -61,7 +60,23 @@ namespace Util {
         return a.x * b.x + a.y * b.y + a.z * b.z;
     }
 
+    inline float dotProduct(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    inline float dotProductNormal(const pcl::PointXYZRGBNormal& a, const pcl::PointXYZRGBNormal& b) {
+        return a.normal_x * b.normal_x + a.normal_y * b.normal_y + a.normal_z * b.normal_z;
+    }
+
     inline pcl::PointXYZ crossProduct(pcl::PointXYZ a, pcl::PointXYZ b) {
+        pcl::PointXYZ result;
+        result.x = (a.y * b.z) - (a.z * b.y);
+        result.y = (a.z * b.x) - (a.x * b.z);
+        result.z = (a.x * b.y) - (a.y * b.x);
+        return result;
+    }
+
+    inline pcl::PointXYZ crossProduct(pcl::PointXYZRGBNormal a, pcl::PointXYZRGBNormal b) {
         pcl::PointXYZ result;
         result.x = (a.y * b.z) - (a.z * b.y);
         result.y = (a.z * b.x) - (a.x * b.z);
@@ -84,6 +99,10 @@ namespace Util {
     isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
         float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
         return d;
+    }
+
+    inline float vectorLengthNormal(const pcl::PointXYZRGBNormal vector) {
+        return sqrt(pow(vector.normal_x, 2) + pow(vector.normal_y, 2) + pow(vector.normal_z, 2));
     }
 
     inline float vectorLength(const pcl::PointXYZRGBNormal vector) {
