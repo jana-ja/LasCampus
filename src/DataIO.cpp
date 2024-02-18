@@ -392,7 +392,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
 
-//        //region draw osm walls
+        //region draw osm walls
 //
 //        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
 //
@@ -453,7 +453,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //            cloud->push_back(v);
 //
 //        }
-//        //endregion
+        //endregion
 
 
 
@@ -582,34 +582,35 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //            lasWall.mid.y = (lasWall.point1.y + lasWall.point2.y) / 2.0f; // TODO das macht keinen sinnd weil beide puntke bei -38 liegen, bleibt jetzt einfach beim meidan erstmal
             lasWall.mid.z = (lasWall.point1.z + lasWall.point2.z) / 2.0f;
 
-            building.lasWalls[osmWallIdx] = lasWall; // TODO kann ich oben direkt value nehmen und da rein schreiben oder wie geht das mit optional?
+            building.lasWalls[osmWallIdx] = lasWall;
 
             //endregion
         }
 
-        // TODO skip if building has no las walls
+        // skip if building has no las walls
+        if (!std::any_of(building.lasWalls.begin(), building.lasWalls.end(), [](std::optional<Util::Wall> wall){return wall.has_value();}))
+            continue;
 
 
         // get matrices and indices of corresponding las walls
         // matrix: cos angle, sin angle, transl x, transl z
-        auto matrices = std::vector<std::array<float, 4>>(buildingOsmWallMap[bIdx].size());
-        std::vector<int> osmWallsWithLasMapIndices;
+        auto matrices = std::vector<std::array<float, 4>>(building.osmWalls.size());
+        std::vector<int> osmWallsWithLasWallIndices; // TODO weiter oben anlegen und darüber check machen ob es las walls gibt
 
-        for (auto osmWallMapIdx = 0; osmWallMapIdx < buildingOsmWallMap[bIdx].size(); osmWallMapIdx++) {
-
-            const auto osmWallIdx = buildingOsmWallMap[bIdx][osmWallMapIdx];
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
             // get all wall planes for this building and compute transf matrix from osm wall to las wall.
             //  then ransac to find best matrix with least error for all the osmWalls
             //  use this matrix to recompute the las walls, continue with those
             //  -> avoid single skewed osmWalls caused by outliers (from trees near osmWalls)
 
-            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-            if (lasWallIt == osmWallLasWallMap.end())
+            auto& lasWallOpt = building.lasWalls[osmWallIdx];
+            if (!lasWallOpt.has_value())
                 continue;
-            const auto& osmWall = osmWalls[osmWallIdx];
-            auto& lasWall = lasWalls[lasWallIt->second];
-            osmWallsWithLasMapIndices.push_back(osmWallMapIdx);
+            auto& lasWall = lasWallOpt.value();
+            const auto& osmWall = building.osmWalls[osmWallIdx];
+
+            osmWallsWithLasWallIndices.emplace_back(osmWallIdx);
 
             // comp matrix from osm wall to las wall
             // need angle between normals and transform from osm point to las point
@@ -621,7 +622,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             auto cosAngle = cos(osmToLasAngle);
             auto sinAngle = sin(osmToLasAngle);
 
-            auto& matrix = matrices[osmWallMapIdx];
+            auto& matrix = matrices[osmWallIdx];
             matrix[0] = cosAngle;
             matrix[1] = sinAngle;
             matrix[2] = osmToLasVec.x;
@@ -635,22 +636,22 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         int minErrorIdx;
         // get index sample;
         std::vector<int> out;
-        size_t nelems = osmWallsWithLasMapIndices.size();// / 2; //TODO wie oft ransac?
+        size_t nelems = osmWallsWithLasWallIndices.size();// / 2; //TODO wie oft ransac?
         std::sample(
-                osmWallsWithLasMapIndices.begin(),
-                osmWallsWithLasMapIndices.end(),
+                osmWallsWithLasWallIndices.begin(),
+                osmWallsWithLasWallIndices.end(),
                 std::back_inserter(out),
                 nelems,
                 std::mt19937{std::random_device{}()}
         );
 
-        for (auto testOsmWallMapIdx: out) {
+        for (auto testWallIdx: out) {
 
             // get random index
 //            int testOsmWallMapIdx = std::rand() % (buildingOsmWallMap[bIdx].size());
 
             // matrix: cos angle, sin angle, transl x, transl z
-            const auto& matrix = matrices[testOsmWallMapIdx];
+            const auto& matrix = matrices[testWallIdx];
 
             const auto& cosAngle = matrix[0];
             const auto& sinAngle = matrix[1];
@@ -659,13 +660,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             float error = 0;
             // sum up error for walls of this building
-            for (auto osmWallMapIdx = 0; osmWallMapIdx < buildingOsmWallMap[bIdx].size(); osmWallMapIdx++) {
-                const auto osmWallIdx = buildingOsmWallMap[bIdx][osmWallMapIdx];
-                const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-                if (lasWallIt == osmWallLasWallMap.end())
+            for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+
+                auto& lasWallOpt = building.lasWalls[osmWallIdx];
+                if (!lasWallOpt.has_value())
                     continue;
-                const auto& osmWall = osmWalls[osmWallIdx];
-                auto& lasWall = lasWalls[lasWallIt->second];
+                auto& lasWall = lasWallOpt.value();
+                const auto& osmWall = building.osmWalls[osmWallIdx];
+
                 // check matrix
                 pcl::PointXYZ newNormal;
                 newNormal.x = cosAngle * osmWall.mid.normal_x - sinAngle * osmWall.mid.normal_z;
@@ -687,7 +689,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             if (error < minError) {
                 minError = error;
-                minErrorIdx = testOsmWallMapIdx;
+                minErrorIdx = testWallIdx;
             }
         }
 
@@ -702,14 +704,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
             //region draw old las wall
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
-        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
-
-            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-            if (lasWallIt == osmWallLasWallMap.end())
+            auto& lasWallOpt = building.lasWalls[osmWallIdx];
+            if (!lasWallOpt.has_value())
                 continue;
-//            const auto& osmWall = osmWalls[osmWallIdx];
-            auto& lasWall = lasWalls[lasWallIt->second];
+            auto& lasWall = lasWallOpt.value();
+
 
             int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
             int randG = rand() % (156) + 100;
@@ -766,15 +767,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     finalWallPointsNotGround.push_back(newPosi);
                     removePoints[nIdx] = true;
                 }
-
-
-//                    // project wall points onto las wallpoint plane
-//                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-//                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
-//                                                                                      pointDist * lasWallPlane.normal_z));
-//                    (*cloud)[nIdx].x = newPosi.x;
-//                    (*cloud)[nIdx].y = newPosi.y;
-//                    (*cloud)[nIdx].z = newPosi.z;
             }
             //endregion
 
@@ -853,19 +845,16 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
         // use this matrix to transform all osm walls to new las walls
         // TODO danach vllt nochmal punkte rauswerfen die nicht an las wall sind, falls die outlier probleme machen
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
-        for (auto osmWallMapIdx = 0; osmWallMapIdx < buildingOsmWallMap[bIdx].size(); osmWallMapIdx++) {
-
-            const auto osmWallIdx = buildingOsmWallMap[bIdx][osmWallMapIdx];
-            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-            if (lasWallIt == osmWallLasWallMap.end()) // TODo die wände hier einfach neu dazu tun?
+            auto& lasWallOpt = building.lasWalls[osmWallIdx];
+            if (!lasWallOpt.has_value())
                 continue;
-            const auto& osmWall = osmWalls[osmWallIdx];
-            auto& lasWall = lasWalls[lasWallIt->second];
+            auto& lasWall = lasWallOpt.value();
+            const auto& osmWall = building.osmWalls[osmWallIdx];
 
 
-            const auto transformOsmWallIdx = buildingOsmWallMap[bIdx][minErrorIdx];
-            const auto& transformOsmWall = osmWalls[transformOsmWallIdx];
+            const auto& transformOsmWall = building.osmWalls[minErrorIdx];
             // matrix: cos angle, sin angle, transl x, transl z
             const auto& matrix = matrices[minErrorIdx];
 
@@ -921,14 +910,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
         }
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
-        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
-
-            const auto& lasWallIt = osmWallLasWallMap.find(osmWallIdx);
-            if (lasWallIt == osmWallLasWallMap.end())
+            auto& lasWallOpt = building.lasWalls[osmWallIdx];
+            if (!lasWallOpt.has_value())
                 continue;
-//            const auto& osmWall = osmWalls[osmWallIdx];
-            auto& lasWall = lasWalls[lasWallIt->second];
+            auto& lasWall = lasWallOpt.value();
+
 
             int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
             int randG = rand() % (156) + 100;
