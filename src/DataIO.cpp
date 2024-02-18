@@ -635,7 +635,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //                distanceMoved += stepWidth;
 //            }
 //            //endregion
-
+//
 //        }
 //        //endregion
 
@@ -865,40 +865,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 distanceMoved += stepWidth;
             }
             //endregion
-
-            auto v = pcl::PointXYZRGBNormal(lasWall.mid.x, lasWall.mid.y, lasWall.mid.z, 255, 0, 0);//randR, randG, randB));
-            // set normal
-            v.normal_x = lasWallNormal.x;
-            v.normal_y = lasWallNormal.y;
-            v.normal_z = lasWallNormal.z;
-            // also set tangents
-            tangent1Vec.push_back(horPerpVec);
-            tangent2Vec.emplace_back(0, 1, 0);
-            texCoords.emplace_back(0, 0);
-            cloud->push_back(v);
-
-            auto p1 = pcl::PointXYZRGBNormal(lasWall.point1.x, lasWall.mid.y, lasWall.point1.z, 0, 255, 0);//randR, randG, randB));
-            // set normal
-            p1.normal_x = lasWallNormal.x;
-            p1.normal_y = lasWallNormal.y;
-            p1.normal_z = lasWallNormal.z;
-            // also set tangents
-            tangent1Vec.push_back(horPerpVec);
-            tangent2Vec.emplace_back(0, 1, 0);
-            texCoords.emplace_back(0, 0);
-            cloud->push_back(p1);
-
-            auto p2 = pcl::PointXYZRGBNormal(lasWall.point2.x, lasWall.mid.y, lasWall.point2.z, 0, 0, 255);//randR, randG, randB));
-            // set normal
-            p2.normal_x = lasWallNormal.x;
-            p2.normal_y = lasWallNormal.y;
-            p2.normal_z = lasWallNormal.z;
-            // also set tangents
-            tangent1Vec.push_back(horPerpVec);
-            tangent2Vec.emplace_back(0, 1, 0);
-            texCoords.emplace_back(0, 0);
-            cloud->push_back(p2);
-
         }
     }
 
