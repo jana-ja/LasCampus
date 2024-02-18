@@ -165,7 +165,7 @@ void DataIO::readLas(const std::string& path) {
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
         // skip to point tree TODO because i dont use all points for testing
-        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)),std::ios_base::cur);
+        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {
@@ -204,42 +204,14 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
                            const float& maxWallRadius) {
 
     // create ray for this point
-        auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
-        auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO choose sth smart?
-    for (auto building: buildings) {
-        if (isPointInBuildingBbox(building, point)){
-
-//        }
-//
-//    }
-//
-//
-//    std::vector<int> visitedBuildings;
-//    std::vector<int> wallIdxRadiusSearch;
-//    std::vector<float> wallRadiusSquaredDistance;
-//    if (wallOctree.radiusSearch(point, maxWallRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
-//
-//        // create ray for this point
-//        auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
-//        auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO choose sth smart?
-//
-//        // TODO mit building bbox suchen?
-//        for (auto searchWallIdx = 0; searchWallIdx < wallIdxRadiusSearch.size(); searchWallIdx++) {
-//            const auto& searchWall = osmWalls[wallIdxRadiusSearch[searchWallIdx]];
-//
-//
-//            // skip building belonging to this wall, if it has already been visited because of another wall
-//            if (std::find(visitedBuildings.begin(), visitedBuildings.end(), searchWall.buildingIdx) != visitedBuildings.end()) {
-//                continue;
-//            }
-//
-//            visitedBuildings.push_back(searchWall.buildingIdx);
+    auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
+    auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO choose sth smart?
+    for (const auto& building: buildings) {
+        if (isPointInBuildingBbox(building, point)) {
 
             // check if belongs to building
             int intersectionCount = 0;
-//            auto& bWalls = buildingOsmWallMap[searchWall.buildingIdx];
             for (auto& bWall: building.osmWalls) {
-//                const auto& bWall = osmWalls[bWallIdx];
 
                 // check if near wall
                 float dist = Util::pointPlaneDistance(point, bWall.mid);
@@ -399,8 +371,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
 
-    // TODO draw osm walls for testing
-
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(cloud);
 
@@ -416,10 +386,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     // match osm and las walls
     for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
 
-
-
         auto& building = buildings[bIdx];
-        building.lasWalls = std::vector<std::optional<Util::Wall>>(building.osmWalls.size()); // TODO muss ich die größe vorher initialisieren ja oder?
+        building.lasWalls = std::vector<std::optional<Util::Wall>>(building.osmWalls.size());
 
         std::map<int, pcl::Indices> osmWallSearchResults;
         std::map<int, pcl::Indices> lasCertainWallPoints;
@@ -527,9 +495,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
             // move point um distance along plane normal (point - (dist * normal))
             lasWall.point1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWall.mid.normal_x,
-                                                                                        dist1 * lasWall.mid.normal_y, dist1 * lasWall.mid.normal_z));
+                                                                                         dist1 * lasWall.mid.normal_y, dist1 * lasWall.mid.normal_z));
             lasWall.point2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
-                                                                                        dist2 * lasWall.mid.normal_y, dist2 * lasWall.mid.normal_z));
+                                                                                         dist2 * lasWall.mid.normal_y, dist2 * lasWall.mid.normal_z));
             auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
             auto horPerpVec = Util::normalize(lasWallVec); // horizontal
             // right orientation
@@ -556,7 +524,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         }
 
 
-            //region draw old las wall
+        //region draw old las wall
 
         for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
@@ -621,15 +589,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     finalWallPointsNotGround.push_back(newPosi);
                     removePoints[nIdx] = true;
                 }
-
-
-//                    // project wall points onto las wallpoint plane
-//                    auto pointDist = Util::signedPointPlaneDistance(point, lasWallPlane);
-//                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWallPlane.normal_x, pointDist * lasWallPlane.normal_y,
-//                                                                                      pointDist * lasWallPlane.normal_z));
-//                    (*cloud)[nIdx].x = newPosi.x;
-//                    (*cloud)[nIdx].y = newPosi.y;
-//                    (*cloud)[nIdx].z = newPosi.z;
             }
             //endregion
 
@@ -725,12 +684,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             scatter /= certainWallPoints.size();
 
 //            if (buildingOsmWallMap[bIdx].size() == 8) {
-                if (scatter > epsilon) {
-                    auto bla = "groß";
-                    certainWallPoints.clear();
-                } else {
-                    auto bla = "klein";
-                }
+            if (scatter > epsilon) {
+                auto bla = "groß";
+                certainWallPoints.clear();
+            } else {
+                auto bla = "klein";
+            }
 //            }
 
 
@@ -739,11 +698,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
 
-//            const auto osmWallIdx = buildingOsmWallMap[bIdx][osmWallMapIdx];
             auto& lasWallOpt = building.lasWalls[osmWallIdx];
             if (!lasWallOpt.has_value())
                 continue;
-//            const auto& osmWall = osmWalls[osmWallIdx];
             auto& lasWall = lasWallOpt.value();
 
             int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
@@ -890,23 +847,23 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float zCopy = z;
                 float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
 //                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-                    while (y < currentMaxY) {
-                            auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
+                while (y < currentMaxY) {
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
 
 
-                        // set normal
-                        v.normal_x = lasWallNormal.x;
-                        v.normal_y = lasWallNormal.y;
-                        v.normal_z = lasWallNormal.z;
-                        // also set tangents
-                        tangent1Vec.push_back(horPerpVec);
-                        tangent2Vec.emplace_back(0, 1, 0);
-                        texCoords.emplace_back(0, 0);
+                    // set normal
+                    v.normal_x = lasWallNormal.x;
+                    v.normal_y = lasWallNormal.y;
+                    v.normal_z = lasWallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
 
-                        cloud->push_back(v);
+                    cloud->push_back(v);
 
-                        y += stepWidth;
-                    }
+                    y += stepWidth;
+                }
 //                }
                 x = xCopy + stepWidth * horPerpVec.x;
                 z = zCopy + stepWidth * horPerpVec.z;
@@ -1258,7 +1215,7 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             }
 
             building.osmWalls.emplace_back();
-            auto& wall = building.osmWalls[building.osmWalls.size()-1];
+            auto& wall = building.osmWalls[building.osmWalls.size() - 1];
 
             // must have same height
             wall.point1.x = polygon.points[pointIdx].x;
