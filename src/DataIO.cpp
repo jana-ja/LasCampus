@@ -1440,6 +1440,8 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
         std::vector<int> osmWallsWithLasWallIndices; // TODO weiter oben anlegen und darüber check machen ob es las walls gibt
         //region calculate transform matrices for corresponding osm and las walls
 
+        float scaleFactor = 0.99;
+
         for (auto osmWallIdx = partStart; osmWallIdx < partEnd; osmWallIdx++) {
 
             // get all wall planes for this building and compute transf matrix from osm wall to las wall.
@@ -1524,9 +1526,15 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
                 newNormal.z = sinAngle * osmWall.mid.normal_x + cosAngle * osmWall.mid.normal_z;
                 auto lasWallNormal = pcl::PointXYZ(lasWall.mid.normal_x, lasWall.mid.normal_y, lasWall.mid.normal_z);
 
-                float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
-                float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
+                float transfNewMidPointX = (osmWall.mid.x - osmWall.mid.x) * scaleFactor;
+                float transfNewMidPointZ = (osmWall.mid.z - osmWall.mid.z) * scaleFactor;
+                float newMidPointX = cosAngle * transfNewMidPointX - sinAngle * transfNewMidPointZ + osmWall.mid.x + translateX;
+                float newMidPointZ = sinAngle * transfNewMidPointX + cosAngle * transfNewMidPointZ + osmWall.mid.z + translateZ;
                 auto newMidPoint = pcl::PointXYZRGBNormal(newMidPointX, 0, newMidPointZ);
+//
+//                float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
+//                float newMidPointZ = sinAngle * osmWall.mid.x + cosAngle * osmWall.mid.z + translateZ;
+//                auto newMidPoint = pcl::PointXYZRGBNormal(newMidPointX, 0, newMidPointZ);
 
                 // TODO bei normalen vllt winkel? dann iwie relativieren mit 90° oder so?
                 float normalError = Util::vectorLength(Util::vectorSubtract(newNormal, lasWallNormal));
@@ -1572,23 +1580,19 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
             const auto& translateX = matrix[2];
             const auto& translateZ = matrix[3];
 
-            auto scaleFactor = 0.99f;
+//            auto scaleFactor = 0.99f;
 
             // transform osm wall to las wall
             // update las wall
-            float newPoint1X = osmWall.point1.x - transformOsmWall.mid.x;
-            float newPoint1Z = osmWall.point1.z - transformOsmWall.mid.z;
-            newPoint1X *= scaleFactor;
-            newPoint1Z *= scaleFactor;
-            newPoint1X = cosAngle * newPoint1X - sinAngle * newPoint1X + transformOsmWall.mid.x + translateX;
-            newPoint1Z = sinAngle * newPoint1Z + cosAngle * newPoint1Z + transformOsmWall.mid.z + translateZ;
+            float transfNewPoint1X = (osmWall.point1.x - transformOsmWall.mid.x) * scaleFactor;
+            float transfNewPoint1Z = (osmWall.point1.z - transformOsmWall.mid.z) * scaleFactor;
+            float newPoint1X = cosAngle * transfNewPoint1X - sinAngle * transfNewPoint1X + transformOsmWall.mid.x + translateX;
+            float newPoint1Z = sinAngle * transfNewPoint1Z + cosAngle * transfNewPoint1Z + transformOsmWall.mid.z + translateZ;
 
-            float newPoint2X = osmWall.point2.x - transformOsmWall.mid.x;
-            float newPoint2Z = osmWall.point2.z - transformOsmWall.mid.z;
-            newPoint2X *= scaleFactor;
-            newPoint2Z *= scaleFactor;
-            newPoint2X = cosAngle * newPoint2X - sinAngle * newPoint2X + transformOsmWall.mid.x + translateX;
-            newPoint2Z = sinAngle * newPoint2Z + cosAngle * newPoint2Z + transformOsmWall.mid.z + translateZ;
+            float transfNewPoint2X = (osmWall.point2.x - transformOsmWall.mid.x) * scaleFactor;
+            float transfNewPoint2Z = (osmWall.point2.z - transformOsmWall.mid.z) * scaleFactor;
+            float newPoint2X = cosAngle * transfNewPoint2X - sinAngle * transfNewPoint2X + transformOsmWall.mid.x + translateX;
+            float newPoint2Z = sinAngle * transfNewPoint2Z + cosAngle * transfNewPoint2Z + transformOsmWall.mid.z + translateZ;
 
             lasWall.point1.x = newPoint1X;
             lasWall.point1.z = newPoint1Z;
@@ -1603,12 +1607,10 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
             lasWall.mid.normal_x = newNormal.x;
             lasWall.mid.normal_z = newNormal.z;
 
-            float newMidPointX = osmWall.mid.x - transformOsmWall.mid.x;
-            newMidPointX *= scaleFactor;
-            float newMidPointZ = osmWall.mid.z - transformOsmWall.mid.z;
-            newMidPointZ *= scaleFactor;
-            newMidPointX = cosAngle * newMidPointX - sinAngle * newMidPointZ + transformOsmWall.mid.x + translateX;
-            newMidPointZ = sinAngle * newMidPointX + cosAngle * newMidPointZ + transformOsmWall.mid.z + translateZ;
+            float transfNewMidPointX = (osmWall.mid.x - transformOsmWall.mid.x) * scaleFactor;
+            float transfNewMidPointZ = (osmWall.mid.z - transformOsmWall.mid.z) * scaleFactor;
+            float newMidPointX = cosAngle * transfNewMidPointX - sinAngle * transfNewMidPointZ + transformOsmWall.mid.x + translateX;
+            float newMidPointZ = sinAngle * transfNewMidPointX + cosAngle * transfNewMidPointZ + transformOsmWall.mid.z + translateZ;
 
             lasWall.mid.x = newMidPointX;
             lasWall.mid.z = newMidPointZ;
