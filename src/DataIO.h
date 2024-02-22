@@ -221,6 +221,9 @@ private:
     const uint8_t FEATURE_CACHE_VERSION = 2;
     bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
+    void
+    wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints, std::vector<bool>& removePoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
+                    const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 };
 
 

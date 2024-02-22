@@ -383,79 +383,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
     for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
 
-
-
-        //region draw osm walls
-//
-//        for (auto osmWallIdx: buildingOsmWallMap[bIdx]) {
-//
-//            const auto& osmWall = osmWalls[osmWallIdx];
-//
-//            //region fill wall with points
-//
-//            float yMin = -2;
-//
-//            // draw plane
-//            float stepWidth = 0.5;
-//            // get perp vec
-//            auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
-//            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-//            auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-//
-//            float lasWallLength = Util::vectorLength(lasWallVec);
-//            float x = osmWall.point1.x;
-//            float z = osmWall.point1.z;
-//            float distanceMoved = 0;
-//
-//            // move horizontal
-//            while (distanceMoved < lasWallLength) {
-//                float y = yMin;
-//                float xCopy = x;
-//                float zCopy = z;
-//                while (y < 15) {
-//                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 0, 100);//randR, randG, randB));
-//                    // set normal
-//                    v.normal_x = lasWallNormal.x;
-//                    v.normal_y = lasWallNormal.y;
-//                    v.normal_z = lasWallNormal.z;
-//                    // also set tangents
-//                    tangent1Vec.push_back(horPerpVec);
-//                    tangent2Vec.emplace_back(0, 1, 0);
-//                    texCoords.emplace_back(0, 0);
-//
-//                    cloud->push_back(v);
-//
-//                    y += stepWidth;
-//                }
-////                }
-//                x = xCopy + stepWidth * horPerpVec.x;
-//                z = zCopy + stepWidth * horPerpVec.z;
-//                distanceMoved += stepWidth;
-//            }
-//            //endregion
-//
-//            auto v = pcl::PointXYZRGBNormal(osmWall.mid.x, 5, osmWall.mid.z, 0, 0, 255);//randR, randG, randB));
-//            // set normal
-//            v.normal_x = lasWallNormal.x;
-//            v.normal_y = lasWallNormal.y;
-//            v.normal_z = lasWallNormal.z;
-//            // also set tangents
-//            tangent1Vec.push_back(horPerpVec);
-//            tangent2Vec.emplace_back(0, 1, 0);
-//            texCoords.emplace_back(0, 0);
-//            cloud->push_back(v);
-//
-//        }
-        //endregion
-
-
-
         auto& building = buildings[bIdx];
+        //region match osm and las walls
+
         building.lasWalls = std::vector<std::optional<Util::Wall>>(building.osmWalls.size());
         std::map<int, pcl::Indices> osmWallSearchResults;
         std::map<int, pcl::Indices> lasCertainWallPoints;
-        //region match osm and las walls
-
         // for each wall
         for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
 
@@ -585,145 +518,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             continue;
 
 
-
-        //region draw old las wall
-        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
-
-            auto& lasWallOpt = building.lasWalls[osmWallIdx];
-            if (!lasWallOpt.has_value())
-                continue;
-            auto& lasWall = lasWallOpt.value();
-
-
-            int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
-            int randG = rand() % (156) + 100;
-            int randB = rand() % (156) + 100;
-
-
-            pcl::Indices finalWallPoints;
-            std::vector<pcl::PointXYZ> finalWallPointsNotGround;
-            //region get all las wall points with lasWallPlane and las border points   +   project these points onto plane
-
-            // get min max wall borders
-            auto lasMinX = std::min(lasWall.point1.x, lasWall.point2.x);
-            auto lasMaxX = std::max(lasWall.point1.x, lasWall.point2.x);
-            auto lasMinZ = std::min(lasWall.point1.z, lasWall.point2.z);
-            auto lasMaxZ = std::max(lasWall.point1.z, lasWall.point2.z);
-
-            if (osmWallSearchResults[osmWallIdx].size() == 0)
-                continue;
-            const auto& pointIdxRadiusSearch = osmWallSearchResults[osmWallIdx];
-
-            // select points with las wall plane with smaller threshold
-            for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
-
-                const auto& nIdx = *nIdxIt;
-                const auto& point = (*cloud)[*nIdxIt];
-
-                if (Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWall.mid) > lasWallThreshold) {
-                    continue;
-                }
-
-                if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) {
-                    continue;
-                }
-
-                if (colorFinalLasWall) {
-                    (*cloud)[nIdx].b = randR;
-                    (*cloud)[nIdx].g = randG;
-                    (*cloud)[nIdx].r = randB;
-                }
-
-                // dont need to project these, because they are only used to determine y values and projection normal is horizontal
-                finalWallPoints.push_back(nIdx);
-
-                if (!lasGroundPoints[nIdx]) {
-                    if (colorFinalLasWallWithoutGround) {
-                        (*cloud)[nIdx].b = randR;
-                        (*cloud)[nIdx].g = randG;
-                        (*cloud)[nIdx].r = randB;
-                    }
-                    // project wall points onto las wallpoint plane
-                    auto pointDist = Util::signedPointPlaneDistance(point, lasWall.mid);
-                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWall.mid.normal_x, pointDist * lasWall.mid.normal_y,
-                                                                                      pointDist * lasWall.mid.normal_z));
-                    finalWallPointsNotGround.push_back(newPosi);
-                    removePoints[nIdx] = true;
-                }
-            }
-            //endregion
-
-            if (finalWallPoints.empty())
-                continue;
-
-            //region fill wall with points
-
-            // get y min and max from finalWallPoints to cover wall from bottom to top
-            float yMin, yMax;
-            findYMinMax(cloud, finalWallPoints, yMin, yMax);
-            lasWall.point1.y = yMin; // TODo muss ich dashier üerhaupt setzen? sonst wieder const machen
-            lasWall.point2.y = yMin;
-
-            // draw plane
-            float stepWidth = 0.5;
-            // get perp vec
-            auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
-            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-            auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-
-            float lasWallLength = Util::vectorLength(lasWallVec);
-            float x = lasWall.point1.x;
-            float z = lasWall.point1.z;
-            float distanceMoved = 0;
-
-            // move horizontal
-            while (distanceMoved < lasWallLength) {
-                float y = yMin;
-                float xCopy = x;
-                float zCopy = z;
-                float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
-//                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-                while (y < currentMaxY) {
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 100, 0);//randR, randG, randB));
-                    // set normal
-                    v.normal_x = lasWallNormal.x;
-                    v.normal_y = lasWallNormal.y;
-                    v.normal_z = lasWallNormal.z;
-                    // also set tangents
-                    tangent1Vec.push_back(horPerpVec);
-                    tangent2Vec.emplace_back(0, 1, 0);
-                    texCoords.emplace_back(0, 0);
-
-                    cloud->push_back(v);
-
-                    y += stepWidth;
-                }
-//                }
-                x = xCopy + stepWidth * horPerpVec.x;
-                z = zCopy + stepWidth * horPerpVec.z;
-                distanceMoved += stepWidth;
-            }
-            //endregion
-
-            auto v = pcl::PointXYZRGBNormal(lasWall.mid.x, lasWall.mid.y, lasWall.mid.z, 0, 255, 0);//randR, randG, randB));
-            // set normal
-            v.normal_x = lasWallNormal.x;
-            v.normal_y = lasWallNormal.y;
-            v.normal_z = lasWallNormal.z;
-            // also set tangents
-            tangent1Vec.push_back(horPerpVec);
-            tangent2Vec.emplace_back(0, 1, 0);
-            texCoords.emplace_back(0, 0);
-
-            cloud->push_back(v);
-
-        }
-        //endregion
-
-
-
-//        simpleStableWalls(building, lasCertainWallPoints, cloud);
-        complexStableWalls(building);
+        simpleStableWalls(building, lasCertainWallPoints, cloud);
+//        complexStableWalls(building);
 
         // region draw las walls
 
@@ -861,13 +657,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
     }
 
-//    // find walls that have no corresponding osm wall
-//    for (auto pIdx = 0; pIdx < lasWallPoints.size(); pIdx++) {
-//        if (lasWallPoints[pIdx] && !usedLasWallPoints[pIdx]) {
-//            auto& point = (*cloud)[pIdx];
-//            point.r = 255;
-//        }
-//    }
+
+    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud);
+
+
 
     if (removeOldWallPoints) {
         auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
@@ -1618,5 +1411,429 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
         }
         //endregion
     }
+}
+
+void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints, std::vector<bool>& removePoints,
+                             const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& allPointsTree, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud) {
+    std::map<int, int> idxMap;
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr remainingWallsCloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    pcl::Indices pointSearchIndices;
+    pcl::IndicesPtr pointSearchIndicesPtr = std::make_shared<pcl::Indices>(pointSearchIndices);
+
+    //region find wall points that have no corresponding osm wall
+
+    for (auto lasPointIdx = 0; lasPointIdx < lasWallPoints.size(); lasPointIdx++) {
+        if (lasWallPoints[lasPointIdx] && !usedLasWallPoints[lasPointIdx]) {
+            auto& point = (*allPointsCloud)[lasPointIdx];
+//            point.r = 0;
+//            point.g = 255;
+//            point.b = 0;
+
+            remainingWallsCloud->push_back(point);
+            idxMap[remainingWallsCloud->size() - 1] = lasPointIdx;
+            pointSearchIndicesPtr->emplace_back(remainingWallsCloud->size() - 1);
+
+        } else {
+            auto& point = (*allPointsCloud)[lasPointIdx];
+            point.r = 100;
+            point.g = 100;
+            point.b = 100;
+        }
+    }
+    // endregion
+
+    //region only use linear points
+    //endregion
+
+    std::vector<Util::Wall> wallPatches;
+    std::vector<pcl::Indices> wallPatchesPoints;
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallPatchMids = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    //region find small wall patches
+
+    // tree will get updated indices when points are assigned to a wall patch
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr remainingWallsTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    remainingWallsTree->setInputCloud(remainingWallsCloud);
+
+    auto skippiskip = std::vector<bool>(remainingWallsCloud->size());
+    std::fill(skippiskip.begin(), skippiskip.end(), false);
+    // prepare pca
+    pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
+    pca.setInputCloud(remainingWallsCloud);
+    for (auto pIdx = 0; pIdx < remainingWallsCloud->size(); pIdx++) {
+        if (skippiskip[pIdx])
+            continue;
+
+        auto& point = (*remainingWallsCloud)[pIdx];
+
+        // radius search // TODO nachbarn können grade auch nicht linear sein, will ich das?
+        pcl::Indices searchResultIdx;
+        std::vector<float> searchResultDist;
+        if (remainingWallsTree->radiusSearch(point, 1.0f, searchResultIdx, searchResultDist) < 3) {
+            continue;
+        }
+
+        // prepare pca for points
+        pcl::IndicesPtr searchResultIdxPtr = std::make_shared<pcl::Indices>(searchResultIdx);
+        pca.setIndices(searchResultIdxPtr);
+
+        bool isLinear;
+        //region check if linear
+
+        Eigen::Vector3f eigenValues = pca.getEigenValues();
+        // local descriptors
+        const auto& l1 = eigenValues(0);
+        const auto& l2 = eigenValues(1);
+        const auto& l3 = eigenValues(2);
+        float linearity = (l1 - l2) / l1;
+        float planarity = (l2 - l3) / l1;
+        float sphericity = l3 / l1;
+        std::array bla = {linearity, planarity, sphericity};
+        int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
+        isLinear = mainDings == 0;
+//        switch (mainDings) {
+//            case 0:
+//                // linearity is main
+//                    (*allPointsCloud)[idxMap[pIdx]].r = 255;
+//                    (*allPointsCloud)[idxMap[pIdx]].g = 0;
+//                    (*allPointsCloud)[idxMap[pIdx]].b = 0;
+//                break;
+//            case 1:
+//                // planarity is main
+//                    (*allPointsCloud)[idxMap[pIdx]].r = 0;
+//                    (*allPointsCloud)[idxMap[pIdx]].g = 255;
+//                    (*allPointsCloud)[idxMap[pIdx]].b = 0;
+//                break;
+//            default:
+//                // sphericity is main
+//                    (*allPointsCloud)[idxMap[pIdx]].r = 0;
+//                    (*allPointsCloud)[idxMap[pIdx]].g = 0;
+//                    (*allPointsCloud)[idxMap[pIdx]].b = 255;
+//                break;
+//        }
+//endregion
+        if (!isLinear)
+            continue;
+
+        Util::Wall newWall;
+        //region get mid and normal if strongest eigenvector is horizontal
+
+        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+
+        auto eigen1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
+        auto eigen2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
+        auto eigen3 = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
+
+        // für lineare sachen nicht normale nehmen sondern stärksten eigenvektor, nur der ist eindeutig, zweiter und die normale können um die lineare achse rotieren
+        // TODO vllt auch bei dem normalen wand ding schauen wenn die normale vertikal ist dann über linearity und ersten eigenvektor gehen?
+        // normal
+        // continue if first eigenvector is too vertical
+        if (abs(eigenVectors(1, 0)) > 0.3) { //TODO welcher wert?
+            continue;
+        }
+        auto lasWallNormal = Util::normalize(
+                Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)), pcl::PointXYZ(0, 1, 0)));
+
+        float xMedian, yMedian, zMedian;
+        findXYZMedian(remainingWallsCloud, searchResultIdx, xMedian, yMedian, zMedian);
+        newWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+        newWall.mid.normal_x = lasWallNormal.x;
+        newWall.mid.normal_y = lasWallNormal.y;
+        newWall.mid.normal_z = lasWallNormal.z;
+        //endregion
+
+
+        // TODO nochmal größere suche before ich es zu patch ernenne?
+        int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (156) + 100;
+        int randB = rand() % (156) + 100;
+        // this is wall patch
+        // mark neighbours
+        for (const auto& nIdx: searchResultIdx) {
+            skippiskip[nIdx] = true;
+            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
+            if (bla != pointSearchIndicesPtr->end())
+                pointSearchIndicesPtr->erase(bla);
+
+//                (*allPointsCloud)[idxMap[nIdx]].b = randR;
+//                (*allPointsCloud)[idxMap[nIdx]].g = randG;
+//                (*allPointsCloud)[idxMap[nIdx]].r = randB;
+        }
+        wallPatchesPoints.push_back(searchResultIdx);
+        // update tree
+        remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
+        // add to patches
+        wallPatches.push_back(newWall);
+        wallPatchMids->push_back(newWall.mid);
+
+    }
+    //endregion
+
+    std::vector<Util::Wall> finalWalls;
+    //region combine wall patches
+
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr wallPatchTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    wallPatchTree->setInputCloud(wallPatchMids);
+    auto wallPatchSkip = std::vector<bool>(wallPatchMids->size());
+    std::fill(wallPatchSkip.begin(), wallPatchSkip.end() ,false);
+    for (int patchIdx = 0; patchIdx< wallPatches.size(); patchIdx++) {
+        const auto& wallPatch = wallPatches[patchIdx];
+        // radius search
+        pcl::Indices wallPatchSearchResultIdx;
+        std::vector<float> searchResultDist;
+        if (wallPatchTree->radiusSearch(wallPatch.mid, 20.0f, wallPatchSearchResultIdx, searchResultDist) <= 0) {
+            continue; //TODO was dann? auch aus einem patch ne wand machen?
+        }
+        // #############################################
+        pcl::Indices combineWallPatchIdx;
+        // der patch selbst ist immer dabei
+//        combineWallPatchIdx.push_back(patchIdx);
+        // remove first point of radius search weil das ist der patch selbst
+//        wallPatchSearchResultIdx.erase(wallPatchSearchResultIdx.begin());
+//        searchResultDist.erase(searchResultDist.begin());
+
+        auto lastAddedPatchPoint = wallPatch.mid; // TODO nicht nur mit letztem punkt machen sondern mit allem
+        auto patchNormal = pcl::PointXYZ(wallPatch.mid.normal_x, wallPatch.mid.normal_y, wallPatch.mid.normal_z);
+        for (const auto& wallPatchNeighIdx: wallPatchSearchResultIdx) {
+            auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
+            if (wallPatchSkip[wallPatchNeighIdx])
+                continue;
+            // check plane distances
+//            if (Util::pointPlaneDistance(neighbourPatchPoint, wallPatch.mid) > 1.5f) {
+//                continue;
+//            }
+            // check hor dist/dist along wall
+
+            // wenn es nah an irgendeinem patch asu der combi ist dann go
+//            auto near = false;
+//            for (auto& cPatchIdx: combineWallPatchIdx) {
+//                const auto& cPatch = wallPatches[cPatchIdx];
+//                if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 3.0f) { // TODO hor or generell?
+//                    near = true;
+//                    break;
+//                }
+//            }
+//            if (!near) {
+//                continue;
+//            }
+
+            if (Util::horizontalDistance(neighbourPatchPoint, lastAddedPatchPoint) > 3.0f) { // TODO hor oder generell dist?
+                continue; // TODO continue or break?
+            }
+
+            auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y, neighbourPatchPoint.normal_z);
+            float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal));
+            if (normalAngle > 0.78f) { // 45°
+                continue;
+            }
+
+
+            // TODO check normal angles, dabei denke ich break
+
+
+
+            wallPatchSkip[wallPatchNeighIdx] = true;
+            // TODO remove from search indices
+            lastAddedPatchPoint = neighbourPatchPoint; // das ist falsch, wallPatchNeighIdx ist ein idx für wallpatchmids, nicht für die punkte
+            combineWallPatchIdx.push_back(wallPatchNeighIdx);
+        }
+//        pcl::Indices combineWallPatchIdx;
+//        auto lastAddedPatchPoint = wallPatch.mid; // TODO nicht nur mit letztem punkt machen sondern mit allem
+//        auto patchNormal = pcl::PointXYZ(wallPatch.mid.normal_x, wallPatch.mid.normal_y, wallPatch.mid.normal_z);
+//        for (const auto& wallPatchNeighIdx: wallPatchSearchResultIdx) {
+//            auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
+//            if (wallPatchSkip[wallPatchNeighIdx])
+//                continue;
+//            // check plane distances
+////            if (Util::pointPlaneDistance(neighbourPatchPoint, wallPatch.mid) > 1.5f) {
+////                continue;
+////            }
+//            // check hor dist/dist along wall
+//
+//            auto near = false;
+//            if (Util::horizontalDistance(neighbourPatchPoint, lastAddedPatchPoint) > 3.0f) { // TODO hor oder generell dist?
+//                continue; // TODO continue or break?
+//            }
+//
+//            auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y, neighbourPatchPoint.normal_z);
+//            float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal));
+//            if (normalAngle > 0.78f) { // 45°
+//                continue;
+//            }
+//
+//
+//            // TODO check normal angles, dabei denke ich break
+//
+//
+//
+//            wallPatchSkip[wallPatchNeighIdx] = true;
+//            // TODO remove from search indices
+//            lastAddedPatchPoint = neighbourPatchPoint; // das ist falsch, wallPatchNeighIdx ist ein idx für wallpatchmids, nicht für die punkte
+//            combineWallPatchIdx.push_back(wallPatchNeighIdx);
+//        }
+        // TODO decide if bigger search
+        int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (156) + 100;
+        int randB = rand() % (156) + 100;
+
+        // ############## draw combined patches
+        for (const auto& combPatchIdx: combineWallPatchIdx) {
+            const auto& indices = wallPatchesPoints[combPatchIdx];
+            for (const auto& index: indices) {
+                (*allPointsCloud)[idxMap[index]].r = randR;
+                (*allPointsCloud)[idxMap[index]].g = randG;
+                (*allPointsCloud)[idxMap[index]].b = randB;
+            }
+        }
+
+
+
+
+        // ######################
+
+
+
+
+        if (combineWallPatchIdx.size() < 3) { // TODO needed for pca, what to do with samller dingsß
+            continue;
+        }
+        // found wall
+
+        Util::Wall finalWall;
+        //region build wall from patches
+
+        // prepare pca
+        pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
+        pca.setInputCloud(wallPatchMids);
+        pcl::IndicesPtr combineWallPatchIdxPtr = std::make_shared<pcl::Indices>(combineWallPatchIdx);
+        pca.setIndices(combineWallPatchIdxPtr);
+
+        //region get mid and normal if strongest eigenvector is horizontal
+
+        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+
+        auto eigen1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
+        auto eigen2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
+        auto eigen3 = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
+
+        // normal
+        // hier wieder über normale aus 3. eigenvektor machen weil nicht linear ist vermutlich
+        if (abs(eigenVectors(1, 2) > 0.5)) {// length adds up to 1
+            continue; //TODO skip this wall for now
+        }
+//        auto finalWallNormal = Util::normalize( pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
+        auto finalWallNormal = pcl::PointXYZ( wallPatch.mid.normal_x, 0, wallPatch.mid.normal_z);
+//        // continue if first eigenvector is too vertical
+//        if (abs(eigenVectors(1, 0)) > 0.3) { //TODO welcher wert?
+//            continue;
+//        }
+//        auto finalWallNormal = Util::normalize(
+//                Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)), pcl::PointXYZ(0, 1, 0)));
+
+        float xMedian, yMedian, zMedian;
+        findXYZMedian(wallPatchMids, combineWallPatchIdx, xMedian, yMedian, zMedian);
+        finalWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+        finalWall.mid.normal_x = finalWallNormal.x;
+        finalWall.mid.normal_y = finalWallNormal.y;
+        finalWall.mid.normal_z = finalWallNormal.z;
+        // TODO radius berechnen, größter abstand (hor?) in den punkten?
+finalWall.length = 10.0f;
+        // TODO check if already wall near here
+        //  maybe just return all the final walls and draw and check in mother method
+        //endregion
+
+        // draw
+        // radius search on all points
+        pcl::Indices searchResultAllIdx;
+        std::vector<float> searchResultAllDist;
+        if (allPointsTree->radiusSearch(finalWall.mid, finalWall.length, searchResultAllIdx, searchResultAllDist) <= 0) {
+            continue; //TODO was dann? auch aus einem patch ne wand machen?
+        }
+//        int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+//        int randG = rand() % (156) + 100;
+//        int randB = rand() % (156) + 100;
+        // select points with final wall plane
+        for (const auto& fIdx: searchResultAllIdx) {
+
+            const auto& point = (*allPointsCloud)[fIdx];
+
+            if (Util::pointPlaneDistance(allPointsCloud->points[fIdx], finalWall.mid) > 1.0) {// TODO threshold
+                continue;
+            }
+
+            if (Util::horizontalDistance(point, finalWall.mid) > finalWall.length / 2.0f) {
+                continue;
+            }
+
+
+//                (*allPointsCloud)[fIdx].b = randR;
+//                (*allPointsCloud)[fIdx].g = randG;
+//                (*allPointsCloud)[fIdx].r = randB;
+
+            // dont need to project these, because they are only used to determine y values and projection normal is horizontal
+
+
+        }
+
+        //endregion
+
+
+
+    }
+
+
+
+    //endregion
+
+
+
+//        if (tree->radiusSearch(point, 10.0f, searchResultIdx, searchResultDist) < 3) { // TODO skippiskip beachten bei anzahl
+//            continue;
+//        }
+//        int randR = rand() % (256);
+//        int randG = rand() % (256);
+//        int randB = rand() % (256);
+//        auto lastAddedPoint = point;
+//        for (const auto& nIdx: searchResultIdx) {
+//            auto& neighbour = remainingWallsCloud->points[nIdx];
+//            // TODO hier auch nur linearity nehmen?
+//            if (skippiskip[nIdx])
+//                continue;
+//            if (Util::pointPlaneDistance(neighbour, newWall.mid) > 0.5f) {
+//                continue;
+//            }
+////            if (Util::horizontalDistance(neighbour, lastAddedPoint) > 1.0f) { // TODO hor oder generell dist?
+////                continue; // TODO continue or break?
+////            }
+//
+//
+//
+//
+//
+//            (*allPointsCloud)[idxMap[nIdx]].r = randR;
+//            (*allPointsCloud)[idxMap[nIdx]].g = randG;
+//            (*allPointsCloud)[idxMap[nIdx]].b = randB;
+//
+//            skippiskip[nIdx] = true;
+//            // TODO remove from search indices
+//            lastAddedPoint = remainingWallsCloud->points[nIdx];
+//        }
+//        tree->setInputCloud(remainingWallsCloud);
+//
+//
+//
+//
+//        // punkte einsammeln -> größerer radius suche und nach und nach einsammeln, abbruch kriterien wie bei splat -> ebenen abstand eps und dist sprung threshold
+//        // ebenen abstand eps als abbruchkriterium nur vllt
+//        // create plane
+//        // get median point of certain wall points
+////        float xMedian, yMedian, zMedian;
+//        findXYZMedian(remainingWallsCloud, searchResultIdx, xMedian, yMedian, zMedian);
+////        Util::Wall newWall;
+//        newWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+//        newWall.mid.normal_x = lasWallNormal.x;
+//        newWall.mid.normal_y = lasWallNormal.y;
+//        newWall.mid.normal_z = lasWallNormal.z;
+//
+//    }
 }
 
