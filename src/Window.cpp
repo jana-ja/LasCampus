@@ -404,20 +404,21 @@ void Window::dataStuffNormals(GLuint &VBO, GLuint &VAO, DataStructure& pointClou
     float color[3] = {0.7f, 0.7f, 0.7f};
     auto it = pointCloud.getVertices();
     for (auto i = 0; i < pointCloud.getVertexCount(); i++) {
-        coordPoints.push_back(it->x);
-        coordPoints.push_back(it->y);
-        coordPoints.push_back(it->z);
-        coordPoints.push_back(color[0]);
-        coordPoints.push_back(color[1]);
-        coordPoints.push_back(color[2]);
+        if (it->normal_x != -1 || it->normal_y != -1 || it->normal_z != -1) {
+            coordPoints.push_back(it->x);
+            coordPoints.push_back(it->y);
+            coordPoints.push_back(it->z);
+            coordPoints.push_back(color[0]);
+            coordPoints.push_back(color[1]);
+            coordPoints.push_back(color[2]);
 
-        coordPoints.push_back(it->x + it->normal_x * lineLength);
-        coordPoints.push_back(it->y + it->normal_y * lineLength);
-        coordPoints.push_back(it->z + it->normal_z * lineLength);
-        coordPoints.push_back(color[0]);
-        coordPoints.push_back(color[1]);
-        coordPoints.push_back(color[2]);
-
+            coordPoints.push_back(it->x + it->normal_x * lineLength);
+            coordPoints.push_back(it->y + it->normal_y * lineLength);
+            coordPoints.push_back(it->z + it->normal_z * lineLength);
+            coordPoints.push_back(color[0]);
+            coordPoints.push_back(color[1]);
+            coordPoints.push_back(color[2]);
+        }
         it++;
     }
     glBufferData(GL_ARRAY_BUFFER, coordPoints.size() * sizeof(float), coordPoints.data(), GL_STATIC_DRAW); //coordPoints.size() * sizeof(float), &coordPoints, GL_STATIC_DRAW);
