@@ -12,7 +12,8 @@
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
                       const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
-                      std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
+                      std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
+                      int& wallPointsStartIndex) {
 
     std::vector<DataIO::Polygon> osmPolygons;
 
@@ -54,9 +55,11 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
 
     std::cout << TAG << "begin detecting walls" << std::endl;
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
-    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, texCoords, tangent1Vec, tangent2Vec,
+                wallPointsStartIndex);
     tree->setInputCloud(cloud);
 
 
@@ -200,7 +203,8 @@ void DataIO::readLas(const std::string& path) {
 }
 
 
-bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
+bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point,
+                           const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                            const float& maxWallRadius) {
 
     // create ray for this point
@@ -241,7 +245,8 @@ bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point, const pcl::octre
 
 void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud,
                                   const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
-                                  const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints,
+                                  const float& maxWallRadius, const std::string& imgFile,
+                                  std::vector<bool>& lasWallPoints,
                                   std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords) {
 
     // init cloud
@@ -357,10 +362,13 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 }
 
 
-void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons, std::vector<bool>& lasWallPoints,
+void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons,
+                         std::vector<bool>& lasWallPoints,
                          std::vector<bool>& lasGroundPoints,
-                         const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<pcl::PointXY>& texCoords,
-                         std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
+                         const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
+                         std::vector<pcl::PointXY>& texCoords,
+                         std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
+                         int& wallPointsStartIndex) {
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
     bool colorCertainLasWallRandom = false;
@@ -409,7 +417,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             std::vector<float> pointRadiusSquaredDistance;
             float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
             auto searchRadius = static_cast<float>(sqrt(pow(osmWall.point2.x - osmWall.mid.x, 2) +
-                                                        pow(wallHeight - osmWall.mid.y, 2) + pow(osmWall.point2.z - osmWall.mid.z, 2)));;
+                                                        pow(wallHeight - osmWall.mid.y, 2) +
+                                                        pow(osmWall.point2.z - osmWall.mid.z, 2)));;
             if (tree->radiusSearch(osmWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
                 continue;
             }
@@ -492,9 +501,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
             // move point um distance along plane normal (point - (dist * normal))
             lasWall.point1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWall.mid.normal_x,
-                                                                                         dist1 * lasWall.mid.normal_y, dist1 * lasWall.mid.normal_z));
+                                                                                         dist1 * lasWall.mid.normal_y,
+                                                                                         dist1 * lasWall.mid.normal_z));
             lasWall.point2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
-                                                                                         dist2 * lasWall.mid.normal_y, dist2 * lasWall.mid.normal_z));
+                                                                                         dist2 * lasWall.mid.normal_y,
+                                                                                         dist2 * lasWall.mid.normal_z));
             auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
             auto horPerpVec = Util::normalize(lasWallVec); // horizontal
             // right orientation
@@ -514,7 +525,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         //endregion
 
         // skip if building has no las walls
-        if (!std::any_of(building.lasWalls.begin(), building.lasWalls.end(), [](std::optional<Util::Wall> wall) { return wall.has_value(); }))
+        if (!std::any_of(building.lasWalls.begin(), building.lasWalls.end(),
+                         [](std::optional<Util::Wall> wall) { return wall.has_value(); }))
             continue;
 
 
@@ -581,8 +593,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     }
                     // project wall points onto las wallpoint plane
                     auto pointDist = Util::signedPointPlaneDistance(point, lasWall.mid);
-                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWall.mid.normal_x, pointDist * lasWall.mid.normal_y,
-                                                                                      pointDist * lasWall.mid.normal_z));
+                    auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * lasWall.mid.normal_x,
+                                                                                      pointDist * lasWall.mid.normal_y,
+                                                                                      pointDist *
+                                                                                      lasWall.mid.normal_z));
                     finalWallPointsNotGround.push_back(newPosi);
                     removePoints[nIdx] = true;
                 }
@@ -616,7 +630,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // get perp vec
             auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
             auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-            auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+            auto lasWallNormal = Util::crossProduct(horPerpVec,
+                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
 
             float lasWallLength = Util::vectorLength(lasWallVec);
             float x = lasWall.point1.x;
@@ -659,7 +674,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
 
     wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud);
-
 
 
     if (removeOldWallPoints) {
@@ -707,7 +721,8 @@ bool zComparator(pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
     return p1.z < p2.z;
 }
 
-void DataIO::findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& xMedian, float& yMedian,
+void DataIO::findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices,
+                           float& xMedian, float& yMedian,
                            float& zMedian) {
     auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
     for (auto i = 0; i < pointIndices.size(); i++) {
@@ -723,7 +738,8 @@ void DataIO::findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& c
     zMedian = points[n].z;
 }
 
-void DataIO::findYMinMax(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& yMin, float& yMax) {
+void DataIO::findYMinMax(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices,
+                         float& yMin, float& yMax) {
     auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
     for (auto i = 0; i < pointIndices.size(); i++) {
         const auto& pointIdx = pointIndices[i];
@@ -745,8 +761,11 @@ void DataIO::findYMinMax(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
  * @param tree
  * @return
  */
-float DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax, float& stepWidth,
-                      std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
+float
+DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax,
+                float& stepWidth,
+                std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal,
+                const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree) {
 
     // search points from (x,midY,z)
     float newMaxY = yMin;
@@ -754,7 +773,8 @@ float DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud,
     std::vector<int> pointIdxRadiusSearch;
     std::vector<float> pointRadiusSquaredDistance;
     auto searchPoint = pcl::PointXYZRGBNormal(x, (yMax + yMin) / 2.0, z);
-    if (tree->radiusSearch(searchPoint, (yMax - yMin) / 2.0 * 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0) {
+    if (tree->radiusSearch(searchPoint, (yMax - yMin) / 2.0 * 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance) >
+        0) {
         for (auto pIdxIdx = 0; pIdxIdx < pointIdxRadiusSearch.size(); pIdxIdx++) {
             auto& point = (*cloud)[pointIdxRadiusSearch[pIdxIdx]];
             if (removePoints[pointIdxRadiusSearch[pIdxIdx]])
@@ -921,13 +941,15 @@ void DataIO::readShp(const std::string& path, std::vector<Polygon>* polygons) {
     }
 }
 
-float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, std::vector<Polygon>& polygons) {
+float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
+                              std::vector<Polygon>& polygons) {
     // preprocessing of polygons to buildings
     // save all walls (min, mid, max point & radius)
     // dann beim normalen orientieren spatial search nach mid point mit max radius von allen walls
     float maxR = 0;
     buildings = std::vector<Building>(polygons.size());
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     for (auto bIdx = 0; bIdx < polygons.size(); bIdx++) {
         const auto& polygon = polygons[bIdx];
         auto& building = buildings[bIdx];
@@ -983,7 +1005,8 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
             wall.mid.normal_y = planeNormal.y;
             wall.mid.normal_z = planeNormal.z;
 
-            float r = sqrt(pow(wall.point2.x - wall.mid.x, 2) + pow(wallHeight - wall.mid.y, 2) + pow(wall.point2.z - wall.mid.z, 2));
+            float r = sqrt(pow(wall.point2.x - wall.mid.x, 2) + pow(wallHeight - wall.mid.y, 2) +
+                           pow(wall.point2.z - wall.mid.z, 2));
             if (r > maxR) {
                 maxR = r;
             }
@@ -1003,7 +1026,9 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
 }
 
 // ********** img **********
-bool DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFile, const int& desiredChannels, int& width, int& height) {
+bool
+DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFile, const int& desiredChannels, int& width,
+                int& height) {
     std::string imgDir = ".." + Util::PATH_SEPARATOR + "img" + Util::PATH_SEPARATOR;
     std::string imgPath = imgDir + imgFile;
     // if file has less then desired channels, remaining fields will be 255
@@ -1018,7 +1043,8 @@ bool DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFi
 
 
 // ********** cache **********
-bool DataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+bool DataIO::readFeaturesFromCache(const std::string& normalPath,
+                                   const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
 
     std::cout << TAG << "try to read features from cache" << std::endl;
 
@@ -1075,7 +1101,8 @@ bool DataIO::readFeaturesFromCache(const std::string& normalPath, const pcl::Poi
  * @param startIdx
  * @param endIdx exclusive
  */
-void DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+void
+DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
     std::ofstream out(normalPath, std::ios::binary);
 
     std::cout << TAG << "writing normals to cache" << std::endl;
@@ -1106,7 +1133,8 @@ void DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::Poin
     }
 }
 
-void DataIO::simpleStableWalls(DataIO::Building& building, std::map<int, pcl::Indices>& lasCertainWallPoints, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+void DataIO::simpleStableWalls(DataIO::Building& building, std::map<int, pcl::Indices>& lasCertainWallPoints,
+                               const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
     float epsilon = 0.4;
     // find walls with high scattering
     for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
@@ -1119,7 +1147,7 @@ void DataIO::simpleStableWalls(DataIO::Building& building, std::map<int, pcl::In
         auto& certainWallPoints = lasCertainWallPoints[osmWallIdx];
 
         float scatter = 0;
-        for (int certainWallPointIdx : certainWallPoints) {
+        for (int certainWallPointIdx: certainWallPoints) {
             scatter += Util::pointPlaneDistance((*cloud)[certainWallPointIdx], lasWall.mid);
         }
         scatter /= certainWallPoints.size();
@@ -1226,7 +1254,8 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
     for (auto pIdx = 0; pIdx < building.parts.size(); pIdx++) {
         const int& partStart = building.parts[pIdx];
         // letzter part ? -> end = building walls size : next part start
-        const int& partEnd = (pIdx == building.parts.size() - 1) ? static_cast<int>(building.osmWalls.size()) : building.parts[pIdx + 1];
+        const int& partEnd = (pIdx == building.parts.size() - 1) ? static_cast<int>(building.osmWalls.size())
+                                                                 : building.parts[pIdx + 1];
 
         // matrix: cos angle, sin angle, transl x, transl z
         auto matrices = std::vector<std::array<float, 4>>(partEnd - partStart);
@@ -1256,8 +1285,9 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
             // horizontal
             auto osmToLasVec = pcl::PointXYZ(lasWall.mid.x - osmWall.mid.x, 0, lasWall.mid.z - osmWall.mid.z);
             // counter clockwise from osm to las, range [-180, 180]
-            auto osmToLasAngle = atan2(osmWall.mid.normal_x * lasWall.mid.normal_z - osmWall.mid.normal_z * lasWall.mid.normal_x,
-                                       osmWall.mid.normal_x * lasWall.mid.normal_x + osmWall.mid.normal_z * lasWall.mid.normal_z);
+            auto osmToLasAngle = atan2(
+                    osmWall.mid.normal_x * lasWall.mid.normal_z - osmWall.mid.normal_z * lasWall.mid.normal_x,
+                    osmWall.mid.normal_x * lasWall.mid.normal_x + osmWall.mid.normal_z * lasWall.mid.normal_z);
 
             auto cosAngle = cos(osmToLasAngle);
             auto sinAngle = sin(osmToLasAngle);
@@ -1321,8 +1351,10 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
 
                 float transfNewMidPointX = (osmWall.mid.x - osmWall.mid.x) * scaleFactor;
                 float transfNewMidPointZ = (osmWall.mid.z - osmWall.mid.z) * scaleFactor;
-                float newMidPointX = cosAngle * transfNewMidPointX - sinAngle * transfNewMidPointZ + osmWall.mid.x + translateX;
-                float newMidPointZ = sinAngle * transfNewMidPointX + cosAngle * transfNewMidPointZ + osmWall.mid.z + translateZ;
+                float newMidPointX =
+                        cosAngle * transfNewMidPointX - sinAngle * transfNewMidPointZ + osmWall.mid.x + translateX;
+                float newMidPointZ =
+                        sinAngle * transfNewMidPointX + cosAngle * transfNewMidPointZ + osmWall.mid.z + translateZ;
                 auto newMidPoint = pcl::PointXYZRGBNormal(newMidPointX, 0, newMidPointZ);
 //
 //                float newMidPointX = cosAngle * osmWall.mid.x - sinAngle * osmWall.mid.z + translateX;
@@ -1379,13 +1411,17 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
             // update las wall
             float transfNewPoint1X = (osmWall.point1.x - transformOsmWall.mid.x) * scaleFactor;
             float transfNewPoint1Z = (osmWall.point1.z - transformOsmWall.mid.z) * scaleFactor;
-            float newPoint1X = cosAngle * transfNewPoint1X - sinAngle * transfNewPoint1X + transformOsmWall.mid.x + translateX;
-            float newPoint1Z = sinAngle * transfNewPoint1Z + cosAngle * transfNewPoint1Z + transformOsmWall.mid.z + translateZ;
+            float newPoint1X =
+                    cosAngle * transfNewPoint1X - sinAngle * transfNewPoint1X + transformOsmWall.mid.x + translateX;
+            float newPoint1Z =
+                    sinAngle * transfNewPoint1Z + cosAngle * transfNewPoint1Z + transformOsmWall.mid.z + translateZ;
 
             float transfNewPoint2X = (osmWall.point2.x - transformOsmWall.mid.x) * scaleFactor;
             float transfNewPoint2Z = (osmWall.point2.z - transformOsmWall.mid.z) * scaleFactor;
-            float newPoint2X = cosAngle * transfNewPoint2X - sinAngle * transfNewPoint2X + transformOsmWall.mid.x + translateX;
-            float newPoint2Z = sinAngle * transfNewPoint2Z + cosAngle * transfNewPoint2Z + transformOsmWall.mid.z + translateZ;
+            float newPoint2X =
+                    cosAngle * transfNewPoint2X - sinAngle * transfNewPoint2X + transformOsmWall.mid.x + translateX;
+            float newPoint2Z =
+                    sinAngle * transfNewPoint2Z + cosAngle * transfNewPoint2Z + transformOsmWall.mid.z + translateZ;
 
             lasWall.point1.x = newPoint1X;
             lasWall.point1.z = newPoint1Z;
@@ -1402,8 +1438,10 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
 
             float transfNewMidPointX = (osmWall.mid.x - transformOsmWall.mid.x) * scaleFactor;
             float transfNewMidPointZ = (osmWall.mid.z - transformOsmWall.mid.z) * scaleFactor;
-            float newMidPointX = cosAngle * transfNewMidPointX - sinAngle * transfNewMidPointZ + transformOsmWall.mid.x + translateX;
-            float newMidPointZ = sinAngle * transfNewMidPointX + cosAngle * transfNewMidPointZ + transformOsmWall.mid.z + translateZ;
+            float newMidPointX =
+                    cosAngle * transfNewMidPointX - sinAngle * transfNewMidPointZ + transformOsmWall.mid.x + translateX;
+            float newMidPointZ =
+                    sinAngle * transfNewMidPointX + cosAngle * transfNewMidPointZ + transformOsmWall.mid.z + translateZ;
 
             lasWall.mid.x = newMidPointX;
             lasWall.mid.z = newMidPointZ;
@@ -1413,25 +1451,27 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
     }
 }
 
-void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints, std::vector<bool>& removePoints,
-                             const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& allPointsTree, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud) {
+void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints,
+                             std::vector<bool>& removePoints,
+                             const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& allPointsTree,
+                             const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud) {
 
     int colorCount = 7;
     int colors[][3] = {
-            {255,255,0},
-            {0,255,255},
-            {255,0,255},
-            {255,125,125},
-            {125,255,125},
-            {125,125,255},
-            {255,125,0}
+            {255, 255, 0},
+            {0,   255, 255},
+            {255, 0,   255},
+            {255, 125, 125},
+            {125, 255, 125},
+            {125, 125, 255},
+            {255, 125, 0}
     };
     int colorIndex = 0;
 
 
-
     std::map<int, int> idxMap;
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr remainingWallsCloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr remainingWallsCloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     pcl::Indices pointSearchIndices;
     pcl::IndicesPtr pointSearchIndicesPtr = std::make_shared<pcl::Indices>(pointSearchIndices);
 
@@ -1465,11 +1505,13 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
     std::vector<Util::Wall> wallPatches;
     std::vector<pcl::Indices> wallPatchesPoints;
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallPatchMids = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallPatchMids = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     //region find small wall patches
 
     // tree will get updated indices when points are assigned to a wall patch
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr remainingWallsTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr remainingWallsTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     remainingWallsTree->setInputCloud(remainingWallsCloud);
 
     auto skippiskip = std::vector<bool>(remainingWallsCloud->size());
@@ -1477,6 +1519,8 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     // prepare pca
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(remainingWallsCloud);
+
+    // for every wall point
     for (auto pIdx = 0; pIdx < remainingWallsCloud->size(); pIdx++) {
         if (skippiskip[pIdx])
             continue;
@@ -1490,7 +1534,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             continue;
         }
 
-        // prepare pca for points
+        // prepare pca for neighbour points
         pcl::IndicesPtr searchResultIdxPtr = std::make_shared<pcl::Indices>(searchResultIdx);
         pca.setIndices(searchResultIdxPtr);
 
@@ -1549,7 +1593,8 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             continue;
         }
         auto lasWallNormal = Util::normalize(
-                Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)), pcl::PointXYZ(0, 1, 0)));
+                Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),
+                                   pcl::PointXYZ(0, 1, 0)));
 
         float xMedian, yMedian, zMedian;
         findXYZMedian(remainingWallsCloud, searchResultIdx, xMedian, yMedian, zMedian);
@@ -1564,8 +1609,12 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //        int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (156) + 100;
 //        int randB = rand() % (156) + 100;
+
         // this is wall patch
-        // mark neighbours
+        //region mark neighbours and get bounds of patch
+
+        float minX, minY, minZ = INFINITY;
+        float maxX, maxY, maxZ = -INFINITY;
         for (const auto& nIdx: searchResultIdx) {
             skippiskip[nIdx] = true;
             auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
@@ -1583,8 +1632,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             (*allPointsCloud)[idxMap[nIdx]].normal_y = lasWallNormal.y;
             (*allPointsCloud)[idxMap[nIdx]].normal_z = lasWallNormal.z;
         }
+        //endregion
+
+        // save point indices of this patch
         wallPatchesPoints.push_back(searchResultIdx);
-        // update tree
+        // update tree -> points of this patch will not be included in next search
         remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
         // add to patches
         wallPatches.push_back(newWall);
@@ -1596,13 +1648,14 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     std::vector<Util::Wall> finalWalls;
     //region combine wall patches
 
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr wallPatchTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr wallPatchTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     wallPatchTree->setInputCloud(wallPatchMids);
     auto wallPatchSkip = std::vector<bool>(wallPatchMids->size());
-    std::fill(wallPatchSkip.begin(), wallPatchSkip.end() ,false);
+    std::fill(wallPatchSkip.begin(), wallPatchSkip.end(), false);
 
     int lookAt = 170;
-    for (int patchIdx = 0; patchIdx< wallPatches.size(); patchIdx++) {
+    for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
 //        if(patchIdx > lookAt || patchIdx < lookAt) {
 //            continue;
@@ -1616,7 +1669,8 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         // radius search
         pcl::Indices wallPatchSearchResultIdx;
         std::vector<float> searchResultDist;
-        if (wallPatchTree->radiusSearch(wallPatch.mid, 20.0f, wallPatchSearchResultIdx, searchResultDist) <= 0) {
+        float searchRadius = 20.0f;
+        if (wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist) <= 0) {
             continue; //TODO was dann? auch aus einem patch ne wand machen?
         }
 
@@ -1627,66 +1681,92 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         wallPatchSearchResultIdx.erase(wallPatchSearchResultIdx.begin());
         searchResultDist.erase(searchResultDist.begin());
         // bounds
-        float combineWallBounds[6] = {INFINITY, -INFINITY, INFINITY, -INFINITY, INFINITY, -INFINITY}; //xmin, xmax, ymin, ymax, zmin, zmax
+        float combineWallBounds[6] = {INFINITY, -INFINITY, INFINITY, -INFINITY, INFINITY,
+                                      -INFINITY}; //xmin, xmax, ymin, ymax, zmin, zmax
 
 //        auto lastAddedPatchPoint = wallPatch.mid; // TODO nicht nur mit letztem punkt machen sondern mit allem
         auto patchNormal = pcl::PointXYZ(wallPatch.mid.normal_x, wallPatch.mid.normal_y, wallPatch.mid.normal_z);
-        for (const auto& wallPatchNeighIdx: wallPatchSearchResultIdx) {
-            auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
-            if (wallPatchSkip[wallPatchNeighIdx])
-                continue;
-            // check plane distances
-//            if (Util::pointPlaneDistance(neighbourPatchPoint, wallPatch.mid) > 1.5f) {
-//                continue;
-//            }
-            // check hor dist/dist along wall
+        // TODO ich könnte merken zu welchem gebäude ich die punkte erkannt hab -> nicht punkte/patches von versch gebäuden mixen
+        // ich kann die nicht einfach der entfernung nach abfrühstücken, weil dadurch welche übergangen werden die eig drin sein müssten
+        // while schleife
+        // for schleife über remaining neighbours
+        //     wenn near ist, schauen ob auch normal passt und rein oder raus
+        // wenn keiner near ist -> stoppi
+        // wenn bis zum ende welche near waren -> nochmal größer suchen
+        std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
+            return (wallPatchSkip[idx]);
+        });
+        if (wallPatchSearchResultIdx.empty()) {
+            continue;
+        }
+        while (true) {
+            if (wallPatchSearchResultIdx.empty()) {
+                // all viewed neighbour patches were near -> // TODO search again with bigger radius
+                break;
+                // search again with bigger radius
+//                searchRadius += 5;
+//                wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist);
+//                // remove patches that have already been taken
+//                // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
+//                auto newEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
+//                    return (wallPatchSkip[idx]);
+//                });
+//                wallPatchSearchResultIdx.erase(newEnd, wallPatchSearchResultIdx.end());
 
-            // wenn es nah an irgendeinem patch asu der combi ist dann go
-            auto near = Util::horizontalDistance(neighbourPatchPoint, wallPatch.mid) <= 3.0f;//false;
-            for (auto& cPatchIdx: combineWallPatchIdx) {
-                const auto& cPatch = wallPatches[cPatchIdx];
-                if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 3.5f) { // TODO hor or generell?
-                    near = true;
+            }
+            // check if there is a neighbour patch that is near the wall combi
+            auto nearIt = wallPatchSearchResultIdx.end(); // vllt it benutzen
+            for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
+                const auto& wallPatchNeighIdx = *wallPatchNeighIdxIt;
+                auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
+
+                // wenn es nah an irgendeinem patch asu der combi ist dann go
+                bool near = false;
+                for (auto& cPatchIdx: combineWallPatchIdx) {
+                    const auto& cPatch = wallPatches[cPatchIdx];
+                    if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 3.5f) { // TODO hor or generell?
+                        near = true;
+
+                        break;
+                    }
+                }
+                if (near) {
+                    nearIt = wallPatchNeighIdxIt;
                     break;
                 }
             }
-            if (!near) {
-                const auto& indices = wallPatchesPoints[wallPatchNeighIdx];
-                for (const auto& index: indices) {
-                    (*allPointsCloud)[idxMap[index]].r = 255; // blau
-                    (*allPointsCloud)[idxMap[index]].g = 0;
-                    (*allPointsCloud)[idxMap[index]].b = 0;
-                }
-                continue;
+
+            if (nearIt == wallPatchSearchResultIdx.end()) {
+                // found no near neighbour
+                break;
             }
 
-//            if (Util::horizontalDistance(neighbourPatchPoint, lastAddedPatchPoint) > 3.0f) { // TODO hor oder generell dist?
-//                continue; // TODO continue or break?
-//            }
-
-            auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y, neighbourPatchPoint.normal_z);
+            // check if near neighbour also has good normal angle
+            auto& neighbourPatchPoint = wallPatchMids->points[*nearIt];
+            auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
+                                                 neighbourPatchPoint.normal_z);
             float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal));
-            if (normalAngle > 1.22f){//0.78f) { // 45°
-                const auto& indices = wallPatchesPoints[wallPatchNeighIdx];
-                for (const auto& index: indices) {
-                    (*allPointsCloud)[idxMap[index]].r = 0;
-                    (*allPointsCloud)[idxMap[index]].g = 0;
-                    (*allPointsCloud)[idxMap[index]].b = 255;
-                }
-                continue;
+            if (normalAngle <= 1.22f) {//0.78f) { // 45°
+                // found a patch for the combi
+                combineWallPatchIdx.emplace_back(*nearIt);
+                wallPatchSkip[*nearIt] = true;
+                // remove it from patch search
+
             }
+//            else {
+//                const auto& indices = wallPatchesPoints[nearIdx];
+//                for (const auto& index: indices) {
+//                    (*allPointsCloud)[idxMap[index]].r = 0;
+//                    (*allPointsCloud)[idxMap[index]].g = 0;
+//                    (*allPointsCloud)[idxMap[index]].b = 255;
+//                }
+//            }
+            // remove point from neighbours regardless if it has good angle and belongs to combi or not
+            wallPatchSearchResultIdx.erase(nearIt);
 
 
-            // TODO check normal angles, dabei denke ich break
-
-
-
-            wallPatchSkip[wallPatchNeighIdx] = true;
-            // TODO remove from search indices
-//            lastAddedPatchPoint = neighbourPatchPoint; // das ist falsch, wallPatchNeighIdx ist ein idx für wallpatchmids, nicht für die punkte
-            combineWallPatchIdx.push_back(wallPatchNeighIdx);
         }
-        // TODO decide if bigger search
+
 
         if (combineWallPatchIdx.size() < 2) {
             continue;
@@ -1712,11 +1792,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 (*allPointsCloud)[idxMap[index]].b = color[2];
             }
         }
-            // den patch von dem die patch combi ausgeht anders anmalen
-            auto blee2 = wallPatchesPoints[patchIdx][1];
-            (*allPointsCloud)[idxMap[blee2]].r = 0;
-            (*allPointsCloud)[idxMap[blee2]].g = 0;
-            (*allPointsCloud)[idxMap[blee2]].b = 255;
+        // den patch von dem die patch combi ausgeht anders anmalen
+        auto blee2 = wallPatchesPoints[patchIdx][1];
+        (*allPointsCloud)[idxMap[blee2]].r = 0;
+        (*allPointsCloud)[idxMap[blee2]].g = 0;
+        (*allPointsCloud)[idxMap[blee2]].b = 255;
 //            for (auto blee: wallPatchesPoints[patchIdx]) {
 //                (*allPointsCloud)[idxMap[blee]].r = 0;
 //                (*allPointsCloud)[idxMap[blee]].g = 0;
