@@ -1654,12 +1654,12 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     auto wallPatchSkip = std::vector<bool>(wallPatchMids->size());
     std::fill(wallPatchSkip.begin(), wallPatchSkip.end(), false);
 
-    int lookAt = 170;
+    int lookAt = 165;
     for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
-//        if(patchIdx > lookAt || patchIdx < lookAt) {
-//            continue;
-//        }
+        if(patchIdx > lookAt || patchIdx < lookAt) {
+            continue;
+        }
 
         if (wallPatchSkip[patchIdx])
             continue;
@@ -1702,16 +1702,16 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         while (true) {
             if (wallPatchSearchResultIdx.empty()) {
                 // all viewed neighbour patches were near -> // TODO search again with bigger radius
-                break;
+//                break;
                 // search again with bigger radius
-//                searchRadius += 5;
-//                wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist);
-//                // remove patches that have already been taken
-//                // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
-//                auto newEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
-//                    return (wallPatchSkip[idx]);
-//                });
-//                wallPatchSearchResultIdx.erase(newEnd, wallPatchSearchResultIdx.end());
+                searchRadius += 5;
+                wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist);
+                // remove patches that have already been taken
+                // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
+                auto newEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
+                    return (wallPatchSkip[idx]);
+                });
+                wallPatchSearchResultIdx.erase(newEnd, wallPatchSearchResultIdx.end());
 
             }
             // check if there is a neighbour patch that is near the wall combi
@@ -1724,7 +1724,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 bool near = false;
                 for (auto& cPatchIdx: combineWallPatchIdx) {
                     const auto& cPatch = wallPatches[cPatchIdx];
-                    if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 3.5f) { // TODO hor or generell?
+                    if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 6.0f) { // TODO hor or generell?
                         near = true;
 
                         break;
@@ -1738,7 +1738,15 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
             if (nearIt == wallPatchSearchResultIdx.end()) {
                 // found no near neighbour
-                break;
+                for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
+                    const auto& wallPatchNeighIdx = *wallPatchNeighIdxIt;
+                    auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
+                    auto& neighbourPatchAllPoints = wallPatchesPoints[wallPatchNeighIdx];
+                    for (const auto& nIdx: neighbourPatchAllPoints) {
+                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
+                    }
+                }
+                    break;
             }
 
             // check if near neighbour also has good normal angle
