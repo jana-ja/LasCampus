@@ -1693,9 +1693,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         //     wenn near ist, schauen ob auch normal passt und rein oder raus
         // wenn keiner near ist -> stoppi
         // wenn bis zum ende welche near waren -> nochmal größer suchen
-        std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
+        auto newEnd2 = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
             return (wallPatchSkip[idx]);
         });
+        wallPatchSearchResultIdx.erase(newEnd2, wallPatchSearchResultIdx.end());
+
         if (wallPatchSearchResultIdx.empty()) {
             continue;
         }
