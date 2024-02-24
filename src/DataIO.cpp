@@ -1657,9 +1657,9 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     int lookAt = 165;
     for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
-        if(patchIdx > lookAt || patchIdx < lookAt) {
-            continue;
-        }
+//        if(patchIdx > lookAt || patchIdx < lookAt) {
+//            continue;
+//        }
 
         if (wallPatchSkip[patchIdx])
             continue;
@@ -1674,17 +1674,15 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             continue; //TODO was dann? auch aus einem patch ne wand machen?
         }
 
-        pcl::Indices combineWallPatchIdx;
+        pcl::Indices wallCandidatePatchIdc;
         // der patch selbst ist immer dabei
-        combineWallPatchIdx.push_back(patchIdx);
+        wallCandidatePatchIdc.push_back(patchIdx);
         // remove first point of radius search weil das ist der patch selbst
         wallPatchSearchResultIdx.erase(wallPatchSearchResultIdx.begin());
         searchResultDist.erase(searchResultDist.begin());
         // bounds
-        float combineWallBounds[6] = {INFINITY, -INFINITY, INFINITY, -INFINITY, INFINITY,
-                                      -INFINITY}; //xmin, xmax, ymin, ymax, zmin, zmax
+//        float combineWallBounds[6] = {INFINITY, -INFINITY, INFINITY, -INFINITY, INFINITY, -INFINITY}; //xmin, xmax, ymin, ymax, zmin, zmax
 
-//        auto lastAddedPatchPoint = wallPatch.mid; // TODO nicht nur mit letztem punkt machen sondern mit allem
         auto patchNormal = pcl::PointXYZ(wallPatch.mid.normal_x, wallPatch.mid.normal_y, wallPatch.mid.normal_z);
         // TODO ich könnte merken zu welchem gebäude ich die punkte erkannt hab -> nicht punkte/patches von versch gebäuden mixen
         // ich kann die nicht einfach der entfernung nach abfrühstücken, weil dadurch welche übergangen werden die eig drin sein müssten
@@ -1701,21 +1699,35 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         if (wallPatchSearchResultIdx.empty()) {
             continue;
         }
+
+
+        auto wallCandidate = Util::Wall();
+        wallCandidate.mid = wallPatch.mid;
+
+
+        float maxDist = -INFINITY;
         while (true) {
+            // TODO maxdist vllt hier auf -inf setzen? damit bei größerer dist wenn ich von wann candidate mid suche nicht unnötig weiter suche wenn keine neuen eingefügt wurden
             if (wallPatchSearchResultIdx.empty()) {
-                // all viewed neighbour patches were near -> // TODO search again with bigger radius
-//                break;
-                // search again with bigger radius
-                searchRadius += 5;
-                wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist);
-                // remove patches that have already been taken
-                // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
-                auto newEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
-                    return (wallPatchSkip[idx]);
-                });
-                wallPatchSearchResultIdx.erase(newEnd, wallPatchSearchResultIdx.end());
+                // wenn einer hinzugefügt wurde, der nah am rand ist → search again with bigger radius
+                if (maxDist > searchRadius * 0.8) {
+                    // search again with bigger radius
+                    searchRadius += 10;
+                    // TODO macht es sinn radius search auch von wall candidate mid aus zu machen??
+                    wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist);
+                    // remove patches that have already been taken
+                    // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
+                    auto newEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
+                        return (wallPatchSkip[idx]);
+                    });
+                    wallPatchSearchResultIdx.erase(newEnd, wallPatchSearchResultIdx.end());
+                } else {
+                    break;
+                }
+
 
             }
+            // TODO doch erst die mit schlechter normal rauswerfen?
             // check if there is a neighbour patch that is near the wall combi
             auto nearIt = wallPatchSearchResultIdx.end(); // vllt it benutzen
             for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
@@ -1724,7 +1736,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
                 // wenn es nah an irgendeinem patch asu der combi ist dann go
                 bool near = false;
-                for (auto& cPatchIdx: combineWallPatchIdx) {
+                for (auto& cPatchIdx: wallCandidatePatchIdc) {
                     const auto& cPatch = wallPatches[cPatchIdx];
                     if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 6.0f) { // TODO hor or generell?
                         near = true;
@@ -1745,22 +1757,63 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                     auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
                     auto& neighbourPatchAllPoints = wallPatchesPoints[wallPatchNeighIdx];
                     for (const auto& nIdx: neighbourPatchAllPoints) {
-                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
+//                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
+//                        (*allPointsCloud)[idxMap[nIdx]].r = 0;
+//                        (*allPointsCloud)[idxMap[nIdx]].g = 0;
                     }
                 }
-                    break;
+//                    break;
+                    // remove remaining points
+                wallPatchSearchResultIdx.clear();
+                continue;
             }
 
             // check if near neighbour also has good normal angle
             auto& neighbourPatchPoint = wallPatchMids->points[*nearIt];
             auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
                                                  neighbourPatchPoint.normal_z);
-            float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal));
-            if (normalAngle <= 1.22f) {//0.78f) { // 45°
-                // found a patch for the combi
-                combineWallPatchIdx.emplace_back(*nearIt);
-                wallPatchSkip[*nearIt] = true;
-                // remove it from patch search
+            float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
+            if (normalAngle <= 0.78f) { // 45°
+
+                // check plane distance
+                if (Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid) < 0.7f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
+                    // found a patch for the combi
+                    wallCandidatePatchIdc.emplace_back(*nearIt);
+                    // remove it from patch search
+                    wallPatchSkip[*nearIt] = true;
+                    // save distance
+                    auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
+                    if (dist > maxDist) {
+                        maxDist = dist;
+                    }
+                    // update normal
+                    auto newNormal = pcl::PointXYZ(0,0,0);
+                    for (const auto& combWallIdx: wallCandidatePatchIdc) {
+                        auto& combWall = wallPatches[combWallIdx];
+                        newNormal.x += combWall.mid.normal_x;
+                        newNormal.y += combWall.mid.normal_y;
+                        newNormal.z += combWall.mid.normal_z;
+                    }
+                    newNormal.x /= wallCandidatePatchIdc.size();
+                    newNormal.y /= wallCandidatePatchIdc.size();
+                    newNormal.z /= wallCandidatePatchIdc.size();
+                    wallCandidate.mid.normal_x = newNormal.x;
+                    wallCandidate.mid.normal_y = newNormal.y;
+                    wallCandidate.mid.normal_z = newNormal.z;
+                    // update mid point
+                    float xMedian, yMedian, zMedian;
+                    findXYZMedian(wallPatchMids, wallCandidatePatchIdc, xMedian, yMedian, zMedian);
+                    wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+                    // TODO für debug zum anschauen
+                    for (const auto& combWallIdx: wallCandidatePatchIdc) {
+                        auto& combWall = wallPatches[combWallIdx];
+                        combWall.mid.normal_x = newNormal.x;
+                        combWall.mid.normal_y = newNormal.y;
+                        combWall.mid.normal_z = newNormal.z;
+                    }
+                }
+
+
 
             }
 //            else {
@@ -1778,28 +1831,32 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         }
 
 
-        if (combineWallPatchIdx.size() < 2) {
+        if (wallCandidatePatchIdc.size() < 2) {
             continue;
         }
         wallPatchSkip[patchIdx] = true; // sonst kann leitender patch noch wonaders mit reinkommen
         // patches
-//        int randB = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (156) + 100;
-//        int randR = rand() % (156) + 100;
+        int randB = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
+        int randG = rand() % (156) + 100;
+        int randR = rand() % (156) + 100;
 
-        auto& color = colors[colorIndex];
-        colorIndex = (colorIndex + 1) % colorCount;
+//        auto& color = colors[colorIndex];
+//        colorIndex = (colorIndex + 1) % colorCount;
 
         // ############## draw combined patches
-        for (const auto& combPatchIdx: combineWallPatchIdx) {
+        for (const auto& combPatchIdx: wallCandidatePatchIdc) {
+            if(!wallPatchSkip[combPatchIdx]) {
+                // WRONGG
+                std::cout << "MEGA WRONG" << std::endl;
+            }
             const auto& indices = wallPatchesPoints[combPatchIdx];
             for (const auto& index: indices) {
-//                (*allPointsCloud)[idxMap[index]].r = randR;
-//                (*allPointsCloud)[idxMap[index]].g = randG;
-//                (*allPointsCloud)[idxMap[index]].b = randB;
-                (*allPointsCloud)[idxMap[index]].r = color[0];
-                (*allPointsCloud)[idxMap[index]].g = color[1];
-                (*allPointsCloud)[idxMap[index]].b = color[2];
+                (*allPointsCloud)[idxMap[index]].r = randR;
+                (*allPointsCloud)[idxMap[index]].g = randG;
+                (*allPointsCloud)[idxMap[index]].b = randB;
+//                (*allPointsCloud)[idxMap[index]].r = color[0];
+//                (*allPointsCloud)[idxMap[index]].g = color[1];
+//                (*allPointsCloud)[idxMap[index]].b = color[2];
             }
         }
         // den patch von dem die patch combi ausgeht anders anmalen
@@ -1814,11 +1871,12 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //            }
 
 
-
+// TODO wall malen, danach weiter optimieren, scheinbar sind ein par patches nicht near die es sein sollten, und plane dist grenze vllt zu groß ajf sind da komisch entfernte patches scheinbar mit drin
+//
 
 
 //
-//        if (combineWallPatchIdx.size() < 3) { // TODO needed for pca, what to do with samller dingsß
+//        if (wallCandidatePatchIdc.size() < 3) { // TODO needed for pca, what to do with samller dingsß
 //            continue;
 //        }
 //        // found wall
@@ -1829,7 +1887,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //        // prepare pca
 //        pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
 //        pca.setInputCloud(wallPatchMids);
-//        pcl::IndicesPtr combineWallPatchIdxPtr = std::make_shared<pcl::Indices>(combineWallPatchIdx);
+//        pcl::IndicesPtr combineWallPatchIdxPtr = std::make_shared<pcl::Indices>(wallCandidatePatchIdc);
 //        pca.setIndices(combineWallPatchIdxPtr);
 //
 //        //region get mid and normal if strongest eigenvector is horizontal
@@ -1855,7 +1913,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 ////                Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)), pcl::PointXYZ(0, 1, 0)));
 //
 //        float xMedian, yMedian, zMedian;
-//        findXYZMedian(wallPatchMids, combineWallPatchIdx, xMedian, yMedian, zMedian);
+//        findXYZMedian(wallPatchMids, wallCandidatePatchIdc, xMedian, yMedian, zMedian);
 //        finalWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
 //        finalWall.mid.normal_x = finalWallNormal.x;
 //        finalWall.mid.normal_y = finalWallNormal.y;
