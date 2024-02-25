@@ -1679,7 +1679,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
     auto wallPatchSkip = std::vector<bool>(wallPatchMids->size());
     std::fill(wallPatchSkip.begin(), wallPatchSkip.end(), false);
 
-    int lookAt = 165;
+    int lookAt = 125; //165
     for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
 //        if(patchIdx > lookAt || patchIdx < lookAt) {
@@ -1798,10 +1798,11 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
             auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
                                                  neighbourPatchPoint.normal_z);
             float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
-            if (normalAngle <= 0.78f) { // 45°
+            if (normalAngle <= 0.6f){//0.78f) { // 45°
 
                 // check plane distance
-                if (Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid) < 0.7f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
+                auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
+                if (ppd < 1.0f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
                     // found a patch for the combi
                     wallCandidatePatchIdc.emplace_back(*nearIt);
                     // remove it from patch search
@@ -1811,6 +1812,10 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                     if (dist > maxDist) {
                         maxDist = dist;
                     }
+                    // update mid point
+                    float xMedian, yMedian, zMedian;
+                    findXYZMedian(wallPatchMids, wallCandidatePatchIdc, xMedian, yMedian, zMedian);
+                    wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
                     // update normal
                     auto newNormal = pcl::PointXYZ(0,0,0);
                     for (const auto& combWallIdx: wallCandidatePatchIdc) {
@@ -1819,16 +1824,13 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                         newNormal.y += combWall.mid.normal_y;
                         newNormal.z += combWall.mid.normal_z;
                     }
-                    newNormal.x /= wallCandidatePatchIdc.size();
-                    newNormal.y /= wallCandidatePatchIdc.size();
-                    newNormal.z /= wallCandidatePatchIdc.size();
+                    newNormal.x /= static_cast<float>(wallCandidatePatchIdc.size());
+                    newNormal.y /= static_cast<float>(wallCandidatePatchIdc.size());
+                    newNormal.z /= static_cast<float>(wallCandidatePatchIdc.size()); // TODO normalisieren
                     wallCandidate.mid.normal_x = newNormal.x;
                     wallCandidate.mid.normal_y = newNormal.y;
                     wallCandidate.mid.normal_z = newNormal.z;
-                    // update mid point
-                    float xMedian, yMedian, zMedian;
-                    findXYZMedian(wallPatchMids, wallCandidatePatchIdc, xMedian, yMedian, zMedian);
-                    wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+
                     // TODO für debug zum anschauen
                     for (const auto& combWallIdx: wallCandidatePatchIdc) {
                         auto& combWall = wallPatches[combWallIdx];
@@ -1895,6 +1897,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
 //                (*allPointsCloud)[idxMap[blee]].b = 255;
 //            }
 
+        // TODO normale ist jetzt durchschnitt der patches, gut oder nochmal pca?
 
 // TODO wall malen, danach weiter optimieren, scheinbar sind ein par patches nicht near die es sein sollten, und plane dist grenze vllt zu groß ajf sind da komisch entfernte patches scheinbar mit drin
 //
@@ -1909,16 +1912,29 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         pcl::Indices allWallCandidatePointIdc;
         for (auto& patchIdx: wallCandidatePatchIdc) {
             allWallCandidatePointIdc.insert(allWallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(), wallPatchPointIdc[patchIdx].end());
+
+            // TODO wenn ich hier drüber loope könnte ich die eig auch direkt abspeichern und in findStartEnd geben anstatt da wieder zu loopen
+            // project onto wall
+            for (const auto& pointIdx: allWallCandidatePointIdc) {
+                auto& point = (*remainingWallsCloud)[pointIdx];
+                auto pointDist = Util::signedPointPlaneDistance(point, wallCandidate.mid);
+                auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * wallCandidate.mid.normal_x, pointDist * wallCandidate.mid.normal_y,
+                                                                                      pointDist * wallCandidate.mid.normal_z));
+                (*remainingWallsCloud)[pointIdx].x = newPosi.x;
+                (*remainingWallsCloud)[pointIdx].y = newPosi.y;
+                (*remainingWallsCloud)[pointIdx].z = newPosi.z;
+            }
+
         }
         // get start and end point of wall
         // TODO erst alle auf die wan projizieren!
+
         float yMin, yMax;
         findStartEnd(remainingWallsCloud, allWallCandidatePointIdc, wallCandidate.point1, wallCandidate.point2, yMin, yMax);
         wallCandidate.point1.y = yMin;
         wallCandidate.point2.y = yMin;
         wallCandidate.length = Util::horizontalDistance(wallCandidate.point1, wallCandidate.point2);
 
-        // TODO project wall points onto wall plane
 
             // get y min and max from finalWallPoints to cover wall from bottom to top
 
@@ -1926,12 +1942,12 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
             // draw plane
             float stepWidth = 0.5;
             // get perp vec
-            auto lasWallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
-            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-            auto lasWallNormal = Util::crossProduct(horPerpVec,
-                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+            auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
+            auto horPerpVec = Util::normalize(wallVec); // horizontal
+            auto wallNormal = Util::crossProduct(horPerpVec,
+                                                 pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
 
-            float lasWallLength = Util::vectorLength(lasWallVec);
+            float lasWallLength = Util::vectorLength(wallVec);
             float x = wallCandidate.point1.x;
             float z = wallCandidate.point1.z;
             float distanceMoved = 0;
@@ -1942,14 +1958,14 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                 float y = yMin;
                 float xCopy = x;
                 float zCopy = z;
-                float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
+                float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
                 if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                     while (y < currentMaxY) {
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 100);//randR, randG, randB));
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, randR, randG, randB);//randR, randG, randB));
                         // set normal
-                        v.normal_x = lasWallNormal.x;
-                        v.normal_y = lasWallNormal.y;
-                        v.normal_z = lasWallNormal.z;
+                        v.normal_x = wallNormal.x;
+                        v.normal_y = wallNormal.y;
+                        v.normal_z = wallNormal.z;
                         // also set tangents
                         tangent1Vec.push_back(horPerpVec);
                         tangent2Vec.emplace_back(0, 1, 0);
@@ -1964,6 +1980,18 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                 z = zCopy + stepWidth * horPerpVec.z;
                 distanceMoved += stepWidth;
             }
+            // mid point
+        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0, 255);//randR, randG, randB));
+        // set normal
+        v.normal_x = wallNormal.x;
+        v.normal_y = wallNormal.y;
+        v.normal_z = wallNormal.z;
+        // also set tangents
+        tangent1Vec.push_back(horPerpVec);
+        tangent2Vec.emplace_back(0, 1, 0);
+        texCoords.emplace_back(0, 0);
+
+        allPointsCloud->push_back(v);
 
         //endregion
 
