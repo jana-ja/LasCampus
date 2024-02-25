@@ -1816,17 +1816,32 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                     float xMedian, yMedian, zMedian;
                     findXYZMedian(wallPatchMids, wallCandidatePatchIdc, xMedian, yMedian, zMedian);
                     wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+
                     // update normal
                     auto newNormal = pcl::PointXYZ(0,0,0);
-                    for (const auto& combWallIdx: wallCandidatePatchIdc) {
-                        auto& combWall = wallPatches[combWallIdx];
-                        newNormal.x += combWall.mid.normal_x;
-                        newNormal.y += combWall.mid.normal_y;
-                        newNormal.z += combWall.mid.normal_z;
-                    }
-                    newNormal.x /= static_cast<float>(wallCandidatePatchIdc.size());
-                    newNormal.y /= static_cast<float>(wallCandidatePatchIdc.size());
-                    newNormal.z /= static_cast<float>(wallCandidatePatchIdc.size()); // TODO normalisieren
+//                    if(wallCandidatePatchIdc.size() > 2) {
+                        pcl::Indices wallCandidatePointIdc;
+                        for (auto& patchIdx: wallCandidatePatchIdc) {
+                            wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
+                                                         wallPatchPointIdc[patchIdx].begin(),
+                                                         wallPatchPointIdc[patchIdx].end());
+                        }
+                        pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(wallCandidatePointIdc);
+                        pca.setIndices(wallCandidatePointIdcPtr);
+                        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                        newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+                        newNormal = Util::normalize(newNormal);
+//                    }
+//                    auto newNormal = pcl::PointXYZ(0,0,0);
+//                    for (const auto& combWallIdx: wallCandidatePatchIdc) {
+//                        auto& combWall = wallPatches[combWallIdx];
+//                        newNormal.x += combWall.mid.normal_x;
+//                        newNormal.y += combWall.mid.normal_y;
+//                        newNormal.z += combWall.mid.normal_z;
+//                    }
+//                    newNormal.x /= static_cast<float>(wallCandidatePatchIdc.size());
+//                    newNormal.y /= static_cast<float>(wallCandidatePatchIdc.size());
+//                    newNormal.z /= static_cast<float>(wallCandidatePatchIdc.size()); // TODO normalisieren
                     wallCandidate.mid.normal_x = newNormal.x;
                     wallCandidate.mid.normal_y = newNormal.y;
                     wallCandidate.mid.normal_z = newNormal.z;
