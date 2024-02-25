@@ -673,7 +673,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     }
 
 
-    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud);
+    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud, texCoords, tangent1Vec, tangent2Vec);
 
 
     if (removeOldWallPoints) {
@@ -719,6 +719,30 @@ bool yComparator(pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
 
 bool zComparator(pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
     return p1.z < p2.z;
+}
+
+void DataIO::findStartEnd(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices,
+                          pcl::PointXYZ& startPoint, pcl::PointXYZ& endPoint,
+                           float& yMin, float& yMax) {
+    auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
+    for (auto i = 0; i < pointIndices.size(); i++) {
+        const auto& pointIdx = pointIndices[i];
+        points[i] = (*cloud)[pointIdx];
+    }
+    // randpunkte holen nach x achse // TODO was wenn wand parallel zu z achse?
+    std::nth_element(points.begin(), points.begin(), points.end(), xComparator);
+    startPoint.x = points[0].x;
+    startPoint.y = points[0].y;
+    startPoint.z = points[0].z;
+    std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
+    endPoint.x = (points[points.size()-1]).x;
+    endPoint.y = (points[points.size()-1]).y;
+    endPoint.z = (points[points.size()-1]).z;
+
+    std::nth_element(points.begin(), points.begin(), points.end(), yComparator);
+    yMin = points[0].y;
+    std::nth_element(points.begin(), points.end() - 1, points.end(), yComparator);
+    yMax = points[points.size() - 1].y;
 }
 
 void DataIO::findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices,
@@ -1454,7 +1478,8 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
 void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints,
                              std::vector<bool>& removePoints,
                              const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& allPointsTree,
-                             const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud) {
+                             const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud, std::vector<pcl::PointXY>& texCoords,
+std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec) {
 
     int colorCount = 7;
     int colors[][3] = {
@@ -1504,7 +1529,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     //endregion
 
     std::vector<Util::Wall> wallPatches;
-    std::vector<pcl::Indices> wallPatchesPoints;
+    std::vector<pcl::Indices> wallPatchPointIdc;
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallPatchMids = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     //region find small wall patches
@@ -1635,7 +1660,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         //endregion
 
         // save point indices of this patch
-        wallPatchesPoints.push_back(searchResultIdx);
+        wallPatchPointIdc.push_back(searchResultIdx);
         // update tree -> points of this patch will not be included in next search
         remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
         // add to patches
@@ -1755,7 +1780,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
                     const auto& wallPatchNeighIdx = *wallPatchNeighIdxIt;
                     auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
-                    auto& neighbourPatchAllPoints = wallPatchesPoints[wallPatchNeighIdx];
+                    auto& neighbourPatchAllPoints = wallPatchPointIdc[wallPatchNeighIdx];
                     for (const auto& nIdx: neighbourPatchAllPoints) {
 //                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
 //                        (*allPointsCloud)[idxMap[nIdx]].r = 0;
@@ -1817,7 +1842,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
             }
 //            else {
-//                const auto& indices = wallPatchesPoints[nearIdx];
+//                const auto& indices = wallPatchPointIdc[nearIdx];
 //                for (const auto& index: indices) {
 //                    (*allPointsCloud)[idxMap[index]].r = 0;
 //                    (*allPointsCloud)[idxMap[index]].g = 0;
@@ -1849,7 +1874,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 // WRONGG
                 std::cout << "MEGA WRONG" << std::endl;
             }
-            const auto& indices = wallPatchesPoints[combPatchIdx];
+            const auto& indices = wallPatchPointIdc[combPatchIdx];
             for (const auto& index: indices) {
                 (*allPointsCloud)[idxMap[index]].r = randR;
                 (*allPointsCloud)[idxMap[index]].g = randG;
@@ -1860,11 +1885,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             }
         }
         // den patch von dem die patch combi ausgeht anders anmalen
-        auto blee2 = wallPatchesPoints[patchIdx][1];
+        auto blee2 = wallPatchPointIdc[patchIdx][1];
         (*allPointsCloud)[idxMap[blee2]].r = 0;
         (*allPointsCloud)[idxMap[blee2]].g = 0;
         (*allPointsCloud)[idxMap[blee2]].b = 255;
-//            for (auto blee: wallPatchesPoints[patchIdx]) {
+//            for (auto blee: wallPatchPointIdc[patchIdx]) {
 //                (*allPointsCloud)[idxMap[blee]].r = 0;
 //                (*allPointsCloud)[idxMap[blee]].g = 0;
 //                (*allPointsCloud)[idxMap[blee]].b = 255;
@@ -1874,6 +1899,73 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 // TODO wall malen, danach weiter optimieren, scheinbar sind ein par patches nicht near die es sein sollten, und plane dist grenze vllt zu groß ajf sind da komisch entfernte patches scheinbar mit drin
 //
 
+        // region draw wall
+
+        // wall: combWall
+        // patches davon: wallCandidatePatchIdc
+        // punkte davon: wallPatchPointIdc
+
+        // merge pointIdx of all patches
+        pcl::Indices allWallCandidatePointIdc;
+        for (auto& patchIdx: wallCandidatePatchIdc) {
+            allWallCandidatePointIdc.insert(allWallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(), wallPatchPointIdc[patchIdx].end());
+        }
+        // get start and end point of wall
+        // TODO erst alle auf die wan projizieren!
+        float yMin, yMax;
+        findStartEnd(remainingWallsCloud, allWallCandidatePointIdc, wallCandidate.point1, wallCandidate.point2, yMin, yMax);
+        wallCandidate.point1.y = yMin;
+        wallCandidate.point2.y = yMin;
+        wallCandidate.length = Util::horizontalDistance(wallCandidate.point1, wallCandidate.point2);
+
+        // TODO project wall points onto wall plane
+
+            // get y min and max from finalWallPoints to cover wall from bottom to top
+
+
+            // draw plane
+            float stepWidth = 0.5;
+            // get perp vec
+            auto lasWallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
+            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+            auto lasWallNormal = Util::crossProduct(horPerpVec,
+                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+
+            float lasWallLength = Util::vectorLength(lasWallVec);
+            float x = wallCandidate.point1.x;
+            float z = wallCandidate.point1.z;
+            float distanceMoved = 0;
+
+
+            // move horizontal
+            while (distanceMoved < lasWallLength) {
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
+                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
+                    while (y < currentMaxY) {
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 100);//randR, randG, randB));
+                        // set normal
+                        v.normal_x = lasWallNormal.x;
+                        v.normal_y = lasWallNormal.y;
+                        v.normal_z = lasWallNormal.z;
+                        // also set tangents
+                        tangent1Vec.push_back(horPerpVec);
+                        tangent2Vec.emplace_back(0, 1, 0);
+                        texCoords.emplace_back(0, 0);
+
+                        allPointsCloud->push_back(v);
+
+                        y += stepWidth;
+                    }
+                }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
+                distanceMoved += stepWidth;
+            }
+
+        //endregion
 
 //
 //        if (wallCandidatePatchIdc.size() < 3) { // TODO needed for pca, what to do with samller dingsß

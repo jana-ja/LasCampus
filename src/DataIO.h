@@ -183,6 +183,10 @@ private:
                      std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
     void complexStableWalls(Building& building);
     void simpleStableWalls(DataIO::Building& building, std::map<int, pcl::Indices>& lasCertainWallPoints, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
+    void wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints, std::vector<bool>& removePoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
+                         const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
+    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec);
+    void findStartEnd(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, pcl::PointXYZ& startPoint, pcl::PointXYZ& endPoint, float& yMin, float& yMax);
     void findXYZMedian(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& xMedian, float& yMedian, float& zMedian);
     void findYMinMax(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices, float& yMin, float& yMax);
     float getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
@@ -221,9 +225,7 @@ private:
     const uint8_t FEATURE_CACHE_VERSION = 2;
     bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
-    void
-    wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints, std::vector<bool>& removePoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
-                    const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
+
 };
 
 
