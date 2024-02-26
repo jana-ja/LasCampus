@@ -1872,7 +1872,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                                                      neighbourPatchPoint.normal_z);
                 float normalAngle = acos(
                         Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
-                if (normalAngle <= 0.78f) {//0.78f) { // 45°
+                if (normalAngle <= 0.6f) {//0.78f) { // 45°
 
                     // check plane distance
                     auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
