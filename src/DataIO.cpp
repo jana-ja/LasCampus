@@ -1804,7 +1804,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 bool near = false;
                 for (auto& cPointIdx: wallCandidatePointIdc) {
                     const auto& cPoint = (*remainingWallsCloud)[cPointIdx];
-                    float dist = Util::distance(neighbourPatchPoint, cPoint); // TODO hor or generell?
+                    float dist = Util::horizontalDistance(neighbourPatchPoint, cPoint); // TODO hor or generell?
                     if (dist <= 4.0f) {
                         near = true;
                         nearPatchDist = dist;
@@ -1876,7 +1876,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
                     // check plane distance
                     auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
-                    if (ppd < 1.0f) {
+                    if (ppd < 1.5f) {
                         // found a patch for the combi
                         wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
                                                      wallPatchPointIdc[*nearPatchIt].begin(),
