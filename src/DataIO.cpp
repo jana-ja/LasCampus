@@ -1683,10 +1683,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //    auto wallPointSkip = std::vector<bool>(remainingWallsCloud->size());
 //    std::fill(wallPointSkip.begin(), wallPointSkip.end(), false);
 
-    int lookAt = 290; //165
+    int lookAt = 53; //165
     for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
-//        if(patchIdx > lookAt || patchIdx < lookAt) {
+//        if (patchIdx > lookAt || patchIdx < lookAt) {
+////        if (patchIdx > lookAt){
 //            continue;
 //        }
 
@@ -1928,7 +1929,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 // check plane distance
                 auto ppd = Util::pointPlaneDistance(neighbourPoint, wallCandidate.mid);
                 if (ppd < 1.0f) {
-                    // found a patch for the combi
+                    // found a point for the combi
                     wallCandidatePointIdc.push_back(*nearPointIt);
                     // remove it from patch search
                     wallPointSkip[*nearPointIt] = true;
