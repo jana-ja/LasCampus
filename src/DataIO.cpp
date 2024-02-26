@@ -1506,7 +1506,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     for (auto lasPointIdx = 0; lasPointIdx < lasWallPoints.size(); lasPointIdx++) {
         if (lasWallPoints[lasPointIdx] && !usedLasWallPoints[lasPointIdx]) {
             auto& point = (*allPointsCloud)[lasPointIdx];
-            point.r = 0;
+            point.r = 255;
             point.g = 255;
             point.b = 255;
 //            point.r = 100;
@@ -1683,7 +1683,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //    auto wallPointSkip = std::vector<bool>(remainingWallsCloud->size());
 //    std::fill(wallPointSkip.begin(), wallPointSkip.end(), false);
 
-    int lookAt = 125; //165
+    int lookAt = 290; //165
     for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
 //        if(patchIdx > lookAt || patchIdx < lookAt) {
