@@ -1749,6 +1749,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         // TODO versuch 1: grow suche nach patches und einzelpunkten: nur mit patches die wall anpassen
         //  versuch 2: von patch aus suchen damit man startwerte hat, dann einfach punkte suchen und hinzufügen und neue params
 
+        int patchCount = 1;
 
         float maxDist = -INFINITY;
         while (true) {
@@ -1902,6 +1903,8 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                         wallCandidate.mid.normal_y = newNormal.y;
                         wallCandidate.mid.normal_z = newNormal.z;
 
+                        patchCount++;
+
 //                        // TODO für debug zum anschauen
 //                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
 //                            auto& combWall = wallPatches[combWallIdx];
@@ -2016,7 +2019,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         //  wände nah an anderen wänden rauskicken ( vllt von hier alle neuen wände returnen und dann vor dem malen in der mutter funktion aussortieren?)
         //  manchen bullshit aufräumen (komscihe wände die entstehen)
 
-        // merge pointIdx of all patches
 //        pcl::Indices allWallCandidatePointIdc;
         for (auto& pointIdx: wallCandidatePointIdc) {
 
@@ -2044,6 +2046,13 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
         // get y min and max from finalWallPoints to cover wall from bottom to top
 
+        float wallR = randR, wallG = randG, wallB = randB;
+//        float wallR = color[0], wallG = color[1], wallB = color[2];
+        if (patchCount < 3) {
+            wallR = 0;
+            wallG = 0;
+            wallB = 200;
+        }
 
         // draw plane
         float stepWidth = 0.5;
@@ -2067,7 +2076,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
             if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                 while (y < currentMaxY) {
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, 150, 150, 150);//randR, randG, randB));
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, wallR, wallG, wallB);//randR, randG, randB));
                     // set normal
                     v.normal_x = wallNormal.x;
                     v.normal_y = wallNormal.y;
