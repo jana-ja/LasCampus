@@ -1615,7 +1615,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         // TODO vllt auch bei dem normalen wand ding schauen wenn die normale vertikal ist dann über linearity und ersten eigenvektor gehen?
         // normal
         // continue if first eigenvector is too vertical
-        if (abs(eigenVectors(1, 0)) > 0.3) { //TODO welcher wert?
+        if (abs(eigenVectors(1, 0)) > 0.5) { //TODO welcher wert?
             continue;
         }
         auto lasWallNormal = Util::normalize(
