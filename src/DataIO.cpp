@@ -723,7 +723,7 @@ bool zComparator(pcl::PointXYZRGBNormal& p1, pcl::PointXYZRGBNormal& p2) {
 
 void DataIO::findStartEnd(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<int>& pointIndices,
                           pcl::PointXYZ& startPoint, pcl::PointXYZ& endPoint,
-                           float& yMin, float& yMax) {
+                          float& yMin, float& yMax) {
     auto points = std::vector<pcl::PointXYZRGBNormal>(pointIndices.size());
     for (auto i = 0; i < pointIndices.size(); i++) {
         const auto& pointIdx = pointIndices[i];
@@ -735,9 +735,9 @@ void DataIO::findStartEnd(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cl
     startPoint.y = points[0].y;
     startPoint.z = points[0].z;
     std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
-    endPoint.x = (points[points.size()-1]).x;
-    endPoint.y = (points[points.size()-1]).y;
-    endPoint.z = (points[points.size()-1]).z;
+    endPoint.x = (points[points.size() - 1]).x;
+    endPoint.y = (points[points.size() - 1]).y;
+    endPoint.z = (points[points.size() - 1]).z;
 
     std::nth_element(points.begin(), points.begin(), points.end(), yComparator);
     yMin = points[0].y;
@@ -1478,8 +1478,9 @@ void DataIO::complexStableWalls(DataIO::Building& building) {
 void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints,
                              std::vector<bool>& removePoints,
                              const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& allPointsTree,
-                             const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud, std::vector<pcl::PointXY>& texCoords,
-std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec) {
+                             const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& allPointsCloud,
+                             std::vector<pcl::PointXY>& texCoords,
+                             std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec) {
 
     int colorCount = 7;
     int colors[][3] = {
@@ -1539,15 +1540,15 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     remainingWallsTree->setInputCloud(remainingWallsCloud);
 
-    auto skippiskip = std::vector<bool>(remainingWallsCloud->size());
-    std::fill(skippiskip.begin(), skippiskip.end(), false);
+    auto wallPointSkip = std::vector<bool>(remainingWallsCloud->size());
+    std::fill(wallPointSkip.begin(), wallPointSkip.end(), false);
     // prepare pca
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(remainingWallsCloud);
 
     // for every wall point
     for (auto pIdx = 0; pIdx < remainingWallsCloud->size(); pIdx++) {
-        if (skippiskip[pIdx])
+        if (wallPointSkip[pIdx])
             continue;
 
         auto& point = (*remainingWallsCloud)[pIdx];
@@ -1641,7 +1642,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         float minX, minY, minZ = INFINITY;
         float maxX, maxY, maxZ = -INFINITY;
         for (const auto& nIdx: searchResultIdx) {
-            skippiskip[nIdx] = true;
+            wallPointSkip[nIdx] = true;
             auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
             if (bla != pointSearchIndicesPtr->end())
                 pointSearchIndicesPtr->erase(bla);
@@ -1679,6 +1680,9 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
     auto wallPatchSkip = std::vector<bool>(wallPatchMids->size());
     std::fill(wallPatchSkip.begin(), wallPatchSkip.end(), false);
 
+//    auto wallPointSkip = std::vector<bool>(remainingWallsCloud->size());
+//    std::fill(wallPointSkip.begin(), wallPointSkip.end(), false);
+
     int lookAt = 125; //165
     for (int patchIdx = 0; patchIdx < wallPatches.size(); patchIdx++) {
 
@@ -1693,33 +1697,46 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         const auto& wallPatch = wallPatches[patchIdx];
         // radius search
         pcl::Indices wallPatchSearchResultIdx;
-        std::vector<float> searchResultDist;
+        std::vector<float> wallPatchSearchResultDist;
         float searchRadius = 20.0f;
-        if (wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist) <= 0) {
+        if (wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx,
+                                        wallPatchSearchResultDist) <= 0) {
             continue; //TODO was dann? auch aus einem patch ne wand machen?
         }
+        // radius search points
+        pcl::Indices wallPointSearchResultIdx;
+        std::vector<float> wallPointSearchResultDist;
+//        float searchRadius = 20.0f;
+        remainingWallsTree->radiusSearch(wallPatch.mid, searchRadius, wallPointSearchResultIdx,
+                                         wallPointSearchResultDist);
 
-        pcl::Indices wallCandidatePatchIdc;
-        // der patch selbst ist immer dabei
-        wallCandidatePatchIdc.push_back(patchIdx);
+
+        pcl::Indices wallCandidatePointIdc;
+        // die punkte vom patch selbst sind immer dabei
+        wallCandidatePointIdc.insert(wallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(),
+                                     wallPatchPointIdc[patchIdx].end());
         // remove first point of radius search weil das ist der patch selbst
         wallPatchSearchResultIdx.erase(wallPatchSearchResultIdx.begin());
-        searchResultDist.erase(searchResultDist.begin());
+        wallPatchSearchResultDist.erase(wallPatchSearchResultDist.begin());
         // bounds
 //        float combineWallBounds[6] = {INFINITY, -INFINITY, INFINITY, -INFINITY, INFINITY, -INFINITY}; //xmin, xmax, ymin, ymax, zmin, zmax
 
         auto patchNormal = pcl::PointXYZ(wallPatch.mid.normal_x, wallPatch.mid.normal_y, wallPatch.mid.normal_z);
         // TODO ich könnte merken zu welchem gebäude ich die punkte erkannt hab -> nicht punkte/patches von versch gebäuden mixen
-        // ich kann die nicht einfach der entfernung nach abfrühstücken, weil dadurch welche übergangen werden die eig drin sein müssten
-        // while schleife
-        // for schleife über remaining neighbours
-        //     wenn near ist, schauen ob auch normal passt und rein oder raus
-        // wenn keiner near ist -> stoppi
-        // wenn bis zum ende welche near waren -> nochmal größer suchen
-        auto newEnd2 = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
-            return (wallPatchSkip[idx]);
-        });
-        wallPatchSearchResultIdx.erase(newEnd2, wallPatchSearchResultIdx.end());
+
+        // remove skip patches
+        auto newPatchEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(),
+                                          [&wallPatchSkip](int idx) {
+                                              return (wallPatchSkip[idx]);
+                                          });
+        wallPatchSearchResultIdx.erase(newPatchEnd, wallPatchSearchResultIdx.end());
+        // remove skip points
+        auto newPointEnd = std::remove_if(wallPointSearchResultIdx.begin(), wallPointSearchResultIdx.end(),
+                                          [&wallPointSkip](int idx) {
+                                              return (wallPointSkip[idx]);
+                                          });
+        wallPointSearchResultIdx.erase(newPointEnd, wallPointSearchResultIdx.end());
+
 
         if (wallPatchSearchResultIdx.empty()) {
             continue;
@@ -1729,23 +1746,40 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         auto wallCandidate = Util::Wall();
         wallCandidate.mid = wallPatch.mid;
 
+        // TODO versuch 1: grow suche nach patches und einzelpunkten: nur mit patches die wall anpassen
+        //  versuch 2: von patch aus suchen damit man startwerte hat, dann einfach punkte suchen und hinzufügen und neue params
+
 
         float maxDist = -INFINITY;
         while (true) {
             // TODO maxdist vllt hier auf -inf setzen? damit bei größerer dist wenn ich von wann candidate mid suche nicht unnötig weiter suche wenn keine neuen eingefügt wurden
-            if (wallPatchSearchResultIdx.empty()) {
+            if (wallPatchSearchResultIdx.empty() && wallPointSearchResultIdx.empty()) {
                 // wenn einer hinzugefügt wurde, der nah am rand ist → search again with bigger radius
                 if (maxDist > searchRadius * 0.8) {
                     // search again with bigger radius
                     searchRadius += 10;
                     // TODO macht es sinn radius search auch von wall candidate mid aus zu machen??
-                    wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, searchResultDist);
+                    wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx,
+                                                wallPatchSearchResultDist);
                     // remove patches that have already been taken
                     // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
-                    auto newEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(), [&wallPatchSkip](int idx) {
-                        return (wallPatchSkip[idx]);
-                    });
-                    wallPatchSearchResultIdx.erase(newEnd, wallPatchSearchResultIdx.end());
+                    newPatchEnd = std::remove_if(wallPatchSearchResultIdx.begin(), wallPatchSearchResultIdx.end(),
+                                                 [&wallPatchSkip](int idx) {
+                                                     return (wallPatchSkip[idx]);
+                                                 });
+                    wallPatchSearchResultIdx.erase(newPatchEnd, wallPatchSearchResultIdx.end());
+
+                    // points
+                    remainingWallsTree->radiusSearch(wallPatch.mid, searchRadius, wallPointSearchResultIdx,
+                                                     wallPointSearchResultDist);
+                    // remove patches that have already been taken
+                    // it's useful to look at patches again that weren't near enough, because a bridge could be built by other patches
+                    newPointEnd = std::remove_if(wallPointSearchResultIdx.begin(), wallPointSearchResultIdx.end(),
+                                                 [&wallPointSkip](int idx) {
+                                                     return (wallPointSkip[idx]);
+                                                 });
+                    wallPointSearchResultIdx.erase(newPointEnd, wallPointSearchResultIdx.end());
+
                 } else {
                     break;
                 }
@@ -1753,129 +1787,192 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
 
             }
             // TODO doch erst die mit schlechter normal rauswerfen?
+
             // check if there is a neighbour patch that is near the wall combi
-            auto nearIt = wallPatchSearchResultIdx.end(); // vllt it benutzen
-            for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
+            auto nearPatchIt = wallPatchSearchResultIdx.end();
+            float nearPatchDist = INFINITY;
+            for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin();
+                 wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
                 const auto& wallPatchNeighIdx = *wallPatchNeighIdxIt;
                 auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
 
-                // wenn es nah an irgendeinem patch asu der combi ist dann go
+                // wenn es nah an irgendeinem punkt aus der combi ist dann go
                 bool near = false;
-                for (auto& cPatchIdx: wallCandidatePatchIdc) {
-                    const auto& cPatch = wallPatches[cPatchIdx];
-                    if (Util::distance(neighbourPatchPoint, cPatch.mid) <= 6.0f) { // TODO hor or generell?
+                for (auto& cPointIdx: wallCandidatePointIdc) {
+                    const auto& cPoint = (*remainingWallsCloud)[cPointIdx];
+                    nearPatchDist = Util::distance(neighbourPatchPoint, cPoint); // TODO hor or generell?
+                    if (nearPatchDist <= 6.0f) {
                         near = true;
 
                         break;
                     }
                 }
                 if (near) {
-                    nearIt = wallPatchNeighIdxIt;
+                    nearPatchIt = wallPatchNeighIdxIt;
+                    break;
+                }
+            }
+            // punkt suche
+            // check if there is a neighbour point that is near the wall combi
+            auto nearPointIt = wallPointSearchResultIdx.end();
+            float nearPointDist = INFINITY;
+            for (auto wallPointNeighIdxIt = wallPointSearchResultIdx.begin();
+                 wallPointNeighIdxIt != wallPointSearchResultIdx.end(); wallPointNeighIdxIt++) {
+                const auto& wallPointNeighIdx = *wallPointNeighIdxIt;
+                auto& neighbourPoint = remainingWallsCloud->points[wallPointNeighIdx];
+
+                // wenn es nah an irgendeinem punkt aus der combi ist dann go
+                bool near = false;
+                for (auto& cPointIdx: wallCandidatePointIdc) {
+                    const auto& cPoint = (*remainingWallsCloud)[cPointIdx];
+                    nearPointDist = Util::distance(neighbourPoint, cPoint); // TODO hor or generell?
+                    if (nearPointDist <= 6.0f) {
+                        near = true;
+
+                        break;
+                    }
+                }
+                if (near) {
+                    nearPointIt = wallPointNeighIdxIt;
                     break;
                 }
             }
 
-            if (nearIt == wallPatchSearchResultIdx.end()) {
+            // check if any neighbour was found
+            if (nearPatchIt == wallPatchSearchResultIdx.end() && nearPointIt == wallPointSearchResultIdx.end()) {
                 // found no near neighbour
-                for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
-                    const auto& wallPatchNeighIdx = *wallPatchNeighIdxIt;
-                    auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
-                    auto& neighbourPatchAllPoints = wallPatchPointIdc[wallPatchNeighIdx];
-                    for (const auto& nIdx: neighbourPatchAllPoints) {
-//                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
-//                        (*allPointsCloud)[idxMap[nIdx]].r = 0;
-//                        (*allPointsCloud)[idxMap[nIdx]].g = 0;
-                    }
-                }
-//                    break;
-                    // remove remaining points
+//                for (auto wallPatchNeighIdxIt = wallPatchSearchResultIdx.begin(); wallPatchNeighIdxIt != wallPatchSearchResultIdx.end(); wallPatchNeighIdxIt++) {
+//                    const auto& wallPatchNeighIdx = *wallPatchNeighIdxIt;
+//                    auto& neighbourPatchPoint = wallPatchMids->points[wallPatchNeighIdx];
+//                    auto& neighbourPatchAllPoints = wallPatchPointIdc[wallPatchNeighIdx];
+//                    for (const auto& nIdx: neighbourPatchAllPoints) {
+////                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
+////                        (*allPointsCloud)[idxMap[nIdx]].r = 0;
+////                        (*allPointsCloud)[idxMap[nIdx]].g = 0;
+//                    }
+//                }
+                // remove remaining points
                 wallPatchSearchResultIdx.clear();
+                wallPointSearchResultIdx.clear();
                 continue;
             }
 
-            // check if near neighbour also has good normal angle
-            auto& neighbourPatchPoint = wallPatchMids->points[*nearIt];
-            auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
-                                                 neighbourPatchPoint.normal_z);
-            float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
-            if (normalAngle <= 0.78f){//0.78f) { // 45°
+            // patch oder punkt, das mit der kleinsten dist hinzufügen
+
+
+            if (nearPatchDist <= nearPointDist) {
+                // patch einfügen
+                // check if near neighbour also has good normal angle
+                auto& neighbourPatchPoint = wallPatchMids->points[*nearPatchIt];
+                auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
+                                                     neighbourPatchPoint.normal_z);
+                float normalAngle = acos(
+                        Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
+                if (normalAngle <= 0.78f) {//0.78f) { // 45°
+
+                    // check plane distance
+                    auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
+                    if (ppd <
+                        1.0f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
+                        // found a patch for the combi
+                        wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
+                                                     wallPatchPointIdc[*nearPatchIt].begin(),
+                                                     wallPatchPointIdc[*nearPatchIt].end());
+                        // remove it from patch search
+                        wallPatchSkip[*nearPatchIt] = true;
+                        // save distance
+                        auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
+                        if (dist > maxDist) {
+                            maxDist = dist;
+                        }
+                        // update mid point
+                        float xMedian, yMedian, zMedian;
+                        findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
+                        wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+
+                        // update normal
+                        auto newNormal = pcl::PointXYZ(0, 0, 0);
+
+                        pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
+                                wallCandidatePointIdc);
+                        pca.setIndices(wallCandidatePointIdcPtr);
+                        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                        newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+                        newNormal = Util::normalize(newNormal);
+                        wallCandidate.mid.normal_x = newNormal.x;
+                        wallCandidate.mid.normal_y = newNormal.y;
+                        wallCandidate.mid.normal_z = newNormal.z;
+
+//                        // TODO für debug zum anschauen
+//                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
+//                            auto& combWall = wallPatches[combWallIdx];
+//                            combWall.mid.normal_x = newNormal.x;
+//                            combWall.mid.normal_y = newNormal.y;
+//                            combWall.mid.normal_z = newNormal.z;
+//                        }
+                    }
+                }
+                // remove patch from neighbours regardless if it has good angle and belongs to combi or not
+                wallPatchSearchResultIdx.erase(nearPatchIt);
+//                continue;
+
+            } else {
+                // add point
+                // check if near neighbour also has good normal angle
+                auto& neighbourPoint = remainingWallsCloud->points[*nearPointIt];
 
                 // check plane distance
-                auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
-                if (ppd < 1.0f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
+                auto ppd = Util::pointPlaneDistance(neighbourPoint, wallCandidate.mid);
+                if (ppd <
+                    1.0f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
                     // found a patch for the combi
-                    wallCandidatePatchIdc.emplace_back(*nearIt);
+                    wallCandidatePointIdc.push_back(*nearPointIt);
                     // remove it from patch search
-                    wallPatchSkip[*nearIt] = true;
+                    wallPointSkip[*nearPointIt] = true;
                     // save distance
-                    auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
+                    auto dist = Util::distance(neighbourPoint, wallPatch.mid);
                     if (dist > maxDist) {
                         maxDist = dist;
                     }
                     // update mid point
                     float xMedian, yMedian, zMedian;
-                    findXYZMedian(wallPatchMids, wallCandidatePatchIdc, xMedian, yMedian, zMedian);
+                    findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
                     wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
 
                     // update normal
-                    auto newNormal = pcl::PointXYZ(0,0,0);
-//                    if(wallCandidatePatchIdc.size() > 2) {
-                        pcl::Indices wallCandidatePointIdc;
-                        for (auto& patchIdx: wallCandidatePatchIdc) {
-                            wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
-                                                         wallPatchPointIdc[patchIdx].begin(),
-                                                         wallPatchPointIdc[patchIdx].end());
-                        }
-                        pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(wallCandidatePointIdc);
-                        pca.setIndices(wallCandidatePointIdcPtr);
-                        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-                        newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
-                        newNormal = Util::normalize(newNormal);
-//                    }
-//                    auto newNormal = pcl::PointXYZ(0,0,0);
-//                    for (const auto& combWallIdx: wallCandidatePatchIdc) {
-//                        auto& combWall = wallPatches[combWallIdx];
-//                        newNormal.x += combWall.mid.normal_x;
-//                        newNormal.y += combWall.mid.normal_y;
-//                        newNormal.z += combWall.mid.normal_z;
-//                    }
-//                    newNormal.x /= static_cast<float>(wallCandidatePatchIdc.size());
-//                    newNormal.y /= static_cast<float>(wallCandidatePatchIdc.size());
-//                    newNormal.z /= static_cast<float>(wallCandidatePatchIdc.size()); // TODO normalisieren
+                    auto newNormal = pcl::PointXYZ(0, 0, 0);
+
+                    pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
+                            wallCandidatePointIdc);
+                    pca.setIndices(wallCandidatePointIdcPtr);
+                    Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                    newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+                    newNormal = Util::normalize(newNormal);
                     wallCandidate.mid.normal_x = newNormal.x;
                     wallCandidate.mid.normal_y = newNormal.y;
                     wallCandidate.mid.normal_z = newNormal.z;
 
-                    // TODO für debug zum anschauen
-                    for (const auto& combWallIdx: wallCandidatePatchIdc) {
-                        auto& combWall = wallPatches[combWallIdx];
-                        combWall.mid.normal_x = newNormal.x;
-                        combWall.mid.normal_y = newNormal.y;
-                        combWall.mid.normal_z = newNormal.z;
-                    }
+//                        // TODO für debug zum anschauen
+//                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
+//                            auto& combWall = wallPatches[combWallIdx];
+//                            combWall.mid.normal_x = newNormal.x;
+//                            combWall.mid.normal_y = newNormal.y;
+//                            combWall.mid.normal_z = newNormal.z;
+//                        }
                 }
 
-
-
+                // remove point from neighbours regardless if it has good angle and belongs to combi or not
+                wallPointSearchResultIdx.erase(nearPointIt);
+//                continue;
             }
-//            else {
-//                const auto& indices = wallPatchPointIdc[nearIdx];
-//                for (const auto& index: indices) {
-//                    (*allPointsCloud)[idxMap[index]].r = 0;
-//                    (*allPointsCloud)[idxMap[index]].g = 0;
-//                    (*allPointsCloud)[idxMap[index]].b = 255;
-//                }
-//            }
-            // remove point from neighbours regardless if it has good angle and belongs to combi or not
-            wallPatchSearchResultIdx.erase(nearIt);
-
-
         }
 
 
-        if (wallCandidatePatchIdc.size() < 3) {
-            continue;
-        }
+
+
+//        if (wallCandidatePatchIdc.size() < 3) { // TODO was mache ich jetzt hier?
+//            continue;
+//        }
         wallPatchSkip[patchIdx] = true; // sonst kann leitender patch noch wonaders mit reinkommen
         // patches
         int randB = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
@@ -1886,20 +1983,15 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
 //        colorIndex = (colorIndex + 1) % colorCount;
 
         // ############## draw combined patches
-        for (const auto& combPatchIdx: wallCandidatePatchIdc) {
-            if(!wallPatchSkip[combPatchIdx]) {
-                // WRONGG
-                std::cout << "MEGA WRONG" << std::endl;
-            }
-            const auto& indices = wallPatchPointIdc[combPatchIdx];
-            for (const auto& index: indices) {
-                (*allPointsCloud)[idxMap[index]].r = randR;
-                (*allPointsCloud)[idxMap[index]].g = randG;
-                (*allPointsCloud)[idxMap[index]].b = randB;
+        for (const auto& index: wallCandidatePointIdc) {
+
+            (*allPointsCloud)[idxMap[index]].r = randR;
+            (*allPointsCloud)[idxMap[index]].g = randG;
+            (*allPointsCloud)[idxMap[index]].b = randB;
 //                (*allPointsCloud)[idxMap[index]].r = color[0];
 //                (*allPointsCloud)[idxMap[index]].g = color[1];
 //                (*allPointsCloud)[idxMap[index]].b = color[2];
-            }
+
         }
         // den patch von dem die patch combi ausgeht anders anmalen
         auto blee2 = wallPatchPointIdc[patchIdx][1];
@@ -1928,79 +2020,78 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         //  manchen bullshit aufräumen (komscihe wände die entstehen)
 
         // merge pointIdx of all patches
-        pcl::Indices allWallCandidatePointIdc;
-        for (auto& patchIdx: wallCandidatePatchIdc) {
-            allWallCandidatePointIdc.insert(allWallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(), wallPatchPointIdc[patchIdx].end());
+//        pcl::Indices allWallCandidatePointIdc;
+        for (auto& pointIdx: wallCandidatePointIdc) {
 
             // TODO wenn ich hier drüber loope könnte ich die eig auch direkt abspeichern und in findStartEnd geben anstatt da wieder zu loopen
             // project onto wall
-            for (const auto& pointIdx: allWallCandidatePointIdc) {
-                auto& point = (*remainingWallsCloud)[pointIdx];
-                auto pointDist = Util::signedPointPlaneDistance(point, wallCandidate.mid);
-                auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * wallCandidate.mid.normal_x, pointDist * wallCandidate.mid.normal_y,
-                                                                                      pointDist * wallCandidate.mid.normal_z));
-                (*remainingWallsCloud)[pointIdx].x = newPosi.x;
-                (*remainingWallsCloud)[pointIdx].y = newPosi.y;
-                (*remainingWallsCloud)[pointIdx].z = newPosi.z;
-            }
+            auto& point = (*remainingWallsCloud)[pointIdx];
+            auto pointDist = Util::signedPointPlaneDistance(point, wallCandidate.mid);
+            auto newPosi = Util::vectorSubtract(point, pcl::PointXYZRGBNormal(pointDist * wallCandidate.mid.normal_x,
+                                                                              pointDist * wallCandidate.mid.normal_y,
+                                                                              pointDist * wallCandidate.mid.normal_z));
+            (*remainingWallsCloud)[pointIdx].x = newPosi.x;
+            (*remainingWallsCloud)[pointIdx].y = newPosi.y;
+            (*remainingWallsCloud)[pointIdx].z = newPosi.z;
 
         }
         // get start and end point of wall
-        // TODO erst alle auf die wan projizieren!
 
         float yMin, yMax;
-        findStartEnd(remainingWallsCloud, allWallCandidatePointIdc, wallCandidate.point1, wallCandidate.point2, yMin, yMax);
+        findStartEnd(remainingWallsCloud, wallCandidatePointIdc, wallCandidate.point1, wallCandidate.point2, yMin,
+                     yMax);
         wallCandidate.point1.y = yMin;
         wallCandidate.point2.y = yMin;
         wallCandidate.length = Util::horizontalDistance(wallCandidate.point1, wallCandidate.point2);
 
 
-            // get y min and max from finalWallPoints to cover wall from bottom to top
+        // get y min and max from finalWallPoints to cover wall from bottom to top
 
 
-            // draw plane
-            float stepWidth = 0.5;
-            // get perp vec
-            auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
-            auto horPerpVec = Util::normalize(wallVec); // horizontal
-            auto wallNormal = Util::crossProduct(horPerpVec,
-                                                 pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+        // draw plane
+        float stepWidth = 0.5;
+        // get perp vec
+        auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
+        auto horPerpVec = Util::normalize(wallVec); // horizontal
+        auto wallNormal = Util::crossProduct(horPerpVec,
+                                             pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
 
-            float lasWallLength = Util::vectorLength(wallVec);
-            float x = wallCandidate.point1.x;
-            float z = wallCandidate.point1.z;
-            float distanceMoved = 0;
+        float lasWallLength = Util::vectorLength(wallVec);
+        float x = wallCandidate.point1.x;
+        float z = wallCandidate.point1.z;
+        float distanceMoved = 0;
 
 
-            // move horizontal
-            while (distanceMoved < lasWallLength) {
-                float y = yMin;
-                float xCopy = x;
-                float zCopy = z;
-                float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
-                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-                    while (y < currentMaxY) {
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 150, 150, 150);//randR, randG, randB));
-                        // set normal
-                        v.normal_x = wallNormal.x;
-                        v.normal_y = wallNormal.y;
-                        v.normal_z = wallNormal.z;
-                        // also set tangents
-                        tangent1Vec.push_back(horPerpVec);
-                        tangent2Vec.emplace_back(0, 1, 0);
-                        texCoords.emplace_back(0, 0);
+        // move horizontal
+        while (distanceMoved < lasWallLength) {
+            float y = yMin;
+            float xCopy = x;
+            float zCopy = z;
+            float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
+            if (currentMaxY > y + stepWidth) { // only build wall if more than init point
+                while (y < currentMaxY) {
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, 150, 150, 150);//randR, randG, randB));
+                    // set normal
+                    v.normal_x = wallNormal.x;
+                    v.normal_y = wallNormal.y;
+                    v.normal_z = wallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
 
-                        allPointsCloud->push_back(v);
+                    allPointsCloud->push_back(v);
 
-                        y += stepWidth;
-                    }
+                    y += stepWidth;
                 }
-                x = xCopy + stepWidth * horPerpVec.x;
-                z = zCopy + stepWidth * horPerpVec.z;
-                distanceMoved += stepWidth;
             }
-            // mid point
-        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0, 255);//randR, randG, randB));
+            x = xCopy + stepWidth * horPerpVec.x;
+            z = zCopy + stepWidth * horPerpVec.z;
+            distanceMoved += stepWidth;
+        }
+        // mid point
+        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0,
+                                        255);//randR, randG, randB));
         // set normal
         v.normal_x = wallNormal.x;
         v.normal_y = wallNormal.y;
