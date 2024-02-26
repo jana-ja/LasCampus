@@ -1505,12 +1505,12 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
     for (auto lasPointIdx = 0; lasPointIdx < lasWallPoints.size(); lasPointIdx++) {
         if (lasWallPoints[lasPointIdx] && !usedLasWallPoints[lasPointIdx]) {
             auto& point = (*allPointsCloud)[lasPointIdx];
-//            point.r = 0;
-//            point.g = 255;
-//            point.b = 0;
-            point.r = 100;
-            point.g = 100;
-            point.b = 100;
+            point.r = 0;
+            point.g = 255;
+            point.b = 255;
+//            point.r = 100;
+//            point.g = 100;
+//            point.b = 100;
 
             remainingWallsCloud->push_back(point);
             idxMap[remainingWallsCloud->size() - 1] = lasPointIdx;
@@ -1763,7 +1763,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                 bool near = false;
                 for (auto& cPatchIdx: wallCandidatePatchIdc) {
                     const auto& cPatch = wallPatches[cPatchIdx];
-                    if (Util::horizontalDistance(neighbourPatchPoint, cPatch.mid) <= 6.0f) { // TODO hor or generell?
+                    if (Util::distance(neighbourPatchPoint, cPatch.mid) <= 6.0f) { // TODO hor or generell?
                         near = true;
 
                         break;
@@ -1798,7 +1798,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
             auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
                                                  neighbourPatchPoint.normal_z);
             float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
-            if (normalAngle <= 0.6f){//0.78f) { // 45°
+            if (normalAngle <= 0.78f){//0.78f) { // 45°
 
                 // check plane distance
                 auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
@@ -1873,7 +1873,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         }
 
 
-        if (wallCandidatePatchIdc.size() < 2) {
+        if (wallCandidatePatchIdc.size() < 3) {
             continue;
         }
         wallPatchSkip[patchIdx] = true; // sonst kann leitender patch noch wonaders mit reinkommen
@@ -1922,6 +1922,10 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
         // wall: combWall
         // patches davon: wallCandidatePatchIdc
         // punkte davon: wallPatchPointIdc
+
+        // TODO einzelne puntke die nicht zu patch geworden sind auch mit einsammeln um die borders und y min max besser zu machen
+        //  wände nah an anderen wänden rauskicken ( vllt von hier alle neuen wände returnen und dann vor dem malen in der mutter funktion aussortieren?)
+        //  manchen bullshit aufräumen (komscihe wände die entstehen)
 
         // merge pointIdx of all patches
         pcl::Indices allWallCandidatePointIdc;
@@ -1976,7 +1980,7 @@ std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec
                 float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
                 if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                     while (y < currentMaxY) {
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, randR, randG, randB);//randR, randG, randB));
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, 150, 150, 150);//randR, randG, randB));
                         // set normal
                         v.normal_x = wallNormal.x;
                         v.normal_y = wallNormal.y;
