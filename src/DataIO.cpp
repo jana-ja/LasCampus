@@ -1749,6 +1749,9 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         // TODO versuch 1: grow suche nach patches und einzelpunkten: nur mit patches die wall anpassen
         //  versuch 2: von patch aus suchen damit man startwerte hat, dann einfach punkte suchen und hinzufügen und neue params
 
+        auto wallPointSkipCopy = wallPointSkip;
+        auto wallPatchSkipCopy = wallPatchSkip;
+
         int patchCount = 1;
 
         float maxDist = -INFINITY;
@@ -1970,9 +1973,12 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
 
 
-//        if (wallCandidatePatchIdc.size() < 3) { // TODO was mache ich jetzt hier?
-//            continue;
-//        }
+        if (patchCount < 3) { // TODO was mache ich jetzt hier?
+            // skippis wieder freigeben
+            wallPatchSkip = wallPatchSkipCopy;
+            wallPointSkip = wallPointSkipCopy;
+            continue;
+        }
         wallPatchSkip[patchIdx] = true; // sonst kann leitender patch noch wonaders mit reinkommen
         // patches
         int randB = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
