@@ -1861,7 +1861,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
 
             if (nearPatchDist <= nearPointDist) {
-                // patch einfügen
+                // nearest is patch
                 // check if near neighbour also has good normal angle
                 auto& neighbourPatchPoint = wallPatchMids->points[*nearPatchIt];
                 auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
@@ -1872,8 +1872,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
                     // check plane distance
                     auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
-                    if (ppd <
-                        1.0f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
+                    if (ppd < 1.0f) {
                         // found a patch for the combi
                         wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
                                                      wallPatchPointIdc[*nearPatchIt].begin(),
@@ -1917,14 +1916,12 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //                continue;
 
             } else {
-                // add point
-                // check if near neighbour also has good normal angle
+                // nearest is point
                 auto& neighbourPoint = remainingWallsCloud->points[*nearPointIt];
 
                 // check plane distance
                 auto ppd = Util::pointPlaneDistance(neighbourPoint, wallCandidate.mid);
-                if (ppd <
-                    1.0f) { // TODO das doof weil normal nicht so stabil weil nur über einen patch geht, vllt updatenw enn ich patches hinzufügre?
+                if (ppd < 1.0f) {
                     // found a patch for the combi
                     wallCandidatePointIdc.push_back(*nearPointIt);
                     // remove it from patch search
