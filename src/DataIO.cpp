@@ -1800,10 +1800,10 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 bool near = false;
                 for (auto& cPointIdx: wallCandidatePointIdc) {
                     const auto& cPoint = (*remainingWallsCloud)[cPointIdx];
-                    nearPatchDist = Util::distance(neighbourPatchPoint, cPoint); // TODO hor or generell?
-                    if (nearPatchDist <= 6.0f) {
+                    float dist = Util::distance(neighbourPatchPoint, cPoint); // TODO hor or generell?
+                    if (dist <= 4.0f) {
                         near = true;
-
+                        nearPatchDist = dist;
                         break;
                     }
                 }
@@ -1825,10 +1825,10 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 bool near = false;
                 for (auto& cPointIdx: wallCandidatePointIdc) {
                     const auto& cPoint = (*remainingWallsCloud)[cPointIdx];
-                    nearPointDist = Util::distance(neighbourPoint, cPoint); // TODO hor or generell?
-                    if (nearPointDist <= 6.0f) {
+                    float dist = Util::distance(neighbourPoint, cPoint); // TODO hor or generell?
+                    if (dist <= 3.0f) {
                         near = true;
-
+                        nearPointDist = dist;
                         break;
                     }
                 }
