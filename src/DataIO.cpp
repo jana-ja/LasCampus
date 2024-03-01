@@ -1589,7 +1589,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     std::vector<pcl::Indices> wallPatchPointIdc;
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallPatchMids = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-    //region find small wall patches
+
 
     // tree will get updated indices when points are assigned to a wall patch
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr remainingWallsTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
@@ -1601,8 +1601,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     // prepare pca
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(remainingWallsCloud);
-
-
 
     //region remove horizontal planes
 
@@ -1666,7 +1664,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
     //endregion
 
-
+    //region find wall patches
 
     // for every wall point
     for (auto pIdx = 0; pIdx < remainingWallsCloud->size(); pIdx++) {
@@ -1706,13 +1704,13 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         switch (mainDings) {
             case 0:
                 // linearity is main
-                // linear -> 1. eigenvektor: wenn zu vertiakl skip und dann ormale bestimmen über cross mit senkrechtem vektor
+                // linear -> 1. eigenvektor: wenn zu vertikal skip und dann normale bestimmen über cross mit senkrechtem vektor
                 patchColor[0] = 255;
                 patchColor[1] = 0;
                 patchColor[2] = 0;
                 // für lineare sachen nicht normale nehmen sondern stärksten eigenvektor, nur der ist eindeutig, zweiter und die normale können um die lineare achse rotieren
-                normal = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2,
-                                                                                            0));//Util::normalize(Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),pcl::PointXYZ(0, 1, 0)));
+//                normal = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2,0)); // debug
+                normal = Util::normalize(Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),pcl::PointXYZ(0, 1, 0)));
                 if (abs(eigenVectors(1, 0)) > 0.5) { // TODO entscheidung ob 0.3 oder 0.5
                     patchColor[0] = 255; // türkis
                     patchColor[1] = 255;
@@ -2146,60 +2144,60 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             wallB = 200;
         }
 
-//        // draw plane
-//        float stepWidth = 0.5;
-//        // get perp vec
-//        auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
-//        auto horPerpVec = Util::normalize(wallVec); // horizontal
-//        auto wallNormal = Util::crossProduct(horPerpVec,
-//                                             pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-//
-//        float lasWallLength = Util::vectorLength(wallVec);
-//        float x = wallCandidate.point1.x;
-//        float z = wallCandidate.point1.z;
-//        float distanceMoved = 0;
-//
-//
-//        // move horizontal
-//        while (distanceMoved < lasWallLength) {
-//            float y = yMin;
-//            float xCopy = x;
-//            float zCopy = z;
-//            float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
-//            if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-//                while (y < currentMaxY) {
-//                    auto v = pcl::PointXYZRGBNormal(x, y, z, wallR, wallG, wallB);//randR, randG, randB));
-//                    // set normal
-//                    v.normal_x = wallNormal.x;
-//                    v.normal_y = wallNormal.y;
-//                    v.normal_z = wallNormal.z;
-//                    // also set tangents
-//                    tangent1Vec.push_back(horPerpVec);
-//                    tangent2Vec.emplace_back(0, 1, 0);
-//                    texCoords.emplace_back(0, 0);
-//
-//                    allPointsCloud->push_back(v);
-//
-//                    y += stepWidth;
-//                }
-//            }
-//            x = xCopy + stepWidth * horPerpVec.x;
-//            z = zCopy + stepWidth * horPerpVec.z;
-//            distanceMoved += stepWidth;
-//        }
-//        // mid point
-//        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0,
-//                                        255);//randR, randG, randB));
-//        // set normal
-//        v.normal_x = wallNormal.x;
-//        v.normal_y = wallNormal.y;
-//        v.normal_z = wallNormal.z;
-//        // also set tangents
-//        tangent1Vec.push_back(horPerpVec);
-//        tangent2Vec.emplace_back(0, 1, 0);
-//        texCoords.emplace_back(0, 0);
-//
-//        allPointsCloud->push_back(v);
+        // draw plane
+        float stepWidth = 0.5;
+        // get perp vec
+        auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
+        auto horPerpVec = Util::normalize(wallVec); // horizontal
+        auto wallNormal = Util::crossProduct(horPerpVec,
+                                             pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+
+        float lasWallLength = Util::vectorLength(wallVec);
+        float x = wallCandidate.point1.x;
+        float z = wallCandidate.point1.z;
+        float distanceMoved = 0;
+
+
+        // move horizontal
+        while (distanceMoved < lasWallLength) {
+            float y = yMin;
+            float xCopy = x;
+            float zCopy = z;
+            float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
+            if (currentMaxY > y + stepWidth) { // only build wall if more than init point
+                while (y < currentMaxY) {
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, wallR, wallG, wallB);//randR, randG, randB));
+                    // set normal
+                    v.normal_x = wallNormal.x;
+                    v.normal_y = wallNormal.y;
+                    v.normal_z = wallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    allPointsCloud->push_back(v);
+
+                    y += stepWidth;
+                }
+            }
+            x = xCopy + stepWidth * horPerpVec.x;
+            z = zCopy + stepWidth * horPerpVec.z;
+            distanceMoved += stepWidth;
+        }
+        // mid point
+        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0,
+                                        255);//randR, randG, randB));
+        // set normal
+        v.normal_x = wallNormal.x;
+        v.normal_y = wallNormal.y;
+        v.normal_z = wallNormal.z;
+        // also set tangents
+        tangent1Vec.push_back(horPerpVec);
+        tangent2Vec.emplace_back(0, 1, 0);
+        texCoords.emplace_back(0, 0);
+
+        allPointsCloud->push_back(v);
 
         //endregion
 
