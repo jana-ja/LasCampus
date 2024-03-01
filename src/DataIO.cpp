@@ -1538,7 +1538,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     bool colorDiscard = true;
     bool colorPointGroups = false;
     bool colorPatches = false;
-    bool colorWallPatches = true;
+    bool colorWallPatchesAndPoints = true;
 
     int colorCount = 7;
     int colors[][3] = {
@@ -2085,7 +2085,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //        colorIndex = (colorIndex + 1) % colorCount;
 
         // ############## draw combined patches
-        if (colorWallPatches) {
+        if (colorWallPatchesAndPoints) {
             for (const auto& index: wallCandidatePointIdc) {
 
                 (*allPointsCloud)[idxMap[index]].r = randR;
