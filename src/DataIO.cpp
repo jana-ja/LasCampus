@@ -1535,6 +1535,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                              std::vector<pcl::PointXY>& texCoords,
                              std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec) {
 
+    bool colorDiscard = true;
+    bool colorPointGroups = false;
+    bool colorPatches = false;
+    bool colorWallPatches = true;
+
     int colorCount = 7;
     int colors[][3] = {
             {255, 255, 0},
@@ -1640,19 +1645,20 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             // plane -> normale von 3. eogenvektor nehmen -> wenn zu vertikal dann weg
             auto normal = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
             if (abs(eigenVectors(1, 2)) > 0.5) {
-                    for (const auto& nIdx: searchResultIdx) {
-                        wallPointSkip[nIdx] = true;
-                        auto bla = std::find(pointSearchIndicesCopy.begin(), pointSearchIndicesCopy.end(), nIdx);
-                        if (bla != pointSearchIndicesCopy.end())
-                            pointSearchIndicesCopy.erase(bla);
+                for (const auto& nIdx: searchResultIdx) {
+                    wallPointSkip[nIdx] = true;
+                    auto bla = std::find(pointSearchIndicesCopy.begin(), pointSearchIndicesCopy.end(), nIdx);
+                    if (bla != pointSearchIndicesCopy.end())
+                        pointSearchIndicesCopy.erase(bla);
 
-                        (*allPointsCloud)[idxMap[nIdx]].r = 0;
+                    if (colorDiscard) {
+                        (*allPointsCloud)[idxMap[nIdx]].r = 0; // gelb
                         (*allPointsCloud)[idxMap[nIdx]].g = 255;
                         (*allPointsCloud)[idxMap[nIdx]].b = 255;
                     }
+                }
             }
         }
-
     }
 
     // remove those points from search
@@ -1680,9 +1686,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         pcl::IndicesPtr searchResultIdxPtr = std::make_shared<pcl::Indices>(searchResultIdx);
         pca.setIndices(searchResultIdxPtr);
 
-        bool isLinear;
-        //region check if linear
-
         Eigen::Vector3f eigenValues = pca.getEigenValues();
         // local descriptors
         const auto& l1 = eigenValues(0);
@@ -1693,7 +1696,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         float sphericity = l3 / l1;
         std::array bla = {linearity, planarity, sphericity};
         int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
-
 
 
         int patchColor[3];
@@ -1709,7 +1711,8 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 patchColor[1] = 0;
                 patchColor[2] = 0;
                 // für lineare sachen nicht normale nehmen sondern stärksten eigenvektor, nur der ist eindeutig, zweiter und die normale können um die lineare achse rotieren
-                normal = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));//Util::normalize(Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),pcl::PointXYZ(0, 1, 0)));
+                normal = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2,
+                                                                                            0));//Util::normalize(Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),pcl::PointXYZ(0, 1, 0)));
                 if (abs(eigenVectors(1, 0)) > 0.5) { // TODO entscheidung ob 0.3 oder 0.5
                     patchColor[0] = 255; // türkis
                     patchColor[1] = 255;
@@ -1719,7 +1722,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 break;
             case 1:
                 // planarity is main
-                // plane -> normale von 3. eogenvektor nehmen -> wenn zu vertikal dann weg
+                // plane -> normale von 3. eigenvektor nehmen -> wenn zu vertikal dann weg
                 patchColor[0] = 0;
                 patchColor[1] = 255;
                 patchColor[2] = 0;
@@ -1728,14 +1731,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                     patchColor[0] = 255; // pink
                     patchColor[1] = 0;
                     patchColor[2] = 255;
-//                continue;
-                    // TODO teste rauswerfen
-//                    for (const auto& nIdx: searchResultIdx) {
-//                        wallPointSkip[nIdx] = true;
-//                        auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
-//                        if (bla != pointSearchIndicesPtr->end())
-//                            pointSearchIndicesPtr->erase(bla);
-//                    }
                 }
                 break;
             default:
@@ -1747,10 +1742,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 continue;
                 break;
         }
-//endregion
-
-
-        // TODO decide if patches mit zurücklegen oder ohne
 
         for (const auto& nIdx: searchResultIdx) {
             if (wallPointSkip[nIdx])
@@ -1759,15 +1750,15 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             (*allPointsCloud)[idxMap[nIdx]].normal_x = normal.x;
             (*allPointsCloud)[idxMap[nIdx]].normal_y = normal.y;
             (*allPointsCloud)[idxMap[nIdx]].normal_z = normal.z;
-            (*allPointsCloud)[idxMap[nIdx]].r = patchColor[0];
-            (*allPointsCloud)[idxMap[nIdx]].g = patchColor[1];
-            (*allPointsCloud)[idxMap[nIdx]].b = patchColor[2];
+            if (colorPointGroups) {
+                (*allPointsCloud)[idxMap[nIdx]].r = patchColor[0];
+                (*allPointsCloud)[idxMap[nIdx]].g = patchColor[1];
+                (*allPointsCloud)[idxMap[nIdx]].b = patchColor[2];
+            }
 //            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
 //            if (bla != pointSearchIndicesPtr->end())
 //                pointSearchIndicesPtr->erase(bla);
         }
-
-
 
 
         Util::Wall patch;
@@ -1781,27 +1772,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         patch.mid.normal_z = normal.z;
 
         // this is wall patch
-        //region mark neighbours
-
-//        for (const auto& nIdx: searchResultIdx) {
-//            wallPointSkip[nIdx] = true;
-//            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
-//            if (bla != pointSearchIndicesPtr->end())
-//                pointSearchIndicesPtr->erase(bla);
-//
-////                (*allPointsCloud)[idxMap[nIdx]].b = randR;
-////                (*allPointsCloud)[idxMap[nIdx]].g = randG;
-////                (*allPointsCloud)[idxMap[nIdx]].r = randB;
-////            (*allPointsCloud)[idxMap[nIdx]].b = 200;
-////            (*allPointsCloud)[idxMap[nIdx]].g = 200;
-////            (*allPointsCloud)[idxMap[nIdx]].r = 200;
-//
-//            (*allPointsCloud)[idxMap[nIdx]].normal_x = normal.x;
-//            (*allPointsCloud)[idxMap[nIdx]].normal_y = normal.y;
-//            (*allPointsCloud)[idxMap[nIdx]].normal_z = normal.z;
-//        }
-        //endregion
-        // TODO da war iwas faul, pinke dinger mit normale nach unten aber sollte dann ja planarity sein und die wenigste veränderung war nicht in diese richtung
         // save point indices of this patch
         wallPatchPointIdc.push_back(searchResultIdx);
         // update tree -> points of this patch will not be included in next search
@@ -1816,8 +1786,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     std::vector<Util::Wall> finalWalls;
     //region combine wall patches
 
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr wallPatchTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
-            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr wallPatchTree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     wallPatchTree->setInputCloud(wallPatchMids);
     auto wallPatchSkip = std::vector<bool>(wallPatchMids->size());
     std::fill(wallPatchSkip.begin(), wallPatchSkip.end(), false);
@@ -1839,18 +1808,18 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         pcl::Indices wallPatchSearchResultIdx;
         std::vector<float> wallPatchSearchResultDist;
         float searchRadius = 20.0f;
-        if (wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx,wallPatchSearchResultDist) <= 0) {
+        if (wallPatchTree->radiusSearch(wallPatch.mid, searchRadius, wallPatchSearchResultIdx, wallPatchSearchResultDist) <= 0) {
             continue;
         }
         // radius search points
         pcl::Indices wallPointSearchResultIdx;
         std::vector<float> wallPointSearchResultDist;
-        remainingWallsTree->radiusSearch(wallPatch.mid, searchRadius, wallPointSearchResultIdx,wallPointSearchResultDist);
+        remainingWallsTree->radiusSearch(wallPatch.mid, searchRadius, wallPointSearchResultIdx, wallPointSearchResultDist);
 
 
         pcl::Indices wallCandidatePointIdc;
         // die punkte vom patch selbst sind immer dabei
-        wallCandidatePointIdc.insert(wallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(),wallPatchPointIdc[patchIdx].end());
+        wallCandidatePointIdc.insert(wallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(), wallPatchPointIdc[patchIdx].end());
         // remove first point of radius search weil das ist der patch selbst
         wallPatchSearchResultIdx.erase(wallPatchSearchResultIdx.begin());
         wallPatchSearchResultDist.erase(wallPatchSearchResultDist.begin());
@@ -2091,8 +2060,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         }
 
 
-
-
         if (patchCount < 3) { // TODO was mache ich jetzt hier?
             // skippis wieder freigeben
             wallPatchSkip = wallPatchSkipCopy;
@@ -2111,27 +2078,24 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //        colorIndex = (colorIndex + 1) % colorCount;
 
         // ############## draw combined patches
-        for (const auto& index: wallCandidatePointIdc) {
+        if (colorWallPatches) {
+            for (const auto& index: wallCandidatePointIdc) {
 
-//            (*allPointsCloud)[idxMap[index]].r = randR;
-//            (*allPointsCloud)[idxMap[index]].g = randG;
-//            (*allPointsCloud)[idxMap[index]].b = randB;
+                (*allPointsCloud)[idxMap[index]].r = randR;
+                (*allPointsCloud)[idxMap[index]].g = randG;
+                (*allPointsCloud)[idxMap[index]].b = randB;
 //                (*allPointsCloud)[idxMap[index]].r = color[0];
 //                (*allPointsCloud)[idxMap[index]].g = color[1];
 //                (*allPointsCloud)[idxMap[index]].b = color[2];
 
-        }
-        // den patch von dem die patch combi ausgeht anders anmalen
-        auto blee2 = wallPatchPointIdc[patchIdx][1];
-//        (*allPointsCloud)[idxMap[blee2]].r = 0;
-//        (*allPointsCloud)[idxMap[blee2]].g = 0;
-//        (*allPointsCloud)[idxMap[blee2]].b = 255;
-//            for (auto blee: wallPatchPointIdc[patchIdx]) {
-//                (*allPointsCloud)[idxMap[blee]].r = 0;
-//                (*allPointsCloud)[idxMap[blee]].g = 0;
-//                (*allPointsCloud)[idxMap[blee]].b = 255;
-//            }
+            }
 
+            // den patch von dem die patch combi ausgeht anders anmalen
+            auto blee2 = wallPatchPointIdc[patchIdx][1];
+            (*allPointsCloud)[idxMap[blee2]].r = 0;
+            (*allPointsCloud)[idxMap[blee2]].g = 0;
+            (*allPointsCloud)[idxMap[blee2]].b = 255;
+        }
         // TODO normale ist jetzt durchschnitt der patches, gut oder nochmal pca?
 
 // TODO wall malen, danach weiter optimieren, scheinbar sind ein par patches nicht near die es sein sollten, und plane dist grenze vllt zu groß ajf sind da komisch entfernte patches scheinbar mit drin
