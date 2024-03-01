@@ -1552,7 +1552,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr remainingWallsCloud = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     pcl::Indices pointSearchIndices;
-    pcl::IndicesPtr pointSearchIndicesPtr = std::make_shared<pcl::Indices>(pointSearchIndices);
 
     //region find wall points that have no corresponding osm wall
 
@@ -1568,7 +1567,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
             remainingWallsCloud->push_back(point);
             idxMap[remainingWallsCloud->size() - 1] = lasPointIdx;
-            pointSearchIndicesPtr->emplace_back(remainingWallsCloud->size() - 1);
+            pointSearchIndices.emplace_back(remainingWallsCloud->size() - 1);
 
         } else {
             auto& point = (*allPointsCloud)[lasPointIdx];
@@ -1579,8 +1578,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     }
     // endregion
 
-    //region only use linear points
-    //endregion
+
 
     std::vector<Util::Wall> wallPatches;
     std::vector<pcl::Indices> wallPatchPointIdc;
@@ -1599,17 +1597,82 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(remainingWallsCloud);
 
+
+
+    //region remove horizontal planes
+
+    pcl::Indices pointSearchIndicesCopy = pointSearchIndices;
+
+    for (auto pIdx = 0; pIdx < remainingWallsCloud->size(); pIdx++) {
+
+        if (wallPointSkip[pIdx])
+            continue;
+
+        auto& point = (*remainingWallsCloud)[pIdx];
+
+        // radius search
+        pcl::Indices searchResultIdx;
+        std::vector<float> searchResultDist;
+        if (remainingWallsTree->radiusSearch(point, 1.0f, searchResultIdx, searchResultDist) < 3) {
+            continue;
+        }
+
+        // prepare pca for neighbour points
+        pcl::IndicesPtr searchResultIdxPtr = std::make_shared<pcl::Indices>(searchResultIdx);
+        pca.setIndices(searchResultIdxPtr);
+
+        Eigen::Vector3f eigenValues = pca.getEigenValues();
+        // local descriptors
+        const auto& l1 = eigenValues(0);
+        const auto& l2 = eigenValues(1);
+        const auto& l3 = eigenValues(2);
+        float linearity = (l1 - l2) / l1;
+        float planarity = (l2 - l3) / l1;
+        float sphericity = l3 / l1;
+        std::array bla = {linearity, planarity, sphericity};
+        int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
+
+
+        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+
+        if (mainDings == 1) {
+            // planarity is main
+            // plane -> normale von 3. eogenvektor nehmen -> wenn zu vertikal dann weg
+            auto normal = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
+            if (abs(eigenVectors(1, 2)) > 0.5) {
+                    for (const auto& nIdx: searchResultIdx) {
+                        wallPointSkip[nIdx] = true;
+                        auto bla = std::find(pointSearchIndicesCopy.begin(), pointSearchIndicesCopy.end(), nIdx);
+                        if (bla != pointSearchIndicesCopy.end())
+                            pointSearchIndicesCopy.erase(bla);
+
+                        (*allPointsCloud)[idxMap[nIdx]].r = 0;
+                        (*allPointsCloud)[idxMap[nIdx]].g = 255;
+                        (*allPointsCloud)[idxMap[nIdx]].b = 255;
+                    }
+            }
+        }
+
+    }
+
+    // remove those points from search
+    pcl::IndicesPtr pointSearchIndicesPtr = std::make_shared<pcl::Indices>(pointSearchIndicesCopy);
+    remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
+    //endregion
+
+
+
     // for every wall point
     for (auto pIdx = 0; pIdx < remainingWallsCloud->size(); pIdx++) {
-//        if (wallPointSkip[pIdx])
-//            continue;
+        if (wallPointSkip[pIdx])
+            continue;
 
         auto& point = (*remainingWallsCloud)[pIdx];
 
         // radius search // TODO nachbarn können grade auch nicht linear sein, will ich das?
         pcl::Indices searchResultIdx;
         std::vector<float> searchResultDist;
-        if (remainingWallsTree->radiusSearch(point, 1.5f, searchResultIdx, searchResultDist) < 3) {
+        if (remainingWallsTree->radiusSearch(point, 2.0f, searchResultIdx, searchResultDist) < 3) {
             continue;
         }
 
@@ -1630,112 +1693,122 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         float sphericity = l3 / l1;
         std::array bla = {linearity, planarity, sphericity};
         int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
-        isLinear = mainDings == 0;
 
+
+
+        int patchColor[3];
 
         Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-        auto lasWallNormal = Util::normalize(Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),pcl::PointXYZ(0, 1, 0)));
-////        auto lasWallNormal = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
-//        for (const auto& item: searchResultIdx) {
-//
-//        }
-//        (*allPointsCloud)[idxMap[pIdx]].normal_x = lasWallNormal.x;
-//        (*allPointsCloud)[idxMap[pIdx]].normal_y = lasWallNormal.y;
-//        (*allPointsCloud)[idxMap[pIdx]].normal_z = lasWallNormal.z;
-//        if (abs(eigenVectors(1, 0)) > 0.5) { //TODO welcher wert?
-//        (*allPointsCloud)[idxMap[pIdx]].r = 255;
-//        (*allPointsCloud)[idxMap[pIdx]].g = 255;
-//        (*allPointsCloud)[idxMap[pIdx]].b = 0;
-//            continue;
-//        }
 
-
+        pcl::PointXYZ normal;
         switch (mainDings) {
             case 0:
                 // linearity is main
-                    (*allPointsCloud)[idxMap[pIdx]].r = 255;
-                    (*allPointsCloud)[idxMap[pIdx]].g = 0;
-                    (*allPointsCloud)[idxMap[pIdx]].b = 0;
+                // linear -> 1. eigenvektor: wenn zu vertiakl skip und dann ormale bestimmen über cross mit senkrechtem vektor
+                patchColor[0] = 255;
+                patchColor[1] = 0;
+                patchColor[2] = 0;
+                // für lineare sachen nicht normale nehmen sondern stärksten eigenvektor, nur der ist eindeutig, zweiter und die normale können um die lineare achse rotieren
+                normal = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));//Util::normalize(Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),pcl::PointXYZ(0, 1, 0)));
+                if (abs(eigenVectors(1, 0)) > 0.5) { // TODO entscheidung ob 0.3 oder 0.5
+                    patchColor[0] = 255; // türkis
+                    patchColor[1] = 255;
+                    patchColor[2] = 0;
+                    continue;
+                }
                 break;
             case 1:
                 // planarity is main
-                    (*allPointsCloud)[idxMap[pIdx]].r = 0;
-                    (*allPointsCloud)[idxMap[pIdx]].g = 255;
-                    (*allPointsCloud)[idxMap[pIdx]].b = 0;
+                // plane -> normale von 3. eogenvektor nehmen -> wenn zu vertikal dann weg
+                patchColor[0] = 0;
+                patchColor[1] = 255;
+                patchColor[2] = 0;
+                normal = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
+                if (abs(eigenVectors(1, 2)) > 0.5) {
+                    patchColor[0] = 255; // pink
+                    patchColor[1] = 0;
+                    patchColor[2] = 255;
+//                continue;
+                    // TODO teste rauswerfen
+//                    for (const auto& nIdx: searchResultIdx) {
+//                        wallPointSkip[nIdx] = true;
+//                        auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
+//                        if (bla != pointSearchIndicesPtr->end())
+//                            pointSearchIndicesPtr->erase(bla);
+//                    }
+                }
                 break;
             default:
                 // sphericity is main
-                    (*allPointsCloud)[idxMap[pIdx]].r = 0;
-                    (*allPointsCloud)[idxMap[pIdx]].g = 0;
-                    (*allPointsCloud)[idxMap[pIdx]].b = 255;
+                // sphere -> weg
+                patchColor[0] = 0;
+                patchColor[1] = 0;
+                patchColor[2] = 255;
+                continue;
                 break;
         }
 //endregion
-//        if (!isLinear)
-            continue;
-
-        Util::Wall newWall;
-        //region get mid and normal if strongest eigenvector is horizontal
-
-//        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-
-        auto eigen1 = pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0));
-        auto eigen2 = pcl::PointXYZ(eigenVectors(0, 1), eigenVectors(1, 1), eigenVectors(2, 1));
-        auto eigen3 = pcl::PointXYZ(eigenVectors(0, 2), eigenVectors(1, 2), eigenVectors(2, 2));
-
-        // für lineare sachen nicht normale nehmen sondern stärksten eigenvektor, nur der ist eindeutig, zweiter und die normale können um die lineare achse rotieren
-        // TODO vllt auch bei dem normalen wand ding schauen wenn die normale vertikal ist dann über linearity und ersten eigenvektor gehen?
-        // normal
-        // continue if first eigenvector is too vertical
-        if (abs(eigenVectors(1, 0)) > 0.5) { //TODO welcher wert?
-            continue;
-        }
-//        auto lasWallNormal = Util::normalize(
-//                Util::crossProduct(pcl::PointXYZ(eigenVectors(0, 0), eigenVectors(1, 0), eigenVectors(2, 0)),
-//                                   pcl::PointXYZ(0, 1, 0)));
-
-        float xMedian, yMedian, zMedian;
-        findXYZMedian(remainingWallsCloud, searchResultIdx, xMedian, yMedian, zMedian);
-        newWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-        newWall.mid.normal_x = lasWallNormal.x;
-        newWall.mid.normal_y = lasWallNormal.y;
-        newWall.mid.normal_z = lasWallNormal.z;
-        //endregion
 
 
-//        int randR = rand() % (156) + 100; //  rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (156) + 100;
-//        int randB = rand() % (156) + 100;
-
-        // this is wall patch
-        //region mark neighbours and get bounds of patch
+        // TODO decide if patches mit zurücklegen oder ohne
 
         for (const auto& nIdx: searchResultIdx) {
+            if (wallPointSkip[nIdx])
+                continue;
             wallPointSkip[nIdx] = true;
-            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
-            if (bla != pointSearchIndicesPtr->end())
-                pointSearchIndicesPtr->erase(bla);
-
-//                (*allPointsCloud)[idxMap[nIdx]].b = randR;
-//                (*allPointsCloud)[idxMap[nIdx]].g = randG;
-//                (*allPointsCloud)[idxMap[nIdx]].r = randB;
-//            (*allPointsCloud)[idxMap[nIdx]].b = 200;
-//            (*allPointsCloud)[idxMap[nIdx]].g = 200;
-//            (*allPointsCloud)[idxMap[nIdx]].r = 200;
-
-            (*allPointsCloud)[idxMap[nIdx]].normal_x = lasWallNormal.x;
-            (*allPointsCloud)[idxMap[nIdx]].normal_y = lasWallNormal.y;
-            (*allPointsCloud)[idxMap[nIdx]].normal_z = lasWallNormal.z;
+            (*allPointsCloud)[idxMap[nIdx]].normal_x = normal.x;
+            (*allPointsCloud)[idxMap[nIdx]].normal_y = normal.y;
+            (*allPointsCloud)[idxMap[nIdx]].normal_z = normal.z;
+            (*allPointsCloud)[idxMap[nIdx]].r = patchColor[0];
+            (*allPointsCloud)[idxMap[nIdx]].g = patchColor[1];
+            (*allPointsCloud)[idxMap[nIdx]].b = patchColor[2];
+//            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
+//            if (bla != pointSearchIndicesPtr->end())
+//                pointSearchIndicesPtr->erase(bla);
         }
-        //endregion
 
+
+
+
+        Util::Wall patch;
+        // mid
+        float xMedian, yMedian, zMedian;
+        findXYZMedian(remainingWallsCloud, searchResultIdx, xMedian, yMedian, zMedian);
+        patch.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+        // normal
+        patch.mid.normal_x = normal.x;
+        patch.mid.normal_y = normal.y;
+        patch.mid.normal_z = normal.z;
+
+        // this is wall patch
+        //region mark neighbours
+
+//        for (const auto& nIdx: searchResultIdx) {
+//            wallPointSkip[nIdx] = true;
+//            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
+//            if (bla != pointSearchIndicesPtr->end())
+//                pointSearchIndicesPtr->erase(bla);
+//
+////                (*allPointsCloud)[idxMap[nIdx]].b = randR;
+////                (*allPointsCloud)[idxMap[nIdx]].g = randG;
+////                (*allPointsCloud)[idxMap[nIdx]].r = randB;
+////            (*allPointsCloud)[idxMap[nIdx]].b = 200;
+////            (*allPointsCloud)[idxMap[nIdx]].g = 200;
+////            (*allPointsCloud)[idxMap[nIdx]].r = 200;
+//
+//            (*allPointsCloud)[idxMap[nIdx]].normal_x = normal.x;
+//            (*allPointsCloud)[idxMap[nIdx]].normal_y = normal.y;
+//            (*allPointsCloud)[idxMap[nIdx]].normal_z = normal.z;
+//        }
+        //endregion
+        // TODO da war iwas faul, pinke dinger mit normale nach unten aber sollte dann ja planarity sein und die wenigste veränderung war nicht in diese richtung
         // save point indices of this patch
         wallPatchPointIdc.push_back(searchResultIdx);
         // update tree -> points of this patch will not be included in next search
         remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
         // add to patches
-        wallPatches.push_back(newWall);
-        wallPatchMids->push_back(newWall.mid);
+        wallPatches.push_back(patch);
+        wallPatchMids->push_back(patch.mid);
 
     }
     //endregion
