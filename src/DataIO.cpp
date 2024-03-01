@@ -1967,6 +1967,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                     auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
                     if (ppd < 1.5f) {
                         // found a patch for the combi
+                        wallCandidatePatchIdc.push_back(*nearPatchIt);
                         wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
                                                      wallPatchPointIdc[*nearPatchIt].begin(),
                                                      wallPatchPointIdc[*nearPatchIt].end());
