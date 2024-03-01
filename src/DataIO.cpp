@@ -1824,6 +1824,9 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 
 
         pcl::Indices wallCandidatePointIdc;
+        pcl::Indices wallCandidatePatchIdc;
+        // der patch selbst ist immer dabei
+        wallCandidatePatchIdc.push_back(patchIdx);
         // die punkte vom patch selbst sind immer dabei
         wallCandidatePointIdc.insert(wallCandidatePointIdc.end(), wallPatchPointIdc[patchIdx].begin(), wallPatchPointIdc[patchIdx].end());
         // remove first point of radius search weil das ist der patch selbst
@@ -1927,7 +1930,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 }
             }
             // punkt suche
-            // check if there is a neighbour point that is near the wall combi
+            // check if there is a neighbour point that is near a wall combi patch
             auto nearPointIt = wallPointSearchResultIdx.end();
             float nearPointDist = INFINITY;
             for (auto wallPointNeighIdxIt = wallPointSearchResultIdx.begin();
@@ -1935,11 +1938,11 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 const auto& wallPointNeighIdx = *wallPointNeighIdxIt;
                 auto& neighbourPoint = remainingWallsCloud->points[wallPointNeighIdx];
 
-                // wenn es nah an irgendeinem punkt aus der combi ist dann go
+                // wenn es nah an irgendeinem patch aus der combi ist dann go
                 bool near = false;
-                for (auto& cPointIdx: wallCandidatePointIdc) {
-                    const auto& cPoint = (*remainingWallsCloud)[cPointIdx];
-                    float dist = Util::distance(neighbourPoint, cPoint); // TODO hor or generell?
+                for (auto& cPatchIdx: wallCandidatePatchIdc) {
+                    const auto& cPatch = wallPatches[cPatchIdx];
+                    float dist = Util::distance(neighbourPoint, cPatch.mid); // TODO hor or generell?
                     if (dist <= 3.0f) {
                         near = true;
                         nearPointDist = dist;
