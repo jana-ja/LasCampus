@@ -1645,6 +1645,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             if (abs(eigenVectors(1, 2)) > 0.5) {
                 for (const auto& nIdx: searchResultIdx) {
                     wallPointSkip[nIdx] = true;
+                    // remove from copy -> will be removed after looking at all points
                     auto bla = std::find(pointSearchIndicesCopy.begin(), pointSearchIndicesCopy.end(), nIdx);
                     if (bla != pointSearchIndicesCopy.end())
                         pointSearchIndicesCopy.erase(bla);
@@ -1753,6 +1754,10 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 (*allPointsCloud)[idxMap[nIdx]].g = patchColor[1];
                 (*allPointsCloud)[idxMap[nIdx]].b = patchColor[2];
             }
+            // remove from copy -> will be removed after looking at all points
+            auto bla = std::find(pointSearchIndicesCopy.begin(), pointSearchIndicesCopy.end(), nIdx);
+            if (bla != pointSearchIndicesCopy.end())
+                pointSearchIndicesCopy.erase(bla);
 //            auto bla = std::find(pointSearchIndicesPtr->begin(), pointSearchIndicesPtr->end(), nIdx);
 //            if (bla != pointSearchIndicesPtr->end())
 //                pointSearchIndicesPtr->erase(bla);
@@ -1769,16 +1774,19 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         patch.mid.normal_y = normal.y;
         patch.mid.normal_z = normal.z;
 
-        // this is wall patch
         // save point indices of this patch
         wallPatchPointIdc.push_back(searchResultIdx);
         // update tree -> points of this patch will not be included in next search
-        remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
+//        remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
         // add to patches
         wallPatches.push_back(patch);
         wallPatchMids->push_back(patch.mid);
 
     }
+
+    // remove points from search that belong to patches
+    pointSearchIndicesPtr = std::make_shared<pcl::Indices>(pointSearchIndicesCopy);
+    remainingWallsTree->setInputCloud(remainingWallsCloud, pointSearchIndicesPtr);
     //endregion
 
     std::vector<Util::Wall> finalWalls;
