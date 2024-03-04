@@ -168,6 +168,10 @@ namespace Util {
         return abs(dist);
     }
 
+    inline float distance(const pcl::PointXYZ& point1, const pcl::PointXYZ& point2) {
+        return sqrt(pow(point1.x - point2.x, 2) + pow(point1.y - point2.y, 2) + pow(point1.z - point2.z, 2));
+    }
+
     inline float distance(const pcl::PointXYZRGBNormal& point1, const pcl::PointXYZRGBNormal& point2) {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.y - point2.y, 2) + pow(point1.z - point2.z, 2));
     }

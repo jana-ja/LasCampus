@@ -1043,6 +1043,7 @@ void DataIO::readGml(const std::string& path){
                                     std::vector<pcl::PointXYZ> points;
                                     float minX = INFINITY, minY = INFINITY, minZ = INFINITY;
                                     float maxX = -INFINITY, maxY = -INFINITY, maxZ = -INFINITY;
+                                    auto invalid = false;
                                     while (iss >> x >> y >> z){
                                         float glX = std::stof(x) - xOffset;
                                         float glY = std::stof(z) - yOffset;
@@ -1069,7 +1070,14 @@ void DataIO::readGml(const std::string& path){
 //                                        v.y = (float) (point.z - yOffset);
 //                                        v.z = -(float) (point.y - zOffset);
                                         points.emplace_back(glX, glY, glZ);
+                                        if (points.size() > 1 && Util::distance(points[points.size()-1], points[points.size()-2]) < 0.2){
+                                            // skip this wall because its too thin
+                                            invalid = true;
+                                            break;
+                                        }
                                     }
+                                    if (invalid)
+                                        continue;
                                     float wallHeight = maxY - minY; // TODO glaube kann ich aus file nehmen?
                                     if (wallHeight < 0.5f) {
                                         auto be = "fjos";
