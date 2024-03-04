@@ -19,6 +19,7 @@ namespace Util {
     struct Wall {
         pcl::PointXYZRGBNormal mid;
         pcl::PointXYZ point1, point2;
+        std::vector<pcl::PointXYZ> points;
         float length;
     };
     using Plane = pcl::PointXYZRGBNormal[3]; // three points define a plane
