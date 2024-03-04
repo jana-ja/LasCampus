@@ -192,7 +192,8 @@ private:
     float getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float& x, float& z, float& yMin, float& yMax, float& stepWidth, std::vector<bool>& removePoints, const pcl::PointXYZ& wallNormal, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree);
 
     // ********** gml **********
-    float readGml(const std::string& path, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree);
+    std::vector<Building> glmBuildings;
+    void readGml(const std::string& path);
 
 
     // ********** shp **********

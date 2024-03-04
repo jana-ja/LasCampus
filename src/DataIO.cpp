@@ -26,23 +26,20 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     readLas(lasDir + file);
 
     // read gml file
+    std::string gmlDir = ".." + Util::PATH_SEPARATOR + "gml" + Util::PATH_SEPARATOR;
+    readGml(gmlDir + gmlFile);
+
+    // read shape file
+    std::string shpDir = ".." + Util::PATH_SEPARATOR + "shp" + Util::PATH_SEPARATOR;
+    readShp(shpDir + shpFile, &osmPolygons);
+
+    std::cout << TAG << "begin processing shp data" << std::endl;
+    // preprocess osmPolygons to osm walls
     float resolution = 8.0f; // TODO find good value
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
             resolution);
-    std::string gmlDir = ".." + Util::PATH_SEPARATOR + "gml" + Util::PATH_SEPARATOR;
-    float maxWallRadius = readGml(gmlDir + gmlFile, wallOctree);
-
-//    // read shape file
-//    std::string shpDir = ".." + Util::PATH_SEPARATOR + "shp" + Util::PATH_SEPARATOR;
-//    readShp(shpDir + shpFile, &osmPolygons);
-//
-//    std::cout << TAG << "begin processing shp data" << std::endl;
-//    // preprocess osmPolygons to osm walls
-//    float resolution = 8.0f; // TODO find good value
-//    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
-//            resolution);
-//    // TODO add error handling if osmPolygons are empty
-//    float maxWallRadius = preprocessWalls(wallOctree, osmPolygons);
+    // TODO add error handling if osmPolygons are empty
+    float maxWallRadius = preprocessWalls(wallOctree, osmPolygons);
 
     // get cached features
     // TODO probleme mit cache files da ich ja jetzt schon vorher punkte rauswerfe, muss dann exakt übereinstimmen also vllt verwendete params (zB wallthreshold im cache speichern)
@@ -377,9 +374,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                          std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
                          int& wallPointsStartIndex) {
     bool colorOsmWall = false;
-    bool colorCertainLasWall = false;
+    bool colorCertainLasWall = true;
     bool colorCertainLasWallRandom = false;
-    bool colorFinalLasWall = false;
+    bool colorFinalLasWall = true;
     bool colorFinalLasWallWithoutGround = false;
     bool removeOldWallPoints = false;
 
@@ -395,34 +392,30 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     auto usedLasWallPoints = std::vector<bool>(lasWallPoints.size());
     std::fill(usedLasWallPoints.begin(), usedLasWallPoints.end(), false);
 
+    for (auto bIdx = 0; bIdx < glmBuildings.size(); bIdx++) {
 
-    for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
+        auto& glmBuilding = glmBuildings[bIdx];
+        //region draw glm walls
 
-        auto& building = buildings[bIdx];
-
-
-
-        //region draw osm walls
-
-        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
-            auto osmWall = building.osmWalls[osmWallIdx];
+        for (auto glmWallIdx = 0; glmWallIdx < glmBuilding.osmWalls.size(); glmWallIdx++) {
+            auto glmWall = glmBuilding.osmWalls[glmWallIdx];
 
             // get y min and max from finalWallPoints to cover wall from bottom to top
-            float yMin = osmWall.point1.y, yMax = osmWall.point2.y;
-            osmWall.point1.y = yMin;
-            osmWall.point2.y = yMin;
+            float yMin = glmWall.point1.y, yMax = glmWall.point2.y + 2 * (glmWall.mid.y - glmWall.point2.y);
+            glmWall.point1.y = yMin;
+            glmWall.point2.y = yMin;
 
             // draw plane
             float stepWidth = 0.5;
             // get perp vec
-            auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
+            auto lasWallVec = Util::vectorSubtract(glmWall.point2, glmWall.point1);
             auto horPerpVec = Util::normalize(lasWallVec); // horizontal
             auto lasWallNormal = Util::crossProduct(horPerpVec,
                                                     pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
 
             float lasWallLength = Util::vectorLength(lasWallVec);
-            float x = osmWall.point1.x;
-            float z = osmWall.point1.z;
+            float x = glmWall.point1.x;
+            float z = glmWall.point1.z;
             float distanceMoved = 0;
 
 
@@ -432,7 +425,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float xCopy = x;
                 float zCopy = z;
                 while (y < yMax) {
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 255);//randR, randG, randB));
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, 200, 100, 100);//randR, randG, randB));
                     // set normal
                     v.normal_x = lasWallNormal.x;
                     v.normal_y = lasWallNormal.y;
@@ -452,7 +445,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
         }
         //endregion
+    }
 
+
+    for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
+
+        auto& building = buildings[bIdx];
 
 
         //region match osm and las walls
@@ -597,56 +595,56 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //        complexStableWalls(building);
 
 
-//        //region draw osm walls
-//
-//        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
-//            auto osmWall = building.osmWalls[osmWallIdx];
-//
-//            // get y min and max from finalWallPoints to cover wall from bottom to top
-//            float yMin = -10, yMax = 10;
-//            osmWall.point1.y = yMin;
-//            osmWall.point2.y = yMin;
-//
-//            // draw plane
-//            float stepWidth = 0.5;
-//            // get perp vec
-//            auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
-//            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-//            auto lasWallNormal = Util::crossProduct(horPerpVec,
-//                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-//
-//            float lasWallLength = Util::vectorLength(lasWallVec);
-//            float x = osmWall.point1.x;
-//            float z = osmWall.point1.z;
-//            float distanceMoved = 0;
-//
-//
-//            // move horizontal
-//            while (distanceMoved < lasWallLength) {
-//                float y = yMin;
-//                float xCopy = x;
-//                float zCopy = z;
-//                    while (y < yMax) {
-//                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 255);//randR, randG, randB));
-//                        // set normal
-//                        v.normal_x = lasWallNormal.x;
-//                        v.normal_y = lasWallNormal.y;
-//                        v.normal_z = lasWallNormal.z;
-//                        // also set tangents
-//                        tangent1Vec.push_back(horPerpVec);
-//                        tangent2Vec.emplace_back(0, 1, 0);
-//                        texCoords.emplace_back(0, 0);
-//
-//                        cloud->push_back(v);
-//
-//                        y += stepWidth;
-//                    }
-//                x = xCopy + stepWidth * horPerpVec.x;
-//                z = zCopy + stepWidth * horPerpVec.z;
-//                distanceMoved += stepWidth;
-//            }
-//        }
-//        //endregion
+        //region draw osm walls
+
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+            auto osmWall = building.osmWalls[osmWallIdx];
+
+            // get y min and max from finalWallPoints to cover wall from bottom to top
+            float yMin = -10, yMax = 10;
+            osmWall.point1.y = yMin;
+            osmWall.point2.y = yMin;
+
+            // draw plane
+            float stepWidth = 0.5;
+            // get perp vec
+            auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
+            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+            auto lasWallNormal = Util::crossProduct(horPerpVec,
+                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+
+            float lasWallLength = Util::vectorLength(lasWallVec);
+            float x = osmWall.point1.x;
+            float z = osmWall.point1.z;
+            float distanceMoved = 0;
+
+
+            // move horizontal
+            while (distanceMoved < lasWallLength) {
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                    while (y < yMax) {
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 255);//randR, randG, randB));
+                        // set normal
+                        v.normal_x = lasWallNormal.x;
+                        v.normal_y = lasWallNormal.y;
+                        v.normal_z = lasWallNormal.z;
+                        // also set tangents
+                        tangent1Vec.push_back(horPerpVec);
+                        tangent2Vec.emplace_back(0, 1, 0);
+                        texCoords.emplace_back(0, 0);
+
+                        cloud->push_back(v);
+
+                        y += stepWidth;
+                    }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
+                distanceMoved += stepWidth;
+            }
+        }
+        //endregion
 
 
         // region draw las walls
@@ -763,7 +761,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
                 if (currentMaxY > y + stepWidth) { // only build wall if more than init point
                     while (y < currentMaxY) {
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 100);//randR, randG, randB));
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 200, 100);//randR, randG, randB));
                         // set normal
                         v.normal_x = lasWallNormal.x;
                         v.normal_y = lasWallNormal.y;
@@ -789,7 +787,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     }
 
 
-    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud, texCoords, tangent1Vec, tangent2Vec);
+//    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud, texCoords, tangent1Vec, tangent2Vec);
 
 
     if (removeOldWallPoints) {
@@ -944,14 +942,14 @@ inline void trim(std::string &s) {
     s.erase(s.find_last_not_of(" \n\r\t")+1);
 }
 
-float DataIO::readGml(const std::string& path, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree){
+void DataIO::readGml(const std::string& path){
     std::cout << TAG << "read gml file..." << std::endl;
 
     std::ifstream inf(path);
-    buildings = std::vector<Building>();
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
-            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-    float maxR = -1;
+    glmBuildings = std::vector<Building>();
+//    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+//            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//    float maxR = -1;
 
     if (inf.is_open()) {
 
@@ -983,7 +981,9 @@ float DataIO::readGml(const std::string& path, pcl::octree::OctreePointCloudSear
                         newBuilding.xMin = buildingMinX;
                         newBuilding.zMax = buildingMaxZ;
                         newBuilding.zMin = buildingMinZ;
-                        buildings.push_back(newBuilding);
+                        newBuilding.parts.emplace_back(0); // first ring starts at first wall
+
+                        glmBuildings.push_back(newBuilding);
                         break;
                     }
                     if (line == "<bldg:boundedBy>") {
@@ -1048,7 +1048,7 @@ float DataIO::readGml(const std::string& path, pcl::octree::OctreePointCloudSear
                                         std::nth_element(points.begin(), points.begin(), points.end(), xComparator);
                                         newWall.point1 = pcl::PointXYZ(points[0].x, minY, points[0].z);
                                         std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
-                                        newWall.point2 = pcl::PointXYZ(points[points.size() - 1].x, maxY, points[points.size() - 1].z);
+                                        newWall.point2 = pcl::PointXYZ(points[points.size() - 1].x, minY, points[points.size() - 1].z); //TODO hab hier auf min gemacht um zu schauen ob dann geht
 
 
                                         newWall.mid.x = (minX + maxX) / 2;
@@ -1058,12 +1058,14 @@ float DataIO::readGml(const std::string& path, pcl::octree::OctreePointCloudSear
                                         newWall.mid.normal_y = -1;
                                         newWall.mid.normal_z = -1;
                                         float wallHeight = maxY - minY; // TODO glaube kann ich aus file nehmen?
-                                        wallMidPoints->push_back(newWall.mid);
-                                        float r = sqrt(pow(newWall.point2.x - newWall.mid.x, 2) + pow(wallHeight - newWall.mid.y, 2) +
-                                                       pow(newWall.point2.z - newWall.mid.z, 2));
-                                        if (r > maxR) {
-                                            maxR = r;
-                                        }
+//                                        wallMidPoints->push_back(newWall.mid);
+//                                        float r = sqrt(pow(newWall.point2.x - newWall.mid.x, 2) + pow(wallHeight - newWall.mid.y, 2) +
+//                                                       pow(newWall.point2.z - newWall.mid.z, 2));
+//                                        if (r > maxR) {
+//                                            maxR = r;
+//                                        }
+                                        newWall.length = Util::horizontalDistance(newWall.point1, newWall.point2);
+
                                     }
                                     break;
                                 }
@@ -1077,7 +1079,11 @@ float DataIO::readGml(const std::string& path, pcl::octree::OctreePointCloudSear
             }
         }
     }
-    return maxR;
+//    wallOctree.setInputCloud(wallMidPoints);
+//    wallOctree.defineBoundingBox();
+//    wallOctree.addPointsFromInputCloud();
+//
+//    return maxR;
 }
 
 
