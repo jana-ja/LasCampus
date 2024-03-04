@@ -1677,7 +1677,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
         // radius search // TODO nachbarn können grade auch nicht linear sein, will ich das?
         pcl::Indices searchResultIdx;
         std::vector<float> searchResultDist;
-        if (remainingWallsTree->radiusSearch(point, 2.0f, searchResultIdx, searchResultDist) < 3) {
+        if (remainingWallsTree->radiusSearch(point, 1.0f, searchResultIdx, searchResultDist) < 3) { //  TODo testen 2 oder 1
             continue;
         }
 
@@ -1964,6 +1964,10 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 continue;
             }
 
+            // TODO verfahren etsten: wenn ich punkt/patch dazu nehme -> fehler messen, wenn iwas übersteigt dann nicht dazu nehmen
+            //  dann nur das oder zusätzlich?
+            //  eher zusätzlich zu normal angle undso, aber vllt dann statt ppd??
+
             // patch oder punkt, das mit der kleinsten dist hinzufügen
             if (nearPatchDist <= nearPointDist) {
                 // nearest is patch
@@ -1971,7 +1975,7 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 auto& neighbourPatchPoint = wallPatchMids->points[*nearPatchIt];
                 auto neighbourNormal = pcl::PointXYZ(neighbourPatchPoint.normal_x, neighbourPatchPoint.normal_y,
                                                      neighbourPatchPoint.normal_z);
-                float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal)); // TODO normal angle util func machen
+                float normalAngle = acos(Util::dotProduct(patchNormal, neighbourNormal));
                 float normalAngleAndersrum = acos(Util::dotProduct(patchNormal, pcl::PointXYZ(-neighbourNormal.x, -neighbourNormal.y, -neighbourNormal.z)));
 
                 if (normalAngle <= 0.78f || normalAngleAndersrum <= 0.78f) {//0.78f) { // 45°
@@ -1979,15 +1983,90 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                     // check plane distance
                     auto ppd = Util::pointPlaneDistance(neighbourPatchPoint, wallCandidate.mid);
                     if (ppd < 1.5f) {
-                        // found a patch for the combi
-                        wallCandidatePatchIdc.push_back(*nearPatchIt);
-                        wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
-                                                     wallPatchPointIdc[*nearPatchIt].begin(),
-                                                     wallPatchPointIdc[*nearPatchIt].end());
+                        // what if i added the plane? -> measure error
+                        // save old value in case they need to  be restored
+                        auto wallCandidatePatchIdcCopy = wallCandidatePatchIdc;
+                        // error
+                        // update mid point
+                        float xMedian, yMedian, zMedian;
+                        findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
+                        wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+
+                        // update normal
+                        auto newNormal = pcl::PointXYZ(0, 0, 0);
+
+                        pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
+                                wallCandidatePointIdc);
+                        pca.setIndices(wallCandidatePointIdcPtr);
+                        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                        newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+                        newNormal = Util::normalize(newNormal);
+                        wallCandidate.mid.normal_x = newNormal.x;
+                        wallCandidate.mid.normal_y = newNormal.y;
+                        wallCandidate.mid.normal_z = newNormal.z;
+                        if (error < threshold) {
+                            // found a patch for the combi
+                            wallCandidatePatchIdc.push_back(*nearPatchIt);
+                            wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
+                                                         wallPatchPointIdc[*nearPatchIt].begin(),
+                                                         wallPatchPointIdc[*nearPatchIt].end());
+                            // remove it from patch search
+                            wallPatchSkip[*nearPatchIt] = true;
+                            // save distance
+                            auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
+                            if (dist > maxDist) {
+                                maxDist = dist;
+                            }
+                            // update mid point
+                            float xMedian, yMedian, zMedian;
+                            findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
+                            wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+
+                            // update normal
+                            auto newNormal = pcl::PointXYZ(0, 0, 0);
+
+                            pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
+                                    wallCandidatePointIdc);
+                            pca.setIndices(wallCandidatePointIdcPtr);
+                            Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+                            newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+                            newNormal = Util::normalize(newNormal);
+                            wallCandidate.mid.normal_x = newNormal.x;
+                            wallCandidate.mid.normal_y = newNormal.y;
+                            wallCandidate.mid.normal_z = newNormal.z;
+
+                            patchCount++;
+
+//                        // TODO für debug zum anschauen
+//                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
+//                            auto& combWall = wallPatches[combWallIdx];
+//                            combWall.mid.normal_x = newNormal.x;
+//                            combWall.mid.normal_y = newNormal.y;
+//                            combWall.mid.normal_z = newNormal.z;
+//                        }
+                        } else {
+                            // restore old values
+
+                        }
+                    }
+                }
+                // remove patch from neighbours regardless if it has good angle and belongs to combi or not
+                wallPatchSearchResultIdx.erase(nearPatchIt);
+
+            } else {
+                // nearest is point
+                auto& neighbourPoint = remainingWallsCloud->points[*nearPointIt];
+
+                // check plane distance
+                auto ppd = Util::pointPlaneDistance(neighbourPoint, wallCandidate.mid);
+                if (ppd < 1.0f) {
+                    if (error < threshold) {
+                        // found a point for the combi
+                        wallCandidatePointIdc.push_back(*nearPointIt);
                         // remove it from patch search
-                        wallPatchSkip[*nearPatchIt] = true;
+                        wallPointSkip[*nearPointIt] = true;
                         // save distance
-                        auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
+                        auto dist = Util::distance(neighbourPoint, wallPatch.mid);
                         if (dist > maxDist) {
                             maxDist = dist;
                         }
@@ -2009,8 +2088,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                         wallCandidate.mid.normal_y = newNormal.y;
                         wallCandidate.mid.normal_z = newNormal.z;
 
-                        patchCount++;
-
 //                        // TODO für debug zum anschauen
 //                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
 //                            auto& combWall = wallPatches[combWallIdx];
@@ -2019,51 +2096,6 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 //                            combWall.mid.normal_z = newNormal.z;
 //                        }
                     }
-                }
-                // remove patch from neighbours regardless if it has good angle and belongs to combi or not
-                wallPatchSearchResultIdx.erase(nearPatchIt);
-
-            } else {
-                // nearest is point
-                auto& neighbourPoint = remainingWallsCloud->points[*nearPointIt];
-
-                // check plane distance
-                auto ppd = Util::pointPlaneDistance(neighbourPoint, wallCandidate.mid);
-                if (ppd < 1.0f) {
-                    // found a point for the combi
-                    wallCandidatePointIdc.push_back(*nearPointIt);
-                    // remove it from patch search
-                    wallPointSkip[*nearPointIt] = true;
-                    // save distance
-                    auto dist = Util::distance(neighbourPoint, wallPatch.mid);
-                    if (dist > maxDist) {
-                        maxDist = dist;
-                    }
-                    // update mid point
-                    float xMedian, yMedian, zMedian;
-                    findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
-                    wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-
-                    // update normal
-                    auto newNormal = pcl::PointXYZ(0, 0, 0);
-
-                    pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
-                            wallCandidatePointIdc);
-                    pca.setIndices(wallCandidatePointIdcPtr);
-                    Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-                    newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
-                    newNormal = Util::normalize(newNormal);
-                    wallCandidate.mid.normal_x = newNormal.x;
-                    wallCandidate.mid.normal_y = newNormal.y;
-                    wallCandidate.mid.normal_z = newNormal.z;
-
-//                        // TODO für debug zum anschauen
-//                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
-//                            auto& combWall = wallPatches[combWallIdx];
-//                            combWall.mid.normal_x = newNormal.x;
-//                            combWall.mid.normal_y = newNormal.y;
-//                            combWall.mid.normal_z = newNormal.z;
-//                        }
                 }
 
                 // remove point from neighbours regardless if it has good angle and belongs to combi or not
@@ -2158,62 +2190,62 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
             wallB = 200;
         }
 
-        // draw plane
-        float stepWidth = 0.5;
-        // get perp vec
-        auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
-        auto horPerpVec = Util::normalize(wallVec); // horizontal
-        auto wallNormal = Util::crossProduct(horPerpVec,
-                                             pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-
-        float lasWallLength = Util::vectorLength(wallVec);
-        float x = wallCandidate.point1.x;
-        float z = wallCandidate.point1.z;
-        float distanceMoved = 0;
-
-
-        // move horizontal
-        while (distanceMoved < lasWallLength) {
-            float y = yMin;
-            float xCopy = x;
-            float zCopy = z;
-            float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
-            if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-                while (y < currentMaxY) {
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, wallR, wallG, wallB);//randR, randG, randB));
-                    // set normal
-                    v.normal_x = wallNormal.x;
-                    v.normal_y = wallNormal.y;
-                    v.normal_z = wallNormal.z;
-                    // also set tangents
-                    tangent1Vec.push_back(horPerpVec);
-                    tangent2Vec.emplace_back(0, 1, 0);
-                    texCoords.emplace_back(0, 0);
-
-                    allPointsCloud->push_back(v);
-
-                    y += stepWidth;
-                }
-            }
-            x = xCopy + stepWidth * horPerpVec.x;
-            z = zCopy + stepWidth * horPerpVec.z;
-            distanceMoved += stepWidth;
-        }
-        // mid point
-        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0,
-                                        255);//randR, randG, randB));
-        // set normal
-        v.normal_x = wallNormal.x;
-        v.normal_y = wallNormal.y;
-        v.normal_z = wallNormal.z;
-        // also set tangents
-        tangent1Vec.push_back(horPerpVec);
-        tangent2Vec.emplace_back(0, 1, 0);
-        texCoords.emplace_back(0, 0);
-
-        allPointsCloud->push_back(v);
-
-        //endregion
+//        // draw plane
+//        float stepWidth = 0.5;
+//        // get perp vec
+//        auto wallVec = Util::vectorSubtract(wallCandidate.point2, wallCandidate.point1);
+//        auto horPerpVec = Util::normalize(wallVec); // horizontal
+//        auto wallNormal = Util::crossProduct(horPerpVec,
+//                                             pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+//
+//        float lasWallLength = Util::vectorLength(wallVec);
+//        float x = wallCandidate.point1.x;
+//        float z = wallCandidate.point1.z;
+//        float distanceMoved = 0;
+//
+//
+//        // move horizontal
+//        while (distanceMoved < lasWallLength) {
+//            float y = yMin;
+//            float xCopy = x;
+//            float zCopy = z;
+//            float currentMaxY = yMax;//getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, wallNormal, tree);
+//            if (currentMaxY > y + stepWidth) { // only build wall if more than init point
+//                while (y < currentMaxY) {
+//                    auto v = pcl::PointXYZRGBNormal(x, y, z, wallR, wallG, wallB);//randR, randG, randB));
+//                    // set normal
+//                    v.normal_x = wallNormal.x;
+//                    v.normal_y = wallNormal.y;
+//                    v.normal_z = wallNormal.z;
+//                    // also set tangents
+//                    tangent1Vec.push_back(horPerpVec);
+//                    tangent2Vec.emplace_back(0, 1, 0);
+//                    texCoords.emplace_back(0, 0);
+//
+//                    allPointsCloud->push_back(v);
+//
+//                    y += stepWidth;
+//                }
+//            }
+//            x = xCopy + stepWidth * horPerpVec.x;
+//            z = zCopy + stepWidth * horPerpVec.z;
+//            distanceMoved += stepWidth;
+//        }
+//        // mid point
+//        auto v = pcl::PointXYZRGBNormal(wallCandidate.mid.x, wallCandidate.mid.y, wallCandidate.mid.z, 255, 0,
+//                                        255);//randR, randG, randB));
+//        // set normal
+//        v.normal_x = wallNormal.x;
+//        v.normal_y = wallNormal.y;
+//        v.normal_z = wallNormal.z;
+//        // also set tangents
+//        tangent1Vec.push_back(horPerpVec);
+//        tangent2Vec.emplace_back(0, 1, 0);
+//        texCoords.emplace_back(0, 0);
+//
+//        allPointsCloud->push_back(v);
+//
+//        //endregion
 
     }
 
