@@ -407,6 +407,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         for (auto glmWallIdx = 0; glmWallIdx < glmBuilding.osmWalls.size(); glmWallIdx++) {
             auto glmWall = glmBuilding.osmWalls[glmWallIdx];
 
+            float r = 200, g = 100, b = 100;
+            if (glmWall.points.size() > 5) {
+                auto jodf = 3;
+                b = 200;
+            }
             // get y min and max from finalWallPoints to cover wall from bottom to top
             float yMin = glmWall.point1.y, yMax = glmWall.point2.y + 2 * (glmWall.mid.y - glmWall.point2.y);
             glmWall.point1.y = yMin;
@@ -436,7 +441,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                         // check if inside of wall polygon
                         // else continue
                     }
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 200, 100, 100);//randR, randG, randB));
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
                         // set normal
                         v.normal_x = lasWallNormal.x;
                         v.normal_y = lasWallNormal.y;
