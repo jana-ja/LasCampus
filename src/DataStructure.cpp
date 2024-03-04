@@ -21,7 +21,10 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
 
     bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
-
+//    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
+//            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+//    tree->setInputCloud(cloud);
+//    //TODO tree ist grad doppelt
 
     if (!cachedFeatues) {
 //        adaSplats(tree);
