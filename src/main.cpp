@@ -12,6 +12,7 @@ int main() {
 
     std::vector<std::string> lasFiles{R"(3dm_32_389_5705_1_nw.las)" };
     std::string shpFile = R"(gis_osm_buildings_a_free_1.shp)";
+    std::string gmlFile = R"(LoD2_32_389_5705_1_NW.gml)";
     std::string imgFile = R"(dop10rgbi_32_389_5705_1_nw_2021.jpg)";
 
 
@@ -19,7 +20,7 @@ int main() {
     // read tree
     try
     {
-        auto lol = DataStructure(lasFiles, shpFile, imgFile);
+        auto lol = DataStructure(lasFiles, shpFile, gmlFile, imgFile);
 
         std::cout << "main\t" << "DataStructure finished" << std::endl;
 

@@ -16,11 +16,11 @@
 
 using namespace std;
 
-DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): imgFile(imgFile) {
+DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& gmlFile, const std::string& imgFile): imgFile(imgFile) {
 
     DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
 
-    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, gmlFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
 //    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
 //            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
 //    tree->setInputCloud(cloud);

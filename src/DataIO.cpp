@@ -10,7 +10,7 @@
 #include <random>
 #include "UTM.h"
 
-bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile,
+bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& gmlFile, const std::string& imgFile,
                       const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
                       std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
                       int& wallPointsStartIndex) {
@@ -871,6 +871,29 @@ DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float
     }
     return newMaxY;
 }
+
+
+// ********** gml **********
+
+void DataIO::readGml(const std::string& path, std::vector<Polygon>* polygons){
+    std::cout << TAG << "read gml file..." << std::endl;
+
+    std::ifstream inf(path);
+
+    if (inf.is_open()) {
+
+        std::string line;
+        while (std::getline(inf, line)) {
+            std::istringstream iss(line);
+            int a, b;
+            if (!(iss >> a >> b)) { break; } // error
+
+            // process pair (a,b)
+        }
+    }
+}
+
+
 
 // ********** shp **********
 template<typename T>
