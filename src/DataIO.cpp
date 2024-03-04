@@ -25,17 +25,24 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     // sets: las to opengl offsets, bounds for shp and numOfPoints
     readLas(lasDir + file);
 
-    // read shape file
-    std::string shpDir = ".." + Util::PATH_SEPARATOR + "shp" + Util::PATH_SEPARATOR;
-    readShp(shpDir + shpFile, &osmPolygons);
-
-    std::cout << TAG << "begin processing shp data" << std::endl;
-    // preprocess osmPolygons to osm walls
+    // read gml file
     float resolution = 8.0f; // TODO find good value
     pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
             resolution);
-    // TODO add error handling if osmPolygons are empty
-    float maxWallRadius = preprocessWalls(wallOctree, osmPolygons);
+    std::string gmlDir = ".." + Util::PATH_SEPARATOR + "gml" + Util::PATH_SEPARATOR;
+    float maxWallRadius = readGml(gmlDir + gmlFile, wallOctree);
+
+//    // read shape file
+//    std::string shpDir = ".." + Util::PATH_SEPARATOR + "shp" + Util::PATH_SEPARATOR;
+//    readShp(shpDir + shpFile, &osmPolygons);
+//
+//    std::cout << TAG << "begin processing shp data" << std::endl;
+//    // preprocess osmPolygons to osm walls
+//    float resolution = 8.0f; // TODO find good value
+//    pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal> wallOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>(
+//            resolution);
+//    // TODO add error handling if osmPolygons are empty
+//    float maxWallRadius = preprocessWalls(wallOctree, osmPolygons);
 
     // get cached features
     // TODO probleme mit cache files da ich ja jetzt schon vorher punkte rauswerfe, muss dann exakt übereinstimmen also vllt verwendete params (zB wallthreshold im cache speichern)
@@ -392,6 +399,62 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
 
         auto& building = buildings[bIdx];
+
+
+
+        //region draw osm walls
+
+        for (auto osmWallIdx = 0; osmWallIdx < building.osmWalls.size(); osmWallIdx++) {
+            auto osmWall = building.osmWalls[osmWallIdx];
+
+            // get y min and max from finalWallPoints to cover wall from bottom to top
+            float yMin = osmWall.point1.y, yMax = osmWall.point2.y;
+            osmWall.point1.y = yMin;
+            osmWall.point2.y = yMin;
+
+            // draw plane
+            float stepWidth = 0.5;
+            // get perp vec
+            auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
+            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+            auto lasWallNormal = Util::crossProduct(horPerpVec,
+                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+
+            float lasWallLength = Util::vectorLength(lasWallVec);
+            float x = osmWall.point1.x;
+            float z = osmWall.point1.z;
+            float distanceMoved = 0;
+
+
+            // move horizontal
+            while (distanceMoved < lasWallLength) {
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                while (y < yMax) {
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 255);//randR, randG, randB));
+                    // set normal
+                    v.normal_x = lasWallNormal.x;
+                    v.normal_y = lasWallNormal.y;
+                    v.normal_z = lasWallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    cloud->push_back(v);
+
+                    y += stepWidth;
+                }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
+                distanceMoved += stepWidth;
+            }
+        }
+        //endregion
+
+
+
         //region match osm and las walls
 
         building.lasWalls = std::vector<std::optional<Util::Wall>>(building.osmWalls.size());
@@ -874,23 +937,147 @@ DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float
 
 
 // ********** gml **********
+inline void trim(std::string &s) {
+    // left trim
+    s.erase(s.begin(), s.begin() + s.find_first_not_of(" \n\r\t"));
+    // right trim
+    s.erase(s.find_last_not_of(" \n\r\t")+1);
+}
 
-void DataIO::readGml(const std::string& path, std::vector<Polygon>* polygons){
+float DataIO::readGml(const std::string& path, pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree){
     std::cout << TAG << "read gml file..." << std::endl;
 
     std::ifstream inf(path);
+    buildings = std::vector<Building>();
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    float maxR = -1;
 
     if (inf.is_open()) {
 
+        int buildingCount = 0;
         std::string line;
-        while (std::getline(inf, line)) {
-            std::istringstream iss(line);
-            int a, b;
-            if (!(iss >> a >> b)) { break; } // error
+        std::string firstToken;
 
-            // process pair (a,b)
+
+        auto lineCount = 0;
+        while (std::getline(inf, line)) {
+            lineCount++;
+            trim(line);
+            if (line == "<core:cityObjectMember>") {
+                // TODO hier sind alle cityObjectMember Buildings (immer so?)
+                // TODO check if building with parts
+                // <bldg:consistsOfBuildingPart>
+                // get all walls
+
+                auto newBuilding = Building();
+                float buildingMinX = INFINITY, buildingMinY = INFINITY, buildingMinZ = INFINITY;
+                float buildingMaxX = -INFINITY, buildingMaxY = -INFINITY, buildingMaxZ = -INFINITY;
+                // read walls TODO and parts
+                while (std::getline(inf, line)) {
+                    lineCount++;
+                    trim(line);
+                    if (line == "</bldg:Building>") {
+                        // end of building
+                        newBuilding.xMax = buildingMaxX;
+                        newBuilding.xMin = buildingMinX;
+                        newBuilding.zMax = buildingMaxZ;
+                        newBuilding.zMin = buildingMinZ;
+                        buildings.push_back(newBuilding);
+                        break;
+                    }
+                    if (line == "<bldg:boundedBy>") {
+                        std::getline(inf, line);
+                        lineCount++;
+                        trim(line);
+                        std::istringstream iss(line);
+                        iss >> firstToken;
+                        if (firstToken == "<bldg:WallSurface"){
+                            // new wall
+                            auto newWall = Util::Wall();
+                            // read until posi
+                            while (std::getline(inf, line)) {
+                                lineCount++;
+                                trim(line);
+                                std::istringstream iss(line);
+                                iss >> firstToken;
+                                if (firstToken == "<gml:posList") {
+                                    // remove tags from line
+                                    line.erase(line.begin() + line.find("<"), line.begin() + line.find(">") + 1);
+                                    line.erase(line.begin() + line.find("<"), line.begin() + line.find(">") + 1);
+                                    std::istringstream iss(line);
+
+                                    //read positions
+                                    std::string x,y,z;
+                                    std::vector<pcl::PointXYZRGBNormal> points;
+                                    float minX = INFINITY, minY = INFINITY, minZ = INFINITY;
+                                    float maxX = -INFINITY, maxY = -INFINITY, maxZ = -INFINITY;
+                                    while (iss >> x >> y >> z){
+                                        float glX = std::stof(x) - xOffset;
+                                        float glY = std::stof(z) - yOffset;
+                                        float glZ = -(std::stof(y) - zOffset);
+
+                                        minX = std::min(minX, glX);
+                                        minY = std::min(minY, glY);
+                                        minZ = std::min(minZ, glZ);
+
+                                        maxX = std::max(maxX, glX);
+                                        maxY = std::max(maxY, glY);
+                                        maxZ = std::max(maxZ, glZ);
+
+                                        buildingMinX = std::min(minX, buildingMinX);
+                                        buildingMinY = std::min(minY, buildingMinY);
+                                        buildingMinZ = std::min(minZ, buildingMinZ);
+
+                                        buildingMaxX = std::max(maxX, buildingMaxX);
+                                        buildingMaxY = std::max(maxY, buildingMaxY);
+                                        buildingMaxZ = std::max(maxZ, buildingMaxZ);
+
+                                        
+//                                        v.x = (float) (point.x - xOffset);
+//                                        v.y = (float) (point.z - yOffset);
+//                                        v.z = -(float) (point.y - zOffset);
+                                        points.emplace_back(glX, glY, glZ);
+                                    }
+                                    if (points.size() != 5) {
+                                        auto lel = 3;
+                                        // TODO handle walls with more/less then 4 corners
+                                    } else {
+                                        
+                                        // randpunkte holen nach x achse // TODO was wenn wand parallel zu z achse?
+                                        std::nth_element(points.begin(), points.begin(), points.end(), xComparator);
+                                        newWall.point1 = pcl::PointXYZ(points[0].x, minY, points[0].z);
+                                        std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator);
+                                        newWall.point2 = pcl::PointXYZ(points[points.size() - 1].x, maxY, points[points.size() - 1].z);
+
+
+                                        newWall.mid.x = (minX + maxX) / 2;
+                                        newWall.mid.y = (minY + maxY) / 2;
+                                        newWall.mid.z = (minZ + maxZ) / 2;
+                                        newWall.mid.normal_x = -1;
+                                        newWall.mid.normal_y = -1;
+                                        newWall.mid.normal_z = -1;
+                                        float wallHeight = maxY - minY; // TODO glaube kann ich aus file nehmen?
+                                        wallMidPoints->push_back(newWall.mid);
+                                        float r = sqrt(pow(newWall.point2.x - newWall.mid.x, 2) + pow(wallHeight - newWall.mid.y, 2) +
+                                                       pow(newWall.point2.z - newWall.mid.z, 2));
+                                        if (r > maxR) {
+                                            maxR = r;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                            newBuilding.osmWalls.push_back(newWall);
+                        }
+                        // <bldg:RoofSurface
+                    }
+                }
+//                buildings.push_back(newBuilding);
+            }
         }
     }
+    return maxR;
 }
 
 
@@ -2027,50 +2214,50 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                         wallCandidate.mid.normal_x = newNormal.x;
                         wallCandidate.mid.normal_y = newNormal.y;
                         wallCandidate.mid.normal_z = newNormal.z;
-                        if (error < threshold) {
-                            // found a patch for the combi
-                            wallCandidatePatchIdc.push_back(*nearPatchIt);
-                            wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
-                                                         wallPatchPointIdc[*nearPatchIt].begin(),
-                                                         wallPatchPointIdc[*nearPatchIt].end());
-                            // remove it from patch search
-                            wallPatchSkip[*nearPatchIt] = true;
-                            // save distance
-                            auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
-                            if (dist > maxDist) {
-                                maxDist = dist;
-                            }
-                            // update mid point
-                            float xMedian, yMedian, zMedian;
-                            findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
-                            wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-
-                            // update normal
-                            auto newNormal = pcl::PointXYZ(0, 0, 0);
-
-                            pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
-                                    wallCandidatePointIdc);
-                            pca.setIndices(wallCandidatePointIdcPtr);
-                            Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-                            newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
-                            newNormal = Util::normalize(newNormal);
-                            wallCandidate.mid.normal_x = newNormal.x;
-                            wallCandidate.mid.normal_y = newNormal.y;
-                            wallCandidate.mid.normal_z = newNormal.z;
-
-                            patchCount++;
-
-//                        // TODO für debug zum anschauen
-//                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
-//                            auto& combWall = wallPatches[combWallIdx];
-//                            combWall.mid.normal_x = newNormal.x;
-//                            combWall.mid.normal_y = newNormal.y;
-//                            combWall.mid.normal_z = newNormal.z;
+//                        if (error < threshold) {
+//                            // found a patch for the combi
+//                            wallCandidatePatchIdc.push_back(*nearPatchIt);
+//                            wallCandidatePointIdc.insert(wallCandidatePointIdc.end(),
+//                                                         wallPatchPointIdc[*nearPatchIt].begin(),
+//                                                         wallPatchPointIdc[*nearPatchIt].end());
+//                            // remove it from patch search
+//                            wallPatchSkip[*nearPatchIt] = true;
+//                            // save distance
+//                            auto dist = Util::distance(neighbourPatchPoint, wallPatch.mid);
+//                            if (dist > maxDist) {
+//                                maxDist = dist;
+//                            }
+//                            // update mid point
+//                            float xMedian, yMedian, zMedian;
+//                            findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
+//                            wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+//
+//                            // update normal
+//                            auto newNormal = pcl::PointXYZ(0, 0, 0);
+//
+//                            pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
+//                                    wallCandidatePointIdc);
+//                            pca.setIndices(wallCandidatePointIdcPtr);
+//                            Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+//                            newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+//                            newNormal = Util::normalize(newNormal);
+//                            wallCandidate.mid.normal_x = newNormal.x;
+//                            wallCandidate.mid.normal_y = newNormal.y;
+//                            wallCandidate.mid.normal_z = newNormal.z;
+//
+//                            patchCount++;
+//
+////                        // TODO für debug zum anschauen
+////                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
+////                            auto& combWall = wallPatches[combWallIdx];
+////                            combWall.mid.normal_x = newNormal.x;
+////                            combWall.mid.normal_y = newNormal.y;
+////                            combWall.mid.normal_z = newNormal.z;
+////                        }
+//                        } else {
+//                            // restore old values
+//
 //                        }
-                        } else {
-                            // restore old values
-
-                        }
                     }
                 }
                 // remove patch from neighbours regardless if it has good angle and belongs to combi or not
@@ -2083,42 +2270,42 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
                 // check plane distance
                 auto ppd = Util::pointPlaneDistance(neighbourPoint, wallCandidate.mid);
                 if (ppd < 1.0f) {
-                    if (error < threshold) {
-                        // found a point for the combi
-                        wallCandidatePointIdc.push_back(*nearPointIt);
-                        // remove it from patch search
-                        wallPointSkip[*nearPointIt] = true;
-                        // save distance
-                        auto dist = Util::distance(neighbourPoint, wallPatch.mid);
-                        if (dist > maxDist) {
-                            maxDist = dist;
-                        }
-                        // update mid point
-                        float xMedian, yMedian, zMedian;
-                        findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
-                        wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-
-                        // update normal
-                        auto newNormal = pcl::PointXYZ(0, 0, 0);
-
-                        pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
-                                wallCandidatePointIdc);
-                        pca.setIndices(wallCandidatePointIdcPtr);
-                        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-                        newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
-                        newNormal = Util::normalize(newNormal);
-                        wallCandidate.mid.normal_x = newNormal.x;
-                        wallCandidate.mid.normal_y = newNormal.y;
-                        wallCandidate.mid.normal_z = newNormal.z;
-
-//                        // TODO für debug zum anschauen
-//                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
-//                            auto& combWall = wallPatches[combWallIdx];
-//                            combWall.mid.normal_x = newNormal.x;
-//                            combWall.mid.normal_y = newNormal.y;
-//                            combWall.mid.normal_z = newNormal.z;
+//                    if (error < threshold) {
+//                        // found a point for the combi
+//                        wallCandidatePointIdc.push_back(*nearPointIt);
+//                        // remove it from patch search
+//                        wallPointSkip[*nearPointIt] = true;
+//                        // save distance
+//                        auto dist = Util::distance(neighbourPoint, wallPatch.mid);
+//                        if (dist > maxDist) {
+//                            maxDist = dist;
 //                        }
-                    }
+//                        // update mid point
+//                        float xMedian, yMedian, zMedian;
+//                        findXYZMedian(remainingWallsCloud, wallCandidatePointIdc, xMedian, yMedian, zMedian);
+//                        wallCandidate.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+//
+//                        // update normal
+//                        auto newNormal = pcl::PointXYZ(0, 0, 0);
+//
+//                        pcl::IndicesPtr wallCandidatePointIdcPtr = std::make_shared<pcl::Indices>(
+//                                wallCandidatePointIdc);
+//                        pca.setIndices(wallCandidatePointIdcPtr);
+//                        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+//                        newNormal = pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2));
+//                        newNormal = Util::normalize(newNormal);
+//                        wallCandidate.mid.normal_x = newNormal.x;
+//                        wallCandidate.mid.normal_y = newNormal.y;
+//                        wallCandidate.mid.normal_z = newNormal.z;
+//
+////                        // TODO für debug zum anschauen
+////                        for (const auto& combWallIdx: wallCandidatePatchIdc) {
+////                            auto& combWall = wallPatches[combWallIdx];
+////                            combWall.mid.normal_x = newNormal.x;
+////                            combWall.mid.normal_y = newNormal.y;
+////                            combWall.mid.normal_z = newNormal.z;
+////                        }
+//                    }
                 }
 
                 // remove point from neighbours regardless if it has good angle and belongs to combi or not
