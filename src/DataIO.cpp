@@ -430,107 +430,38 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             float z = glmWall.point1.z;
             float distanceMoved = 0;
 
+            // MARK2
 
             // move horizontal
-//            while (distanceMoved < lasWallLength) {
-//                float y = yMin;
-//                float xCopy = x;
-//                float zCopy = z;
-//                while (y < yMax) {
-//                    if (glmWall.points.size() != 5) {
-//                        // check if inside of wall polygon
-//                        // else continue
-//                    }
-//                        auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
-//                        // set normal
-//                        v.normal_x = lasWallNormal.x;
-//                        v.normal_y = lasWallNormal.y;
-//                        v.normal_z = lasWallNormal.z;
-//                        // also set tangents
-//                        tangent1Vec.push_back(horPerpVec);
-//                        tangent2Vec.emplace_back(0, 1, 0);
-//                        texCoords.emplace_back(0, 0);
-//
-//                        cloud->push_back(v);
-//
-//
-//                    y += stepWidth;
-//                }
-//                x = xCopy + stepWidth * horPerpVec.x;
-//                z = zCopy + stepWidth * horPerpVec.z;
-//                distanceMoved += stepWidth;
-//            }
-
-            // MARK2
-            auto vec1 = Util::vectorSubtract(glmWall.points[0], glmWall.points[1]);
-            auto vec2 = Util::vectorSubtract(glmWall.points[1], glmWall.points[2]); // TODO vec 2 gibts scheinbar oft nicht? und wieder die punkte umdrehen damit normale wieder richtigrum ist
-
-            auto vec1norm = Util::normalize(vec1);
-            auto vec2norm = Util::normalize(vec2);
-            auto normal = Util::normalize(Util::crossProduct(vec1norm, vec2norm));
-// TODO normale ist manchmal nan weil point 0 un dpoint 2 gleich sind und deshalb die vectoren aufeinander liegen.
-// warum sind 0 und 2 gleich? eig könnten 0 und der letzte gleich sein, sind sie aber nicht
-            if (normal.x == 0 && normal.z == 0) {
-                auto hoisdf = 3;
-            }
-            if (Util::vectorLength(vec2) < 0.1) {
-                auto hoisdf = 3;
-            }
-            if (glmWall.points[2].x == glmWall.points[0].x && glmWall.points[2].y == glmWall.points[0].y && glmWall.points[2].z == glmWall.points[0].z) {
-                auto hoisdf = 3;
-            }
-
-            distanceMoved = 0;
-            x = glmWall.points[1].x;
-            float y = glmWall.points[1].y;
-            z = glmWall.points[1].z;
-            while (distanceMoved < Util::vectorLength(vec1)) {
-
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 255, 0, 0);
-                v.normal_x = normal.x;
-                v.normal_y = normal.y;
-                v.normal_z = normal.z;
+            while (distanceMoved < lasWallLength) {
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                while (y < yMax) {
+                    if (glmWall.points.size() != 5) {
+                        // check if inside of wall polygon
+                        // else continue
+                    }
+                        auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
+                        // set normal
+                        v.normal_x = lasWallNormal.x;
+                        v.normal_y = lasWallNormal.y;
+                        v.normal_z = lasWallNormal.z;
+                        // also set tangents
                         tangent1Vec.push_back(horPerpVec);
                         tangent2Vec.emplace_back(0, 1, 0);
                         texCoords.emplace_back(0, 0);
+
                         cloud->push_back(v);
 
-                x += stepWidth * vec1norm.x;
-                y += stepWidth * vec1norm.y;
-                z += stepWidth * vec1norm.z;
+
+                    y += stepWidth;
+                }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
                 distanceMoved += stepWidth;
             }
 
-            distanceMoved = 0;
-            x = glmWall.points[2].x;
-            y = glmWall.points[2].y;
-            z = glmWall.points[2].z;
-            while (distanceMoved < Util::vectorLength(vec2)) {
-
-                auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 255, 0);
-                v.normal_x = normal.x;
-                v.normal_y = normal.y;
-                v.normal_z = normal.z;
-                tangent1Vec.push_back(horPerpVec);
-                tangent2Vec.emplace_back(0, 1, 0);
-                texCoords.emplace_back(0, 0);
-                cloud->push_back(v);
-
-                x += stepWidth * vec2norm.x;
-                y += stepWidth * vec2norm.y;
-                z += stepWidth * vec2norm.z;
-                distanceMoved += stepWidth;
-            }
-//            // TODO debug show points:
-//            for (auto i = 0; i < 3; i++) {
-//                auto v = pcl::PointXYZRGBNormal(glmWall.points[i].x, glmWall.points[i].y, glmWall.points[i].z, i*100, 200, 200 - (i*100));
-////                                        // also set tangents
-//                tangent1Vec.push_back(horPerpVec);
-//                tangent2Vec.emplace_back(0, 1, 0);
-//                texCoords.emplace_back(0, 0);
-//
-//                cloud->push_back(v);
-//            }
         }
         //endregion
     }
@@ -1158,18 +1089,16 @@ void DataIO::readGml(const std::string& path){
 
                                     // MARK1
 
-                                    auto vec1 = Util::vectorSubtract(points[0], points[1]);
-                                    auto vec2 = Util::vectorSubtract(points[1], points[2]);
+                                    auto vec1 = Util::normalize(Util::vectorSubtract(points[0], points[1]));
+                                    auto vec2 = Util::normalize(Util::vectorSubtract(points[1], points[2]));
                                     auto normal = Util::crossProduct(vec1, vec2);
-                                    if (points[2].x == points[0].x && points[2].y == points[0].y && points[2].z == points[0].z) {
-                                        auto hoisdf = 3;
-                                    }
+
                                     auto pointsCopy = points;
                                     // randpunkte holen nach x achse // TODO was wenn wand parallel zu z achse?
                                     std::nth_element(pointsCopy.begin(), pointsCopy.begin(), pointsCopy.end(), xComparator2);
                                     newWall.point1 = pcl::PointXYZ(pointsCopy[0].x, minY, pointsCopy[0].z);
                                     std::nth_element(pointsCopy.begin(), pointsCopy.end() - 1, pointsCopy.end(), xComparator2);
-                                    newWall.point2 = pcl::PointXYZ(pointsCopy[pointsCopy.size() - 1].x, maxY, pointsCopy[pointsCopy.size() - 1].z); //TODO hab hier auf min gemacht um zu schauen ob dann geht
+                                    newWall.point2 = pcl::PointXYZ(pointsCopy[pointsCopy.size() - 1].x, maxY, pointsCopy[pointsCopy.size() - 1].z);
 
 
                                     newWall.mid.x = (minX + maxX) / 2;
