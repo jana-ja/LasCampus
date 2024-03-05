@@ -196,6 +196,41 @@ namespace Util {
         return sqrt(pow(point1.x - point2.x, 2) + pow(point1.z - point2.z, 2));
     }
 
+    inline float norm2(const pcl::PointXYZ& v) {
+        return v.x * v.x + v.y * v.y + v.z * v.z;
+    }
+
+    /**
+     * assuming line and ray lie on the same plane
+     * @param linePoint1
+     * @param linePoint2
+     * @param rayOrigin
+     * @param rayDir
+     * @return
+     */
+    inline int intersectLine(const pcl::PointXYZ& linePoint1, const pcl::PointXYZ& linePoint2, const pcl::PointXYZ& rayOrigin, const pcl::PointXYZ& rayDir){
+
+        auto lineVec = Util::vectorSubtract(linePoint2, linePoint1);
+        auto dc = Util::vectorSubtract(rayOrigin, linePoint1);
+
+        auto lineCrossRay = Util::crossProduct(lineVec, rayDir);
+        auto anderesCross = Util::crossProduct(dc, rayDir);
+        auto anderesCross2 = Util::crossProduct(dc, lineVec);
+
+//        auto test = Util::dotProduct(dc, lineCrossRay);
+//        if (abs(test) > 0.1) // lines are not coplanar
+//            return false;
+
+        auto s = Util::dotProduct(anderesCross, lineCrossRay) / norm2(lineCrossRay);
+        auto t = Util::dotProduct(anderesCross2, lineCrossRay) / norm2(lineCrossRay);
+        if (s > 0.0 && s < 1.0 && t >= 0.0) {
+
+            return true;
+        }
+
+        return false;
+    }
+
     inline int intersectWall(const Wall& wall, const pcl::PointXYZ& rayOrigin, const pcl::PointXYZ& rayDir){
 
         const auto planePoint = pcl::PointXYZ(wall.mid.x, wall.mid.y, wall.mid.z);

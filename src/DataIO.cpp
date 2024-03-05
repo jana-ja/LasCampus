@@ -206,6 +206,25 @@ void DataIO::readLas(const std::string& path) {
     }
 }
 
+bool polygonCheck(pcl::PointXYZRGBNormal& point, std::vector<pcl::PointXYZ>& points) {
+    // create ray for this point
+    auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
+    auto rayDir = pcl::PointXYZ(0, -1, 0); // TODO muss auf ebene liegen
+
+    int intersectionCount = 0;
+    for (auto i = 0; i < points.size()-1; i++) {
+        // intersect ray with line
+        intersectionCount += Util::intersectLine(points[i], points[i+1], rayPoint, rayDir);
+    }
+
+    if (intersectionCount % 2 != 0) {
+        // point is inside of polygon
+        return true;
+    }
+
+    // point is not inside polygon
+    return false;
+}
 
 bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point,
                            const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
@@ -431,11 +450,17 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float xCopy = x;
                 float zCopy = z;
                 while (y < yMax) {
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
+
                     if (glmWall.points.size() != 5) {
+                        if (!polygonCheck(v, glmWall.points)) {
+                            v.r = 255;
+                            v.b = 255;
+                            v.g = 255;
+                        }
                         // check if inside of wall polygon
                         // else continue
                     }
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
                         // set normal
                         v.normal_x = glmWall.mid.normal_x;
                         v.normal_y = glmWall.mid.normal_y;
