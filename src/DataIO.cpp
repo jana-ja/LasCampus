@@ -62,7 +62,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
-    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, texCoords, tangent1Vec, tangent2Vec,
+    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
                 wallPointsStartIndex);
     tree->setInputCloud(cloud);
 
@@ -388,7 +388,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons,
                          std::vector<bool>& lasWallPoints,
                          std::vector<bool>& lasGroundPoints,
-                         const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
+                         const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& lasPointTree, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                          std::vector<pcl::PointXY>& texCoords,
                          std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
                          int& wallPointsStartIndex) {
@@ -401,12 +401,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
     // TODO der plan ist:
     //  um wand zu bauen braucht es osm oder glm wand + mind x certain wall points
-    //  glm hat mehr wände also darüber loopen, schauen ob osm wan din der nähe die dann als visited markieren, schauen ob las poitns in der nhe -> malen
+    //  glm hat mehr wände also darüber loopen, schauen ob osm wan din der nähe die dann als visited markieren, schauen ob las poitns in der nähe -> malen und die las points rauskicken
     //  nach den glm wänden nch über die übrigen osm wände loopen und da meine alte taktik machen
+    //  schauen ob dann noch sichere wandpunkte übrig sind
 
 
 
-    // TODO im currently searching for each wall with lasPoint tree here, and searching for each point with wallTree in DataIO.
+    // TODO im currently searching for each wall with lasPoint lasPointTree here, and searching for each point with wallTree in DataIO.
     //  -> make more efficient?
 
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
@@ -418,29 +419,88 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     auto usedLasWallPoints = std::vector<bool>(lasWallPoints.size());
     std::fill(usedLasWallPoints.begin(), usedLasWallPoints.end(), false);
 
+    auto usedOsmWalls = std::vector<bool>(wallOctree.getInputCloud()->size());
+    std::fill(usedOsmWalls.begin(), usedOsmWalls.end(), false);
+
     for (auto bIdx = 0; bIdx < glmBuildings.size(); bIdx++) {
 
-        auto& glmBuilding = glmBuildings[bIdx];
-        //region draw glm walls
+        auto& gmlBuilding = glmBuildings[bIdx];
 
-        for (auto glmWallIdx = 0; glmWallIdx < glmBuilding.osmWalls.size(); glmWallIdx++) {
-            auto glmWall = glmBuilding.osmWalls[glmWallIdx];
+        for (auto gmlWallIdx = 0; gmlWallIdx < gmlBuilding.osmWalls.size(); gmlWallIdx++) {
+            auto gmlWall = gmlBuilding.osmWalls[gmlWallIdx];
+
+            pcl::Indices pointIdxRadiusSearch;
+            //region radius search points for gmlWall
+
+            std::vector<float> pointRadiusSquaredDistance;
+            auto searchRadius = Util::distance(gmlWall.mid, gmlWall.point2);
+            if (lasPointTree->radiusSearch(gmlWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
+                continue;
+            }
+            //endregion
+
+            pcl::Indices wallPoints;
+            int certainWallPointCount = 0;
+            //region collect wall points from search results and count certain wall points
+
+            // TODO schauen ob ich sag da müssen certain wall points sein oder da müssen überhaupt punkte sein aber dafür nicht am rand?? oder so?
+            for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+
+                const auto& nIdx = *nIdxIt;
+                const auto& point = (*cloud)[nIdx];
+
+                if (Util::pointPlaneDistance(point, gmlWall.mid) > lasWallThreshold) { // TODO noch kleineren nehmen??
+                    continue;
+                }
+                if (Util::horizontalDistance(point, gmlWall.mid) > gmlWall.length / 2) {
+                    continue;
+                }
+                if (lasWallPoints[nIdx]) {
+                    certainWallPointCount++;
+                }
+
+                wallPoints.push_back(nIdx);
+
+            }
+            //endregion
+
+            if (certainWallPointCount < 3)
+                continue;
+
+            // is a valid wall
+            //region mark as visited
+
+            for (const auto& pIdx: wallPoints) {
+                if (lasWallPoints[pIdx]) {
+                    usedLasWallPoints[pIdx] = true;
+                    (*cloud)[pIdx].b = 255;
+                }
+                if (!lasGroundPoints[pIdx]) {
+                    removePoints[pIdx] = true;
+                    (*cloud)[pIdx].g = 255;
+                }
+            }
+            //endregion
+
+            // TODO check if there is a near osm wall -> mark as visited
+//            wallOctree.
+
+
+            //region draw glm wall
 
             // get y min and max from finalWallPoints to cover wall from bottom to top
-            float yMin = glmWall.point1.y, yMax = glmWall.point2.y;
+            float yMin = gmlWall.point1.y, yMax = gmlWall.point2.y;
 
             // draw plane
             float stepWidth = 0.5;
-            auto wallVec = Util::normalize(Util::horizontalVector(glmWall.point2, glmWall.point1)); // horizontal
+            auto wallVec = Util::normalize(Util::horizontalVector(gmlWall.point2, gmlWall.point1)); // horizontal
 
-            float x = glmWall.point1.x;
-            float z = glmWall.point1.z;
+            float x = gmlWall.point1.x;
+            float z = gmlWall.point1.z;
             float distanceMoved = 0;
 
-            // MARK2
-
             // move horizontal
-            while (distanceMoved < glmWall.length) {
+            while (distanceMoved < gmlWall.length) {
                 float y = yMin;
                 float xCopy = x;
                 float zCopy = z;
@@ -451,14 +511,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 100);//randR, randG, randB));
 
                     // if the wall is not a rectangle I have to check if the new vertex is inside the polygon
-                    if (!glmWall.isRect && !polygonCheck(v, glmWall.points)) {
+                    if (!gmlWall.isRect && !polygonCheck(v, gmlWall.points)) {
                             continue;
                     }
 
                     // set normal
-                    v.normal_x = glmWall.mid.normal_x;
-                    v.normal_y = glmWall.mid.normal_y;
-                    v.normal_z = glmWall.mid.normal_z;
+                    v.normal_x = gmlWall.mid.normal_x;
+                    v.normal_y = gmlWall.mid.normal_y;
+                    v.normal_z = gmlWall.mid.normal_z;
                     // also set tangents
                     tangent1Vec.push_back(wallVec);
                     tangent2Vec.emplace_back(0, 1, 0);
@@ -471,8 +531,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 distanceMoved += stepWidth;
             }
 
+            //endregion
+
         }
-        //endregion
+
     }
 
 
@@ -508,7 +570,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             auto searchRadius = static_cast<float>(sqrt(pow(osmWall.point2.x - osmWall.mid.x, 2) +
                                                         pow(wallHeight - osmWall.mid.y, 2) +
                                                         pow(osmWall.point2.z - osmWall.mid.z, 2)));;
-            if (tree->radiusSearch(osmWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
+            if (lasPointTree->radiusSearch(osmWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
                 continue;
             }
             //endregion
@@ -786,7 +848,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //                float y = yMin;
 //                float xCopy = x;
 //                float zCopy = z;
-//                float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, tree);
+//                float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, lasPointTree);
 //                if (currentMaxY > y + stepWidth) { // only build wall if more than init point
 //                    while (y < currentMaxY) {
 //                        auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 200, 100);//randR, randG, randB));
@@ -815,7 +877,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     }
 
 
-//    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, tree, cloud, texCoords, tangent1Vec, tangent2Vec);
+//    wallsWithoutOsm(lasWallPoints, usedLasWallPoints, removePoints, lasPointTree, cloud, texCoords, tangent1Vec, tangent2Vec);
 
 
     if (removeOldWallPoints) {
