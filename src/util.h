@@ -57,6 +57,14 @@ namespace Util {
         return result;
     }
 
+    inline pcl::PointXYZ horizontalVector(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
+        pcl::PointXYZ result;
+        result.x = (a.x - b.x);
+        result.y = 0;
+        result.z = (a.z - b.z);
+        return result;
+    }
+
     inline float dotProduct(const pcl::PointXYZ& a, const pcl::PointXYZ& b) {
         return a.x * b.x + a.y * b.y + a.z * b.z;
     }

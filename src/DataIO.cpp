@@ -414,18 +414,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             // get y min and max from finalWallPoints to cover wall from bottom to top
             float yMin = glmWall.point1.y, yMax = glmWall.point2.y;
-            glmWall.point1.y = yMin;
-            glmWall.point2.y = yMin;
 
             // draw plane
             float stepWidth = 0.5;
-            // get perp vec
-            auto lasWallVec = Util::vectorSubtract(glmWall.point2, glmWall.point1);
-            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-            auto lasWallNormal = Util::crossProduct(horPerpVec,
-                                                    pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+            auto wallVec = Util::normalize(Util::horizontalVector(glmWall.point2, glmWall.point1)); // horizontal
 
-            float lasWallLength = Util::vectorLength(lasWallVec);
             float x = glmWall.point1.x;
             float z = glmWall.point1.z;
             float distanceMoved = 0;
@@ -433,7 +426,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // MARK2
 
             // move horizontal
-            while (distanceMoved < lasWallLength) {
+            while (distanceMoved < glmWall.length) {
                 float y = yMin;
                 float xCopy = x;
                 float zCopy = z;
@@ -448,7 +441,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                         v.normal_y = glmWall.mid.normal_y;
                         v.normal_z = glmWall.mid.normal_z;
                         // also set tangents
-                        tangent1Vec.push_back(horPerpVec);
+                        tangent1Vec.push_back(wallVec);
                         tangent2Vec.emplace_back(0, 1, 0);
                         texCoords.emplace_back(0, 0);
 
@@ -457,8 +450,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     y += stepWidth;
                 }
-                x = xCopy + stepWidth * horPerpVec.x;
-                z = zCopy + stepWidth * horPerpVec.z;
+                x = xCopy + stepWidth * wallVec.x;
+                z = zCopy + stepWidth * wallVec.z;
                 distanceMoved += stepWidth;
             }
 
