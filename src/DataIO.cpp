@@ -1034,8 +1034,8 @@ void DataIO::readGml(const std::string& path){
                                 if (firstToken == "<gml:posList") {
                                     auto newWall = Util::Wall();
                                     // remove tags from line
-                                    line.erase(line.begin() + line.find("<"), line.begin() + line.find(">") + 1);
-                                    line.erase(line.begin() + line.find("<"), line.begin() + line.find(">") + 1);
+                                    line.erase(line.begin() + line.find('<'), line.begin() + line.find('>') + 1);
+                                    line.erase(line.begin() + line.find('<'), line.begin() + line.find('>') + 1);
                                     std::istringstream iss(line);
 
                                     //read positions
