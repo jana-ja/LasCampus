@@ -1078,9 +1078,8 @@ void DataIO::readGml(const std::string& path){
                                     }
                                     if (invalid)
                                         continue;
-                                    float wallHeight = maxY - minY; // TODO glaube kann ich aus file nehmen?
-                                    if (wallHeight < 0.5f) {
-                                        auto be = "fjos";
+                                    float wallHeight = maxY - minY;
+                                    if (wallHeight < 0.2f) {
                                         continue; // manche walls haben mehrere polygone
                                     }
 
