@@ -426,11 +426,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         for (auto glmWallIdx = 0; glmWallIdx < glmBuilding.osmWalls.size(); glmWallIdx++) {
             auto glmWall = glmBuilding.osmWalls[glmWallIdx];
 
-            float r = 200, g = 100, b = 100;
-            if (glmWall.points.size() > 5) {
-                auto jodf = 3;
-                b = 200;
-            }
             // get y min and max from finalWallPoints to cover wall from bottom to top
             float yMin = glmWall.point1.y, yMax = glmWall.point2.y;
 
@@ -450,30 +445,26 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float xCopy = x;
                 float zCopy = z;
                 while (y < yMax) {
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
-
-                    if (glmWall.points.size() != 5) {
-                        if (!polygonCheck(v, glmWall.points)) {
-                            v.r = 255;
-                            v.b = 255;
-                            v.g = 255;
-                        }
-                        // check if inside of wall polygon
-                        // else continue
-                    }
-                        // set normal
-                        v.normal_x = glmWall.mid.normal_x;
-                        v.normal_y = glmWall.mid.normal_y;
-                        v.normal_z = glmWall.mid.normal_z;
-                        // also set tangents
-                        tangent1Vec.push_back(wallVec);
-                        tangent2Vec.emplace_back(0, 1, 0);
-                        texCoords.emplace_back(0, 0);
-
-                        cloud->push_back(v);
-
 
                     y += stepWidth;
+
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, 100, 100, 100);//randR, randG, randB));
+
+                    // if the wall is not a rectangle I have to check if the new vertex is inside the polygon
+                    if (!glmWall.isRect && !polygonCheck(v, glmWall.points)) {
+                            continue;
+                    }
+
+                    // set normal
+                    v.normal_x = glmWall.mid.normal_x;
+                    v.normal_y = glmWall.mid.normal_y;
+                    v.normal_z = glmWall.mid.normal_z;
+                    // also set tangents
+                    tangent1Vec.push_back(wallVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    cloud->push_back(v);
                 }
                 x = xCopy + stepWidth * wallVec.x;
                 z = zCopy + stepWidth * wallVec.z;
@@ -1091,10 +1082,20 @@ void DataIO::readGml(const std::string& path){
 //                                        v.y = (float) (point.z - yOffset);
 //                                        v.z = -(float) (point.y - zOffset);
                                         points.emplace_back(glX, glY, glZ);
-                                        if (points.size() > 1 && Util::distance(points[points.size()-1], points[points.size()-2]) < 0.2){
-                                            // skip this wall because its too thin
-                                            invalid = true;
-                                            break;
+                                        if (points.size() > 1) {
+                                            if (Util::distance(points[points.size()-1], points[points.size()-2]) < 0.2) {
+                                                // skip this wall because its too thin
+                                                invalid = true;
+                                                break;
+                                            }
+                                            // check is this wall is rectangular
+                                            bool difX = points[points.size()-1].x != points[points.size()-2].x;
+                                            bool difY = points[points.size()-1].y != points[points.size()-2].y;
+                                            bool difZ = points[points.size()-1].z != points[points.size()-2].z;
+                                            if (difX && difY || difZ && difY) {
+                                                // if neighbour points differ on y and xz plane -> no rectangle
+                                                newWall.isRect = false;
+                                            }
                                         }
                                     }
                                     if (invalid)
@@ -1104,6 +1105,9 @@ void DataIO::readGml(const std::string& path){
                                         continue; // manche walls haben mehrere polygone
                                     }
 
+                                    if (points.size() != 5) {
+                                        newWall.isRect = false;
+                                    }
 
                                     // MARK1
                                     auto vec1 = Util::normalize(Util::vectorSubtract(points[0], points[1]));
