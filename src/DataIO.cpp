@@ -444,9 +444,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     }
                         auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
                         // set normal
-                        v.normal_x = lasWallNormal.x;
-                        v.normal_y = lasWallNormal.y;
-                        v.normal_z = lasWallNormal.z;
+                        v.normal_x = glmWall.mid.normal_x;
+                        v.normal_y = glmWall.mid.normal_y;
+                        v.normal_z = glmWall.mid.normal_z;
                         // also set tangents
                         tangent1Vec.push_back(horPerpVec);
                         tangent2Vec.emplace_back(0, 1, 0);
@@ -1088,10 +1088,9 @@ void DataIO::readGml(const std::string& path){
 
 
                                     // MARK1
-
                                     auto vec1 = Util::normalize(Util::vectorSubtract(points[0], points[1]));
                                     auto vec2 = Util::normalize(Util::vectorSubtract(points[1], points[2]));
-                                    auto normal = Util::crossProduct(vec1, vec2);
+                                    auto normal = Util::normalize(Util::crossProduct(vec1, vec2));
 
                                     auto pointsCopy = points;
                                     // randpunkte holen nach x achse // TODO was wenn wand parallel zu z achse?
