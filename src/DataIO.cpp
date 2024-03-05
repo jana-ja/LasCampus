@@ -1020,7 +1020,7 @@ void DataIO::readGml(const std::string& path){
                         trim(line);
                         std::istringstream iss(line);
                         iss >> firstToken;
-                        if (firstToken == "<bldg:WallSurface"){
+                        if (firstToken == "<bldg:WallSurface" || firstToken == "<bldg:WallSurface>"){ // sometimes has id
                             // new wall
                             // read until posi
                             while (std::getline(inf, line)) {
