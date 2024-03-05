@@ -413,7 +413,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 b = 200;
             }
             // get y min and max from finalWallPoints to cover wall from bottom to top
-            float yMin = glmWall.point1.y, yMax = glmWall.point2.y + 2 * (glmWall.mid.y - glmWall.point2.y);
+            float yMin = glmWall.point1.y, yMax = glmWall.point2.y;
             glmWall.point1.y = yMin;
             glmWall.point2.y = yMin;
 
@@ -1088,7 +1088,7 @@ void DataIO::readGml(const std::string& path){
                                     std::nth_element(points.begin(), points.begin(), points.end(), xComparator2);
                                     newWall.point1 = pcl::PointXYZ(points[0].x, minY, points[0].z);
                                     std::nth_element(points.begin(), points.end() - 1, points.end(), xComparator2);
-                                    newWall.point2 = pcl::PointXYZ(points[points.size() - 1].x, minY, points[points.size() - 1].z); //TODO hab hier auf min gemacht um zu schauen ob dann geht
+                                    newWall.point2 = pcl::PointXYZ(points[points.size() - 1].x, maxY, points[points.size() - 1].z); //TODO hab hier auf min gemacht um zu schauen ob dann geht
 
 
                                     newWall.mid.x = (minX + maxX) / 2;
