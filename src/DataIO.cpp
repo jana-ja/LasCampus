@@ -406,10 +406,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     //  schauen ob dann noch sichere wandpunkte übrig sind
 
 
-
-    // TODO im currently searching for each wall with lasPoint lasPointTree here, and searching for each point with wallTree in DataIO.
-    //  -> make more efficient?
-
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(cloud);
 
@@ -422,9 +418,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     auto usedOsmWalls = std::vector<bool>(wallOctree.getInputCloud()->size());
     std::fill(usedOsmWalls.begin(), usedOsmWalls.end(), false);
 
-    for (auto bIdx = 0; bIdx < glmBuildings.size(); bIdx++) {
+    for (auto bIdx = 0; bIdx < gmlBuildings.size(); bIdx++) {
 
-        auto& gmlBuilding = glmBuildings[bIdx];
+        auto& gmlBuilding = gmlBuildings[bIdx];
 
         for (auto gmlWallIdx = 0; gmlWallIdx < gmlBuilding.osmWalls.size(); gmlWallIdx++) {
             auto gmlWall = gmlBuilding.osmWalls[gmlWallIdx];
@@ -1047,7 +1043,7 @@ void DataIO::readGml(const std::string& path){
     std::cout << TAG << "read gml file..." << std::endl;
 
     std::ifstream inf(path);
-    glmBuildings = std::vector<Building>();
+    gmlBuildings = std::vector<Building>();
 //    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
 //            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 //    float maxR = -1;
@@ -1084,7 +1080,7 @@ void DataIO::readGml(const std::string& path){
                         newBuilding.zMin = buildingMinZ;
                         newBuilding.parts.emplace_back(0); // first ring starts at first wall
 
-                        glmBuildings.push_back(newBuilding);
+                        gmlBuildings.push_back(newBuilding);
                         break;
                     }
                     if (line == "<bldg:boundedBy>") {
