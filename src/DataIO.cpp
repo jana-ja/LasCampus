@@ -1188,8 +1188,21 @@ void DataIO::readGml(const std::string& path){
                                     newWall.mid.normal_y = normal.y;
                                     newWall.mid.normal_z = normal.z;
 
-                                    newWall.length = Util::horizontalDistance(newWall.point1, newWall.point2);
+                                    // reorient point1 and point 2 to match normal
+                                    auto vec1b = Util::vectorSubtract(newWall.point1, pcl::PointXYZ(newWall.point2.x, minY, newWall.point2.z));
+                                    auto vec2b = Util::vectorSubtract(newWall.mid, newWall.point1);
+                                    auto testNormal = Util::normalize(Util::crossProduct(vec1b, vec2b));
+                                    // if sign is switched for x or z -> swap
+                                    if (signbit(normal.x) != signbit(testNormal.x) || signbit(normal.z) != signbit(testNormal.z)) {
+                                        // swap
+                                        auto temp = newWall.point1;
+                                        newWall.point1.x = newWall.point2.x;
+                                        newWall.point1.z = newWall.point2.z;
+                                        newWall.point2.x = temp.x;
+                                        newWall.point2.z = temp.z;
+                                    }
 
+                                    newWall.length = Util::horizontalDistance(newWall.point1, newWall.point2);
                                     newWall.points = points;
 
                                     newBuilding.osmWalls.push_back(newWall);
