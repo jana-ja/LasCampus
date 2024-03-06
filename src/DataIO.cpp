@@ -430,6 +430,62 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
         auto& gmlBuilding = gmlBuildings[bIdx];
 
+        std::map<int, std::vector<int>> osmToGmlMap;
+        std::map<int, std::vector<int>> gmlToOsmMap;
+        //region match osm to gml walls
+
+        for (auto gmlWallIdx = 0; gmlWallIdx < gmlBuilding.osmWalls.size(); gmlWallIdx++) {
+            auto gmlWall = gmlBuilding.osmWalls[gmlWallIdx];
+
+            // TODo außerdem den kurze stücke test machen
+            pcl::Indices wallIdxRadiusSearch;
+            std::vector<float> wallRadiusSquaredDistance;
+            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+            auto osmSearchRadius = static_cast<float>(sqrt(pow(gmlWall.length / 2, 2) + pow(wallHeight / 2, 2)));
+            // search for near osm walls
+            if (osmWallOctree.radiusSearch(gmlWall.mid, osmSearchRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
+                for (const auto& osmWallIdx: wallIdxRadiusSearch) {
+                    if (usedOsmWalls[osmWallIdx]) {
+                        continue;
+                    }
+                    // check if wall is similar
+                    auto& osmWall = osmWalls[osmWallIdx];
+
+                    // point to plane distance
+                    auto ppd = Util::pointPlaneDistance(osmWall.mid, gmlWall.mid);
+                    if (ppd > 2.0)
+                        continue;
+                    // normal angle
+                    auto normalAngle = Util::normalAngle(gmlWall.mid, osmWall.mid);
+                    if (normalAngle > 0.26) // 15 deg
+                        continue;
+
+                    //                    auto dist1 = Util::horizontalDistance(osmWall.point1, gmlWall.point1);
+                    // kann bei kurzen wänden probleme machen, deswegen nicht relativ sondern um festen wert auflockern
+//                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) + Util::horizontalDistance(osmWall.point2, gmlWall.point2)
+//                        > std::max(osmWall.length, gmlWall.length) + 1.0) {
+//                        continue;
+//                    }
+                    // wennn p1 zu p1 < max length und p2 zu p2 kleiner als max length dan nist match
+                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) > std::max(osmWall.length, gmlWall.length) + 1.0
+                    || Util::horizontalDistance(osmWall.point2, gmlWall.point2) > std::max(osmWall.length, gmlWall.length) + 1.0) {
+                        continue;
+                    }
+
+//                    // TODO gestückelte wände machen probleme: ich entferne sehr lange osm wände die nicht komplett von stücken abgedeckt werden.
+//                    //  vllt lieber nur entfernen wenn gut von stücken abgedeckt wird und sonst die osm wand übrig lassen, diese wand hier verwerfen und später mit der osm wand bauen.
+//                    if (gmlWall.length * 1.5 < osmWall.length)
+//                        continue;
+
+                    // found matching osm wall
+                    osmToGmlMap[osmWallIdx].emplace_back(gmlWallIdx);
+                    gmlToOsmMap[gmlWallIdx].emplace_back(osmWallIdx);
+                }
+            }
+        }
+        //endregion
+
+
         for (auto gmlWallIdx = 0; gmlWallIdx < gmlBuilding.osmWalls.size(); gmlWallIdx++) {
             auto gmlWall = gmlBuilding.osmWalls[gmlWallIdx];
 
@@ -493,6 +549,65 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 gmlB = 255;
             }
 
+
+            //region check if there is a near osm wall -> mark as visited
+
+            // TODo außerdem den kurze stücke test machen
+
+            for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
+                const auto& osmWall = osmWalls[osmWallIdx];
+                // wenn diese osm wand von der länge her durch ihre matchenden gml wände (zu 2/3) abgedeckt wird, dann kann man die rauswerfen
+                float matchingGmlWallLengthSum = 0;
+                for (const auto& matchingGmlWallIdx: osmToGmlMap[osmWallIdx]) { // geht weil ich immer pro gebäude betrachte auch beim matchen
+                    const auto& matchingGmlWall = gmlBuilding.osmWalls[matchingGmlWallIdx];
+                    matchingGmlWallLengthSum += matchingGmlWall.length;
+                }
+                if (matchingGmlWallLengthSum > osmWall.length * 0.6) {
+                    usedOsmWalls[osmWallIdx] = true;
+                }
+            }
+            // TODO gedanken approach: es sollte schon die hälfte von ner wand abgedeckt sein oder 2/3 oder so? damit die rausfliegt
+
+//            pcl::Indices wallIdxRadiusSearch;
+//            std::vector<float> wallRadiusSquaredDistance;
+//            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+//            auto osmSearchRadius = static_cast<float>(sqrt(pow(gmlWall.length/2, 2) + pow(wallHeight/2, 2)));
+//            if (osmWallOctree.radiusSearch(gmlWall.mid, osmSearchRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0)  {
+//                for (const auto& osmWallIdx: wallIdxRadiusSearch) {
+//                    if (usedOsmWalls[osmWallIdx]){
+//                        continue;
+//                    }
+//                    // check if wall is similar
+//                    auto& osmWall = osmWalls[osmWallIdx];
+//
+//                    // point to plane distance
+//                    auto ppd = Util::pointPlaneDistance(osmWall.mid, gmlWall.mid);
+//                    if (ppd > 2.0)
+//                        continue;
+//                    // normal angle
+//                    auto normalAngle = Util::normalAngle(gmlWall.mid, osmWall.mid);
+//                    if (normalAngle > 0.26) // 15 deg
+//                        continue;
+//
+//                    //                    auto dist1 = Util::horizontalDistance(osmWall.point1, gmlWall.point1);
+//                    // kann bei kurzen wänden probleme machen, deswegen nicht relativ sondern um festen wert auflockern
+//                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) + Util::horizontalDistance(osmWall.point2, gmlWall.point2)
+//                    > std::max(osmWall.length, gmlWall.length) + 1.0) {
+//                        continue;
+//                    }
+//
+//                    // TODO gestückelte wände machen probleme: ich entferne sehr lange osm wände die nicht komplett von stücken abgedeckt werden.
+//                    //  vllt lieber nur entfernen wenn gut von stücken abgedeckt wird und sonst die osm wand übrig lassen, diese wand hier verwerfen und später mit der osm wand bauen.
+//                    if (gmlWall.length * 1.5 < osmWall.length)
+//                        continue;
+//
+//                    // found matching osm wall
+//                    usedOsmWalls[osmWallIdx] = true;
+//
+//                }
+//            }
+            //endregion
+
             // is a valid wall
             //region mark as visited
 
@@ -515,46 +630,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 }
             }
             //endregion
-
-            //region check if there is a near osm wall -> mark as visited
-
-            pcl::Indices wallIdxRadiusSearch;
-            std::vector<float> wallRadiusSquaredDistance;
-            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
-            auto osmSearchRadius = static_cast<float>(sqrt(pow(gmlWall.length/2, 2) + pow(wallHeight/2, 2)));
-            if (osmWallOctree.radiusSearch(gmlWall.mid, osmSearchRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0)  {
-                for (const auto& osmWallIdx: wallIdxRadiusSearch) {
-                    if (usedOsmWalls[osmWallIdx]){
-                        continue;
-                    }
-                    // check if wall is similar
-                    auto& osmWall = osmWalls[osmWallIdx];
-
-                    // point to plane distance
-                    auto ppd = Util::pointPlaneDistance(osmWall.mid, gmlWall.mid);
-                    if (ppd > 2.0)
-                        continue;
-                    // normal angle
-                    auto normalAngle = Util::normalAngle(gmlWall.mid, osmWall.mid);
-                    if (normalAngle > 0.26) // 15 deg
-                        continue;
-
-                    // TODO gestückelte wände machen probleme: ich entferne sehr lange osm wände die nicht komplett von stücken abgedeckt werden.
-                    //  vllt lieber nur entfernen wenn gut von stücken abgedeckt wird und sonst die osm wand übrig lassen, diese wand hier verwerfen und später mit der osm wand bauen.
-//                    auto dist1 = Util::horizontalDistance(osmWall.point1, gmlWall.point1);
-                    // kann bei kurzen wänden probleme machen, deswegen nicht relativ sondern um festen wert auflockern
-                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) + Util::horizontalDistance(osmWall.point2, gmlWall.point2)
-                    > std::max(osmWall.length, gmlWall.length) + 1.0) {
-                        continue;
-                    }
-
-                    // found matching osm wall
-                    usedOsmWalls[osmWallIdx] = true;
-
-                }
-            }
-            //endregion
-
 
             //region draw glm wall
 
