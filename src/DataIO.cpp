@@ -494,7 +494,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             std::vector<float> pointRadiusSquaredDistance;
             auto searchRadius = Util::distance(gmlWall.mid, gmlWall.point2) ;
-            searchRadius *= 1.1;
+            searchRadius *= 1.2;
             if (lasPointTree->radiusSearch(gmlWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
                 continue;
             }
@@ -527,12 +527,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 if (Util::horizontalDistance(point, gmlWall.mid) > gmlWall.length / 2) {
                     continue;
                 }
-                if (point.y < gmlWall.point1.y - 0.5 || point.y > gmlWall.point2.y + 0.5) {
+                if (point.y < gmlWall.point1.y - 1.0 || point.y > gmlWall.point2.y + 1.0) {
                     continue;
                 }
-//                if (abs(point.y - gmlWall.point1.y) > 0.2 ) {
-//                    pointsNotGroundCount++;
-//                }
+                // TODO probleme:
+                //  wand kanten werden nicht eingesammelt (jetzt mit +- 1.0 schon)
+                //  es wird zu viel dach entfernt -> kann ich ppd kleiner machen?
+                //  die sache mit dem gml osm mix, falls gml wand keine certain wall points hat aber ne matching osm wand.
+                //  dann mal für ganzes ding anschauen
 
                 wallPoints.push_back(nIdx);
 
