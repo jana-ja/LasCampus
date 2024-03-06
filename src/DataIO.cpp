@@ -403,7 +403,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     bool colorCertainLasWallRandom = false;
     bool colorFinalLasWall = false;
     bool colorFinalLasWallWithoutGround = false;
-    bool removeOldWallPoints = false;
+    bool removeOldWallPoints = true;
 
     // TODO der plan ist:
     //  um wand zu bauen braucht es osm oder glm wand + mind x certain wall points
@@ -541,9 +541,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             int gmlR = 100, gmlG = 100, gmlB = 100;
 
-//            if (pointsNotGroundCount < 3) {
+
             if (wallPoints.size() < 3) {
-//                continue;
+                continue;
                 gmlR = 0; // rot
                 gmlG = 0;
                 gmlB = 255;
@@ -566,6 +566,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 if (matchingGmlWallLengthSum > osmWall.length * 0.6) {
                     usedOsmWalls[osmWallIdx] = true;
                 } else {
+                    continue;
                     gmlR = 255;
                     gmlG = 255;
                     gmlB = 0;
@@ -579,15 +580,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             for (const auto& pIdx: wallPoints) {
                 if (lasWallPoints[pIdx]) {
                     usedLasWallPoints[pIdx] = true;
-                    (*cloud)[pIdx].r = 255;
-                    (*cloud)[pIdx].g = 0;
-                    (*cloud)[pIdx].b = 255;
-                } else {
-                    if (!lasGroundPoints[pIdx]) {
-                        (*cloud)[pIdx].r = 0;
-                        (*cloud)[pIdx].g = 255;
-                        (*cloud)[pIdx].b = 0;
-                    }
+//                    (*cloud)[pIdx].r = 255;
+//                    (*cloud)[pIdx].g = 0;
+//                    (*cloud)[pIdx].b = 255;
+//                } else {
+//                    if (!lasGroundPoints[pIdx]) {
+//                        (*cloud)[pIdx].r = 0;
+//                        (*cloud)[pIdx].g = 255;
+//                        (*cloud)[pIdx].b = 0;
+//                    }
                 }
                 if (!lasGroundPoints[pIdx]) {
                     removePoints[pIdx] = true;
@@ -646,66 +647,66 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     }
 
     //region debug draw osm walls filtered
-    for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
-        int r,g,b;
-        if (usedOsmWalls[osmWallIdx]){
-            r = 255;
-            g = 0;
-            b = 0;
-        } else {
-            r = 0;
-            g = 255;
-            b = 255;
-        }
-
-        // draw osm wall
-        auto osmWall = osmWalls[osmWallIdx];
-
-        float yMin = -10, yMax = 10;
-        osmWall.point1.y = yMin;
-        osmWall.point2.y = yMin;
-
-        // draw plane
-        float stepWidth = 0.5;
-        // get perp vec
-        auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
-        auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-        auto lasWallNormal = pcl::PointXYZ(osmWall.mid.normal_x, osmWall.mid.normal_y, osmWall.mid.normal_z);
-
-        float lasWallLength = Util::vectorLength(lasWallVec);
-        float x = osmWall.point1.x;
-        float z = osmWall.point1.z;
-        float distanceMoved = 0;
-
-
-        // move horizontal
-        while (distanceMoved < lasWallLength) {
-            float y = yMin;
-            float xCopy = x;
-            float zCopy = z;
-            while (y < yMax) {
-                auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
-                // set normal
-                v.normal_x = lasWallNormal.x;
-                v.normal_y = lasWallNormal.y;
-                v.normal_z = lasWallNormal.z;
-                // also set tangents
-                tangent1Vec.push_back(horPerpVec);
-                tangent2Vec.emplace_back(0, 1, 0);
-                texCoords.emplace_back(0, 0);
-
-                cloud->push_back(v);
-
-                y += stepWidth;
-            }
-            x = xCopy + stepWidth * horPerpVec.x;
-            z = zCopy + stepWidth * horPerpVec.z;
-            distanceMoved += stepWidth;
-        }
-    }
+//    for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
+//        int r,g,b;
+//        if (usedOsmWalls[osmWallIdx]){
+//            r = 255;
+//            g = 0;
+//            b = 0;
+//        } else {
+//            r = 0;
+//            g = 255;
+//            b = 255;
+//        }
+//
+//        // draw osm wall
+//        auto osmWall = osmWalls[osmWallIdx];
+//
+//        float yMin = -10, yMax = 10;
+//        osmWall.point1.y = yMin;
+//        osmWall.point2.y = yMin;
+//
+//        // draw plane
+//        float stepWidth = 0.5;
+//        // get perp vec
+//        auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
+//        auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+//        auto lasWallNormal = pcl::PointXYZ(osmWall.mid.normal_x, osmWall.mid.normal_y, osmWall.mid.normal_z);
+//
+//        float lasWallLength = Util::vectorLength(lasWallVec);
+//        float x = osmWall.point1.x;
+//        float z = osmWall.point1.z;
+//        float distanceMoved = 0;
+//
+//
+//        // move horizontal
+//        while (distanceMoved < lasWallLength) {
+//            float y = yMin;
+//            float xCopy = x;
+//            float zCopy = z;
+//            while (y < yMax) {
+//                auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
+//                // set normal
+//                v.normal_x = lasWallNormal.x;
+//                v.normal_y = lasWallNormal.y;
+//                v.normal_z = lasWallNormal.z;
+//                // also set tangents
+//                tangent1Vec.push_back(horPerpVec);
+//                tangent2Vec.emplace_back(0, 1, 0);
+//                texCoords.emplace_back(0, 0);
+//
+//                cloud->push_back(v);
+//
+//                y += stepWidth;
+//            }
+//            x = xCopy + stepWidth * horPerpVec.x;
+//            z = zCopy + stepWidth * horPerpVec.z;
+//            distanceMoved += stepWidth;
+//        }
+//    }
     //endregion
 
-    auto bla = false;
+    auto bla = true;
     if (bla) {
         for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
             if (usedOsmWalls[osmWallIdx])
