@@ -351,9 +351,12 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 // intermediate points
                 // viel baum, ganz wenig wand -> raus
                 if (colorReturnNumberClasses) {
-                    v.b = 0;
+//                    v.b = 0;
+//                    v.g = 0;
+//                    v.r = 255;
+                    v.b = 255;
                     v.g = 0;
-                    v.r = 255;
+                    v.r = 0;
                 }
                 continue;
             } else {
@@ -361,8 +364,11 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 // boden, bisschen wände, kein baum. einfach lassen
                 if (classification != 2) { // not ground
                     if (colorReturnNumberClasses) {//} && belongsToWall) {
-                        v.b = 0;
-                        v.g = 255;
+//                        v.b = 0;
+//                        v.g = 255;
+//                        v.r = 0;
+                        v.b = 255;
+                        v.g = 0;
                         v.r = 0;
                     }
                     belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
@@ -431,7 +437,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             //region radius search points for gmlWall
 
             std::vector<float> pointRadiusSquaredDistance;
-            auto searchRadius = Util::distance(gmlWall.mid, gmlWall.point2);
+            auto searchRadius = Util::distance(gmlWall.mid, gmlWall.point2) ;
+            searchRadius *= 1.1;
             if (lasPointTree->radiusSearch(gmlWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
                 continue;
             }
@@ -439,18 +446,29 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             pcl::Indices wallPoints;
             int certainWallPointCount = 0;
+            bool hasTopPoints = false;
             //region collect wall points from search results and count certain wall points
 
-            // TODO schauen ob ich sag da müssen certain wall points sein oder da müssen überhaupt punkte sein aber dafür nicht am rand?? oder so?
+            // TODO entweder bisschen spiel lassen für ppd und in die höhe und damit filtern, oder vllt auch einfach gar nicht filtern.
+            //  die falschen wände bekomme ich eh nicht raus und die meisten die rausfliegen sind eh im innern versteckt.
+            //  die rundwand würde verschwinden (pro?)
+            //  verliere aber dach punkte weil ppd schon 1.0 sein muss. (con)
+            //  also vllt einfach alle wände nehmen und nur nahe punkte rauswerfen und osm walls
+            //  die gml wände auf die las punkte projizieren lohnt nicht weil fast alle schon sehr gut sind.
+            //  könnte sagen da wo nicht 3 certainw all points bei sind die verschieben, aber habe wände die sein sollten wo gar keine puntke sind und die verliere ich dann. ist mies.
+
             for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
                 const auto& nIdx = *nIdxIt;
                 const auto& point = (*cloud)[nIdx];
 
-                if (Util::pointPlaneDistance(point, gmlWall.mid) > lasWallThreshold) { // TODO noch kleineren nehmen??
+                if (Util::pointPlaneDistance(point, gmlWall.mid) > 1.0) { // TODO noch kleineren nehmen??
                     continue;
                 }
                 if (Util::horizontalDistance(point, gmlWall.mid) > gmlWall.length / 2) {
+                    continue;
+                }
+                if (point.y < gmlWall.point1.y - 0.5 || point.y > gmlWall.point2.y + 0.5) {
                     continue;
                 }
                 if (lasWallPoints[nIdx]) {
@@ -462,8 +480,26 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
-            if (certainWallPointCount < 3)
-                continue;
+            int gmlR = 100, gmlG = 100, gmlB = 100;
+//            if (certainWallPointCount < 3) {
+////                continue;
+//                gmlR = 0;
+//                gmlG = 0;
+//                gmlB = 255; // rot
+//            }
+
+            if (wallPoints.size() < 3) {
+//                continue;
+                gmlR = 255; // blau
+                gmlG = 0;
+                gmlB = 0;
+            }
+//            if (!hasTopPoints) {
+////                continue;
+//                gmlR = 0;
+//                gmlG = 0;
+//                gmlB = 255; // rot
+//            }
 
             // is a valid wall
             //region mark as visited
@@ -471,11 +507,19 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             for (const auto& pIdx: wallPoints) {
                 if (lasWallPoints[pIdx]) {
                     usedLasWallPoints[pIdx] = true;
+                    (*cloud)[pIdx].r = 255;
+                    (*cloud)[pIdx].g = 0;
                     (*cloud)[pIdx].b = 255;
+                } else {
+                    if (!lasGroundPoints[pIdx]) {
+                        (*cloud)[pIdx].r = 0;
+                        (*cloud)[pIdx].g = 255;
+                        (*cloud)[pIdx].b = 0;
+                    }
                 }
                 if (!lasGroundPoints[pIdx]) {
                     removePoints[pIdx] = true;
-                    (*cloud)[pIdx].g = 255;
+
                 }
             }
             //endregion
@@ -506,7 +550,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     y += stepWidth;
 
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 255, 255);//randR, randG, randB));
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, gmlR, gmlG, gmlB);//randR, randG, randB));
 
                     // if the wall is not a rectangle I have to check if the new vertex is inside the polygon
                     if (!gmlWall.isRect && !polygonCheck(v, gmlWall.points)) {
@@ -528,94 +572,73 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 z = zCopy + stepWidth * wallVec.z;
                 distanceMoved += stepWidth;
             }
-            auto v = pcl::PointXYZRGBNormal(gmlWall.mid.x, 15, gmlWall.mid.z, 255,0,255);//randR, randG, randB));
-            // set normal
-            v.normal_x = gmlWall.mid.normal_x;
-            v.normal_y = gmlWall.mid.normal_y;
-            v.normal_z = gmlWall.mid.normal_z;
-            // also set tangents
-            tangent1Vec.push_back(wallVec);
-            tangent2Vec.emplace_back(0, 1, 0);
-            texCoords.emplace_back(0, 0);
-            cloud->push_back(v);
             //endregion
-
         }
 
     }
 
     auto usedOsmWallCount = std::accumulate(usedOsmWalls.begin(), usedOsmWalls.end(), (int)0, [](int sum, const auto isUsed){ if (isUsed) { return sum + 1; } else { return sum;}});
 
-    for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
-        int r,g,b;
-        if (usedOsmWalls[osmWallIdx]){
-            r = 255;
-            g = 0;
-            b = 0;
-        } else {
-            r = 0;
-            g = 0;
-            b = 255;
-        }
-        // draw osm wall
-        auto osmWall = osmWalls[osmWallIdx];
+//    for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
+//        int r,g,b;
+//        if (usedOsmWalls[osmWallIdx]){
+//            r = 255;
+//            g = 0;
+//            b = 0;
+//        } else {
+//            r = 0;
+//            g = 0;
+//            b = 255;
+//        }
+//        // draw osm wall
+//        auto osmWall = osmWalls[osmWallIdx];
+//
+//        // get y min and max from finalWallPoints to cover wall from bottom to top
+//        float yMin = -10, yMax = 10;
+//        osmWall.point1.y = yMin;
+//        osmWall.point2.y = yMin;
+//
+//        // draw plane
+//        float stepWidth = 0.5;
+//        // get perp vec
+//        auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
+//        auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+//        auto lasWallNormal = pcl::PointXYZ(osmWall.mid.normal_x, osmWall.mid.normal_y,
+//                                           osmWall.mid.normal_z);//Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+//
+//        float lasWallLength = Util::vectorLength(lasWallVec);
+//        float x = osmWall.point1.x;
+//        float z = osmWall.point1.z;
+//        float distanceMoved = 0;
+//
+//
+//        // move horizontal
+//        while (distanceMoved < lasWallLength) {
+//            float y = yMin;
+//            float xCopy = x;
+//            float zCopy = z;
+//            while (y < yMax) {
+//                auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
+//                // set normal
+//                v.normal_x = lasWallNormal.x;
+//                v.normal_y = lasWallNormal.y;
+//                v.normal_z = lasWallNormal.z;
+//                // also set tangents
+//                tangent1Vec.push_back(horPerpVec);
+//                tangent2Vec.emplace_back(0, 1, 0);
+//                texCoords.emplace_back(0, 0);
+//
+//                cloud->push_back(v);
+//
+//                y += stepWidth;
+//            }
+//            x = xCopy + stepWidth * horPerpVec.x;
+//            z = zCopy + stepWidth * horPerpVec.z;
+//            distanceMoved += stepWidth;
+//        }
+//    }
 
-        // get y min and max from finalWallPoints to cover wall from bottom to top
-        float yMin = -10, yMax = 10;
-        osmWall.point1.y = yMin;
-        osmWall.point2.y = yMin;
 
-        // draw plane
-        float stepWidth = 0.5;
-        // get perp vec
-        auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
-        auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-        auto lasWallNormal = pcl::PointXYZ(osmWall.mid.normal_x, osmWall.mid.normal_y,
-                                           osmWall.mid.normal_z);//Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-
-        float lasWallLength = Util::vectorLength(lasWallVec);
-        float x = osmWall.point1.x;
-        float z = osmWall.point1.z;
-        float distanceMoved = 0;
-
-
-        // move horizontal
-        while (distanceMoved < lasWallLength) {
-            float y = yMin;
-            float xCopy = x;
-            float zCopy = z;
-            while (y < yMax) {
-                auto v = pcl::PointXYZRGBNormal(x, y, z, r, g, b);//randR, randG, randB));
-                // set normal
-                v.normal_x = lasWallNormal.x;
-                v.normal_y = lasWallNormal.y;
-                v.normal_z = lasWallNormal.z;
-                // also set tangents
-                tangent1Vec.push_back(horPerpVec);
-                tangent2Vec.emplace_back(0, 1, 0);
-                texCoords.emplace_back(0, 0);
-
-                cloud->push_back(v);
-
-                y += stepWidth;
-            }
-            x = xCopy + stepWidth * horPerpVec.x;
-            z = zCopy + stepWidth * horPerpVec.z;
-            distanceMoved += stepWidth;
-        }
-        auto v = pcl::PointXYZRGBNormal(osmWall.mid.x, 15, osmWall.mid.z, 255, 255, 0);//randR, randG, randB));
-        // set normal
-        v.normal_x = lasWallNormal.x;
-        v.normal_y = lasWallNormal.y;
-        v.normal_z = lasWallNormal.z;
-        // also set tangents
-        tangent1Vec.push_back(horPerpVec);
-        tangent2Vec.emplace_back(0, 1, 0);
-        texCoords.emplace_back(0, 0);
-
-        cloud->push_back(v);
-
-    }
 
     for (auto bIdx = 0; bIdx < buildings.size(); bIdx++) {
 
