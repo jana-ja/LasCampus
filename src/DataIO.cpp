@@ -453,7 +453,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     // point to plane distance
                     auto ppd = Util::pointPlaneDistance(osmWall.mid, gmlWall.mid);
-                    if (ppd > 2.0)
+                    if (ppd > 2.1) // TODO ab 2.1 wird wand in 8eck gefixt
                         continue;
                     // normal angle
                     auto normalAngle = Util::normalAngle(gmlWall.mid, osmWall.mid);
@@ -501,7 +501,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             //endregion
 
             pcl::Indices wallPoints;
-            int pointsNotGroundCount = 0;
+            int certainWallPointsCount = 0;
             bool hasTopPoints = false;
             //region collect wall points from search results and count certain wall points
 
@@ -521,7 +521,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 const auto& nIdx = *nIdxIt;
                 const auto& point = (*cloud)[nIdx];
 
-                if (Util::pointPlaneDistance(point, gmlWall.mid) > 1.0) { // TODO noch kleineren nehmen??
+                // TODO 0.3 / 0.5 / kp? bei 1.0 geht zu viel dach weg, aber dann sind die osm wände innen bei dem ding schöner weil andere punkte da heir schon rausfliegen
+                //  bei 0.3 bleiben auch sehr viele certain wall points übrig
+                if (Util::pointPlaneDistance(point, gmlWall.mid) > 0.5) {
                     continue;
                 }
                 if (Util::horizontalDistance(point, gmlWall.mid) > gmlWall.length / 2) {
@@ -530,9 +532,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 if (point.y < gmlWall.point1.y - 1.0 || point.y > gmlWall.point2.y + 1.0) {
                     continue;
                 }
+                if (lasWallPoints[nIdx]) {
+                    certainWallPointsCount++;
+                }
                 // TODO probleme:
                 //  wand kanten werden nicht eingesammelt (jetzt mit +- 1.0 schon)
-                //  es wird zu viel dach entfernt -> kann ich ppd kleiner machen?
+                //  es wird zu viel dach entfernt -> kann ich ppd kleiner machen? - ja aber dadurch werden manche osm wände hässlicher
                 //  die sache mit dem gml osm mix, falls gml wand keine certain wall points hat aber ne matching osm wand.
                 //  dann mal für ganzes ding anschauen
 
@@ -557,23 +562,32 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // i need to match osm and gml walls first and then do this check here, because if i have a matching osm wall that is NOT covered by gml walls,
             //  then i want to skip the current gml wall
 
+            bool skip = false;
             for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
                 const auto& osmWall = osmWalls[osmWallIdx];
                 // wenn diese osm wand von der länge her durch ihre matchenden gml wände (zu 2/3) abgedeckt wird, dann kann man die rauswerfen
+                float threshold = 0.7;
+                // TODO test wenn nur eine matching wand hat dann geht immer?
+                if (osmToGmlMap[osmWallIdx].size() < 2) {
+                    threshold = 0.7;
+                }
                 float matchingGmlWallLengthSum = 0;
                 for (const auto& matchingGmlWallIdx: osmToGmlMap[osmWallIdx]) { // geht weil ich immer pro gebäude betrachte auch beim matchen
                     const auto& matchingGmlWall = gmlBuilding.osmWalls[matchingGmlWallIdx];
                     matchingGmlWallLengthSum += matchingGmlWall.length;
                 }
-                if (matchingGmlWallLengthSum > osmWall.length * 0.6) {
+                if (matchingGmlWallLengthSum > osmWall.length * threshold) {
                     usedOsmWalls[osmWallIdx] = true;
                 } else {
-                    continue;
+                    skip = true;
+                    break;
                     gmlR = 255;
                     gmlG = 255;
                     gmlB = 0;
                 }
             }
+            if (skip)
+                continue;
             //endregion
 
             // is a valid wall
@@ -596,6 +610,66 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     removePoints[pIdx] = true;
 
                 }
+            }
+            //endregion
+
+
+            // TODO vllt nen test wert? vllt overfitting
+            //region if there are no certain wall points, but a matching osm wall -> mix
+
+            if (certainWallPointsCount == 0 && gmlToOsmMap[gmlWallIdx].size() != 0) {
+                gmlR = 0;
+                gmlG = 255;
+                gmlB = 255;
+
+                // region draw matching osm walls
+                for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
+                    // draw osm wall
+                    auto osmWall = osmWalls[osmWallIdx];
+
+                    float yMin = -10, yMax = 10;
+                    osmWall.point1.y = yMin;
+                    osmWall.point2.y = yMin;
+
+                    // draw plane
+                    float stepWidth = 0.5;
+                    // get perp vec
+                    auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
+                    auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+                    auto lasWallNormal = pcl::PointXYZ(osmWall.mid.normal_x, osmWall.mid.normal_y, osmWall.mid.normal_z);
+
+                    float lasWallLength = Util::vectorLength(lasWallVec);
+                    float x = osmWall.point1.x;
+                    float z = osmWall.point1.z;
+                    float distanceMoved = 0;
+
+
+                    // move horizontal
+                    while (distanceMoved < lasWallLength) {
+                        float y = yMin;
+                        float xCopy = x;
+                        float zCopy = z;
+                        while (y < yMax) {
+                            auto v = pcl::PointXYZRGBNormal(x, y, z, 255, 255, 0);//randR, randG, randB));
+                            // set normal
+                            v.normal_x = lasWallNormal.x;
+                            v.normal_y = lasWallNormal.y;
+                            v.normal_z = lasWallNormal.z;
+                            // also set tangents
+                            tangent1Vec.push_back(horPerpVec);
+                            tangent2Vec.emplace_back(0, 1, 0);
+                            texCoords.emplace_back(0, 0);
+
+                            cloud->push_back(v);
+
+                            y += stepWidth;
+                        }
+                        x = xCopy + stepWidth * horPerpVec.x;
+                        z = zCopy + stepWidth * horPerpVec.z;
+                        distanceMoved += stepWidth;
+                    }
+                }
+                //endregion
             }
             //endregion
 
