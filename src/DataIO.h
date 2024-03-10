@@ -158,7 +158,7 @@ private:
 
     // ########## FIELDS & METHODS ##########
 
-    bool colorReturnNumberClasses = true;
+    bool colorReturnNumberClasses = false;
 
     float lasWallThreshold = 0.5;
     float osmWallThreshold = 1.0;

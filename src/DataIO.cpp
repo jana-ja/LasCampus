@@ -351,12 +351,12 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 // intermediate points
                 // viel baum, ganz wenig wand -> raus
                 if (colorReturnNumberClasses) {
-//                    v.b = 0;
-//                    v.g = 0;
-//                    v.r = 255;
-                    v.b = 255;
+                    v.b = 0;
                     v.g = 0;
-                    v.r = 0;
+                    v.r = 255;
+//                    v.b = 255;
+//                    v.g = 0;
+//                    v.r = 0;
                 }
                 continue;
             } else {
@@ -364,12 +364,12 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 // boden, bisschen wände, kein baum. einfach lassen
                 if (classification != 2) { // not ground
                     if (colorReturnNumberClasses) {//} && belongsToWall) {
-//                        v.b = 0;
-//                        v.g = 255;
-//                        v.r = 0;
-                        v.b = 255;
-                        v.g = 0;
+                        v.b = 0;
+                        v.g = 255;
                         v.r = 0;
+//                        v.b = 255;
+//                        v.g = 0;
+//                        v.r = 0;
                     }
                     belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
                     if (!belongsToWall) {
