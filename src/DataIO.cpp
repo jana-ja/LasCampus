@@ -675,6 +675,21 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //            }
             //endregion
 
+            //region debug color small walls
+
+            for (auto it = gmlWall.points.begin(); it != gmlWall.points.end(); it++) {
+                if (it == gmlWall.points.begin())
+                    continue;
+                if (Util::distance(*it, *(it-1)) < 0.1) {
+
+                    gmlR = 0;
+                    gmlG = 255;
+                    gmlB = 255; // pink
+                    break;
+                }
+            }
+            //endregion
+
             //region draw glm wall
 
             // get y min and max from finalWallPoints to cover wall from bottom to top
@@ -1298,11 +1313,11 @@ void DataIO::readGml(const std::string& path){
 //                                        v.z = -(float) (point.y - zOffset);
                                         points.emplace_back(glX, glY, glZ);
                                         if (points.size() > 1) {
-                                            if (Util::distance(points[points.size()-1], points[points.size()-2]) < 0.2) {
-                                                // skip this wall because its too thin
-                                                invalid = true;
-                                                break;
-                                            }
+//                                            if (Util::distance(points[points.size()-1], points[points.size()-2]) < 0.1) {
+//                                                // skip this wall because its too thin
+//                                                invalid = true;
+//                                                break;
+//                                            }
                                             // check is this wall is rectangular
                                             bool difX = points[points.size()-1].x != points[points.size()-2].x;
                                             bool difY = points[points.size()-1].y != points[points.size()-2].y;
