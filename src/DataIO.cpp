@@ -426,7 +426,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     auto usedOsmWalls = std::vector<bool>(osmWallMidPoints->size());
     std::fill(usedOsmWalls.begin(), usedOsmWalls.end(), false);
 
-    std::vector<pcl::Indices> osmWallRadiusSearch(osmWallMidPoints->size());
     std::vector<pcl::Indices> osmWallCertainWallPoints(osmWallMidPoints->size());
     std::vector<pcl::Indices> osmWallFinalWallPoints(osmWallMidPoints->size());
 
@@ -446,7 +445,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
         //region search points from osmWall mid-point with big radius
 
-        pcl::Indices& pointIdxRadiusSearch = osmWallRadiusSearch[osmWallIdx];
+        pcl::Indices pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
         float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
         auto searchRadius = static_cast<float>(sqrt(pow(osmWall.point2.x - osmWall.mid.x, 2) +
