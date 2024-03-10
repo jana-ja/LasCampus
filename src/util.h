@@ -131,6 +131,10 @@ namespace Util {
         return acos(Util::dotProduct(pcl::PointXYZ(p1.normal_x, p1.normal_y, p1.normal_z), pcl::PointXYZ(p2.normal_x, p2.normal_y, p2.normal_z)));
     }
 
+    inline float normalAngle(const pcl::PointXYZRGBNormal& p1, const pcl::PointXYZ& normal2) {
+        return acos(Util::dotProduct(pcl::PointXYZ(p1.normal_x, p1.normal_y, p1.normal_z), normal2));
+    }
+
     inline float signedPointPlaneDistance(const pcl::PointXYZRGBNormal& point, const pcl::PointXYZRGBNormal& planePoint) {
         pcl::PointXYZ normal = pcl::PointXYZ(planePoint.normal_x, planePoint.normal_y, planePoint.normal_z);
         return dotProduct(normal, (vectorSubtract(point, planePoint)));
