@@ -725,8 +725,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // i need to match osm and gml walls first and then do this check here, because if i have a matching osm wall that is NOT covered by gml walls,
             //  then i want to skip the current gml wall
 
-            bool skip = false;
+            bool skip = true;
+            if (gmlToOsmMap[gmlWallIdx].empty()) {
+                skip = false;
+            }
+            bool hasValidMatch = false;
             for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
+                if (usedOsmWalls[osmWallIdx])
+                    continue;
+                hasValidMatch = true;
                 const auto& osmWall = osmWalls[osmWallIdx];
                 // wenn diese osm wand von der länge her durch ihre matchenden gml wände (zu 2/3) abgedeckt wird, dann kann man die rauswerfen
 
@@ -738,16 +745,24 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 // deckt (zsm mit anderen) eine osm wand genug ab -> nicht skippen
                 if (matchingGmlWallLengthSum + 3.0 > osmWall.length) {
                     usedOsmWalls[osmWallIdx] = true;
+                    skip = false;
                 } else {
-                    skip = true;
-                    break;
-                    gmlR = 255;
-                    gmlG = 255;
-                    gmlB = 0;
+//                    skip = true;
+//                    break;
+//                    gmlR = 0;
+//                    gmlG = 0;
+//                    gmlB = 255;
                 }
             }
-            if (skip)
-                continue;
+            if (!hasValidMatch) {
+                skip = false;
+            }
+            if (skip) {
+//                continue;
+                gmlR = 0;
+                gmlG = 0;
+                gmlB = 255;
+            }
             //endregion
 
             // is a valid wall
