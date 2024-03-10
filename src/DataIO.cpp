@@ -576,7 +576,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     const auto& matchingGmlWall = gmlBuilding.osmWalls[matchingGmlWallIdx];
                     matchingGmlWallLengthSum += matchingGmlWall.length;
                 }
-                if (matchingGmlWallLengthSum > osmWall.length * threshold) {
+                // deckt (zsm mit anderen) eine osm wand genug ab -> nicht skippen
+                if (matchingGmlWallLengthSum + 3.0 > osmWall.length) {
                     usedOsmWalls[osmWallIdx] = true;
                 } else {
                     skip = true;
