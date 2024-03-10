@@ -1188,9 +1188,9 @@ DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float
         0) {
         for (auto pIdxIdx = 0; pIdxIdx < pointIdxRadiusSearch.size(); pIdxIdx++) {
             auto& point = (*cloud)[pointIdxRadiusSearch[pIdxIdx]];
-            // TODO not sure
-//            if (removePoints[pointIdxRadiusSearch[pIdxIdx]])
-//                continue;
+            // TODO not sure, barely any diference?
+            if (removePoints[pointIdxRadiusSearch[pIdxIdx]])
+                continue;
             // distance to wall plane > 1.5
             float distToWall = abs(wallNormal.x * (searchPoint.x - point.x) + wallNormal.z * (searchPoint.z - point.z));
             if (distToWall > 1.5)
