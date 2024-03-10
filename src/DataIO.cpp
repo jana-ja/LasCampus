@@ -453,11 +453,16 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     // point to plane distance
                     auto ppd = Util::pointPlaneDistance(osmWall.mid, gmlWall.mid);
-                    if (ppd > 2.1) // TODO ab 2.1 wird wand in 8eck gefixt
+                    if (ppd > 2.5) // TODO ab 2.1 wird wand in 8eck gefixt, 2.5 mathe tower
                         continue;
                     // normal angle
                     auto normalAngle = Util::normalAngle(gmlWall.mid, osmWall.mid);
-                    if (normalAngle > 0.26) // 15 deg
+                    auto normalReverseAngle = pcl::PointXYZRGBNormal(osmWall.mid.x, osmWall.mid.y, osmWall.mid.z);
+                    normalReverseAngle.normal_x = -osmWall.mid.normal_x;
+                    normalReverseAngle.normal_y = -osmWall.mid.normal_y;
+                    normalReverseAngle.normal_z = -osmWall.mid.normal_z;
+                    float normalAngleAndersrum = Util::normalAngle(gmlWall.mid, normalReverseAngle);
+                    if (normalAngle > 0.26 && normalAngleAndersrum > 0.26) // 15 deg //TODO der andersrum angle ist fix für mathe tower
                         continue;
 
                     //                    auto dist1 = Util::horizontalDistance(osmWall.point1, gmlWall.point1);
@@ -466,7 +471,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //                        > std::max(osmWall.length, gmlWall.length) + 1.0) {
 //                        continue;
 //                    }
-                    // wennn p1 zu p1 < max length und p2 zu p2 kleiner als max length dan nist match
+                    // wenn es überschneidung gibt (p1 zu p1 < max length und p2 zu p2 kleiner als max length) dann ist match
                     if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) > std::max(osmWall.length, gmlWall.length) + 1.0
                     || Util::horizontalDistance(osmWall.point2, gmlWall.point2) > std::max(osmWall.length, gmlWall.length) + 1.0) {
                         continue;
@@ -523,7 +528,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                 // TODO 0.3 / 0.5 / kp? bei 1.0 geht zu viel dach weg, aber dann sind die osm wände innen bei dem ding schöner weil andere punkte da heir schon rausfliegen
                 //  bei 0.3 bleiben auch sehr viele certain wall points übrig
-                if (Util::pointPlaneDistance(point, gmlWall.mid) > 0.5) {
+                if (Util::pointPlaneDistance(point, gmlWall.mid) > 0.5) { // TODO vllt certain wall points großer th und rest kleiner?? vllt certain wallpoints threshold wie bei wall match? glaube wallmatch ist zu groß
                     continue;
                 }
                 if (Util::horizontalDistance(point, gmlWall.mid) > gmlWall.length / 2) {
@@ -690,9 +695,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
-            //region draw glm wall
+            //region draw gml wall
 
-            // get y min and max from finalWallPoints to cover wall from bottom to top
+            // get y min and max to cover wall from bottom to top
             float yMin = gmlWall.point1.y, yMax = gmlWall.point2.y;
 
             // draw plane
