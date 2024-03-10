@@ -788,66 +788,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             //endregion
 
 
-            // TODO vllt nen test wert? vllt overfitting
-            //  -> scheint blödsinn zu sein, würde mehr kaputt machen als reparieren
-            //region if there are no certain wall points, but a matching osm wall -> mix
-
-//            if (certainWallPointsCount == 0 && gmlToOsmMap[gmlWallIdx].size() != 0) {
-//                gmlR = 0;
-//                gmlG = 255;
-//                gmlB = 255;
-//
-//                // region draw matching osm walls
-//                for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
-//                    // draw osm wall
-//                    auto osmWall = osmWalls[osmWallIdx];
-//
-//                    float yMin = -10, yMax = 10;
-//                    osmWall.point1.y = yMin;
-//                    osmWall.point2.y = yMin;
-//
-//                    // draw plane
-//                    float stepWidth = 0.5;
-//                    // get perp vec
-//                    auto lasWallVec = Util::vectorSubtract(osmWall.point2, osmWall.point1);
-//                    auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-//                    auto lasWallNormal = pcl::PointXYZ(osmWall.mid.normal_x, osmWall.mid.normal_y, osmWall.mid.normal_z);
-//
-//                    float lasWallLength = Util::vectorLength(lasWallVec);
-//                    float x = osmWall.point1.x;
-//                    float z = osmWall.point1.z;
-//                    float distanceMoved = 0;
-//
-//
-//                    // move horizontal
-//                    while (distanceMoved < lasWallLength) {
-//                        float y = yMin;
-//                        float xCopy = x;
-//                        float zCopy = z;
-//                        while (y < yMax) {
-//                            auto v = pcl::PointXYZRGBNormal(x, y, z, 255, 0, 255);//randR, randG, randB));
-//                            // set normal
-//                            v.normal_x = lasWallNormal.x;
-//                            v.normal_y = lasWallNormal.y;
-//                            v.normal_z = lasWallNormal.z;
-//                            // also set tangents
-//                            tangent1Vec.push_back(horPerpVec);
-//                            tangent2Vec.emplace_back(0, 1, 0);
-//                            texCoords.emplace_back(0, 0);
-//
-//                            cloud->push_back(v);
-//
-//                            y += stepWidth;
-//                        }
-//                        x = xCopy + stepWidth * horPerpVec.x;
-//                        z = zCopy + stepWidth * horPerpVec.z;
-//                        distanceMoved += stepWidth;
-//                    }
-//                }
-//                //endregion
-//            }
-            //endregion
-
             //region debug color small walls
 
             for (auto it = gmlWall.points.begin(); it != gmlWall.points.end(); it++) {
