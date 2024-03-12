@@ -562,7 +562,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         // check if the wall would be drawn / has enough height
         float yMin, yMax;
         findYMinMax(cloud, finalWallPoints, yMin, yMax);
-        if (yMax <= yMin + 2.0) { // TODo vllt wert anpassen jetzt wo es klappt? ja das muss definitiv kleiner
+        if (yMax <= yMin + 0.5) { // TODo vllt wert anpassen jetzt wo es klappt? ja das muss definitiv kleiner
             usedOsmWalls[osmWallIdx] = true;
         }
     }
@@ -594,7 +594,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     // point to plane distance
                     auto ppd = Util::pointPlaneDistance(osmWall.mid, gmlWall.mid);
-                    if (ppd > 2.5) // 2.5 seems to be a good value, fixes some problems where the difference between gml and osm walls is rather big
+                    if (ppd > 2.0) // 2.5 seems to be a good value, fixes some problems where the difference between gml and osm walls is rather big
                         continue;
                     // normal angle
                     auto normalAngle = Util::normalAngle(gmlWall.mid, osmWall.mid);
@@ -602,7 +602,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     float normalAngleAndersrum = Util::normalAngle(gmlWall.mid, normalReverse);
                     if (normalAngle > 0.26 && normalAngleAndersrum > 0.26) // 15 deg //TODO reverse angle is fix for mathe tower
                         continue;
-
+//                    auto dist1 = Util::horizontalDistance(osmWall.point1, gmlWall.point1);
+                    // kann bei kurzen wänden probleme machen, deswegen nicht relativ sondern um festen wert auflockern
+//                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) + Util::horizontalDistance(osmWall.point2, gmlWall.point2)
+//                        > std::max(osmWall.length, gmlWall.length) + 1.0) {
+//                        continue;
+//                    }
                     // walls don't match if they don't overlap anywhere (+ buffer)   (osm.p1 zu gml.p1 < max length and osm.p2 to gml.p2 smaller than max length -> match)
                     if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) > std::max(osmWall.length, gmlWall.length) + 1.0
                     || Util::horizontalDistance(osmWall.point2, gmlWall.point2) > std::max(osmWall.length, gmlWall.length) + 1.0) {
@@ -694,10 +699,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // if osm wall is covered -> mark as visited
             // else -> skip gml wall
 
-            bool skip = true;
-            if (gmlToOsmMap[gmlWallIdx].empty()) {
-                skip = false;
-            }
+//            bool skip = true;
+//            if (gmlToOsmMap[gmlWallIdx].empty()) {
+//                skip = false;
+//            }
             // if all matches would not be drawn anyway because of their height -> don't skip this gml wall
             bool hasValidMatch = false;
             for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
@@ -715,7 +720,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 // this gml wall does cover a osm wall (maybe together with more gml walls) -> don't skip it
                 if (matchingGmlWallLengthSum + 3.0 > osmWall.length) {
                     usedOsmWalls[osmWallIdx] = true;
-                    skip = false;
+//                    skip = false;
                 }
 //                else {
 //                    gmlR = 0;
@@ -723,16 +728,16 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //                    gmlB = 255;
 //                }
             }
-            if (!hasValidMatch) {
-                skip = false;
-            }
-            if (skip) {
-                // TODO color only those and check if this procedure is overfitting (likely)
-//                continue;
-                gmlR = 0;
-                gmlG = 0;
-                gmlB = 255;
-            }
+//            if (!hasValidMatch) {
+//                skip = false;
+//            }
+//            if (skip) {
+//                // TODO color only those and check if this procedure is overfitting (likely)
+////                continue;
+//                gmlR = 0;
+//                gmlG = 0;
+//                gmlB = 255;
+//            }
             //endregion
 
             // is a valid wall
