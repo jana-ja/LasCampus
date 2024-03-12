@@ -443,9 +443,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // search for near osm walls
             if (osmWallOctree.radiusSearch(gmlWall.mid, osmSearchRadius, wallIdxRadiusSearch, wallRadiusSquaredDistance) > 0) {
                 for (const auto& osmWallIdx: wallIdxRadiusSearch) {
-                    if (usedOsmWalls[osmWallIdx]) { // don't match walls that would not be drawn anyway
-                        continue;
-                    }
                     // check if wall is similar
                     auto& osmWall = osmWalls[osmWallIdx];
 
@@ -560,12 +557,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //            if (gmlToOsmMap[gmlWallIdx].empty()) {
 //                skip = false;
 //            }
-            // if all matches would not be drawn anyway because of their height -> don't skip this gml wall
-            bool hasValidMatch = false;
             for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
                 if (usedOsmWalls[osmWallIdx])
                     continue;
-                hasValidMatch = true;
                 const auto& osmWall = osmWalls[osmWallIdx];
                 // if this osm wall is covered by gml walls (so that there is at max a 3m hole) -> mark this osm wall (don't need to draw it later)
 
@@ -577,24 +571,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 // this gml wall does cover a osm wall (maybe together with more gml walls) -> don't skip it
                 if (matchingGmlWallLengthSum + 3.0 > osmWall.length) {
                     usedOsmWalls[osmWallIdx] = true;
-//                    skip = false;
                 }
-//                else {
-//                    gmlR = 0;
-//                    gmlG = 0;
-//                    gmlB = 255;
-//                }
+//
             }
-//            if (!hasValidMatch) {
-//                skip = false;
-//            }
-//            if (skip) {
-//                // TODO color only those and check if this procedure is overfitting (likely)
-////                continue;
-//                gmlR = 0;
-//                gmlG = 0;
-//                gmlB = 255;
-//            }
+//
             //endregion
 
             // is a valid wall
