@@ -463,8 +463,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //                        continue;
 //                    }
                     // walls don't match if they don't overlap anywhere (+ buffer)   (osm.p1 zu gml.p1 < max length and osm.p2 to gml.p2 smaller than max length -> match)
-                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) > std::max(osmWall.length, gmlWall.length) + 1.0
-                    || Util::horizontalDistance(osmWall.point2, gmlWall.point2) > std::max(osmWall.length, gmlWall.length) + 1.0) {
+                    if (Util::horizontalDistance(osmWall.point1, gmlWall.point1) > std::max(osmWall.length, gmlWall.length) + 0.5
+                    || Util::horizontalDistance(osmWall.point2, gmlWall.point2) > std::max(osmWall.length, gmlWall.length) + 0.5) {
                         continue;
                     }
 
