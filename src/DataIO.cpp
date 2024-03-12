@@ -685,7 +685,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
-            int gmlR = 100, gmlG = 100, gmlB = 100;
+            int gmlR = 100, gmlG = 200, gmlB = 100;
 
             if (wallPoints.size() < 3) {
                 continue;
@@ -889,6 +889,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     //endregion
 
     // region draw remaining osm walls
+    float epsilon = 0.4;
         for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
             if (usedOsmWalls[osmWallIdx])
                 continue;
@@ -900,14 +901,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             int randG = rand() % (156) + 100;
             int randB = rand() % (156) + 100;
 
-
             pcl::Indices& certainWallPoints = osmWallCertainWallPoints[osmWallIdx];
 
-            // mark certain wall points
-            for (auto& nIdx: certainWallPoints) {
-                removePoints[nIdx] = true;
-                usedLasWallPoints[nIdx] = true;
-            }
+
+
+
+
+
+
+
 
 
 
@@ -964,7 +966,33 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             //endregion
 
+            int osmR = 255;
+            int osmG = 255;
+            int osmB = 0;
+
+            // check scattering
+            float scatter = 0;
+            for (int certainWallPointIdx: certainWallPoints) {
+                scatter += Util::pointPlaneDistance((*cloud)[certainWallPointIdx], lasWall.mid);
+            }
+            scatter /= certainWallPoints.size();
+
+//            if (scatter > epsilon) {
+//                auto bla = "groß";
+//                osmR = 0;
+//                osmG = 0;
+//                osmB = 255;
+//            } else {
+//                auto bla = "klein";
+//            }
+
             // this is valid las wall
+
+            // mark certain wall points
+            for (auto& nIdx: certainWallPoints) {
+                removePoints[nIdx] = true;
+                usedLasWallPoints[nIdx] = true;
+            }
 
             // TODO da war vorher zwischen dann stable walls undso, brauche ich nicht mehr?
 
@@ -1023,36 +1051,192 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             float z = lasWall.point1.z;
             float distanceMoved = 0;
 
-
+            auto indexi = cloud->size()-1;
+            std::map<int, int> counters;
+            std::vector<int> columnHeights;
+            int columnCount = 0;
             // move horizontal
             while (distanceMoved < lasWallLength) {
                 float y = yMin;
                 float xCopy = x;
                 float zCopy = z;
                 float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, lasPointTree);
+                int columnHeight = static_cast<int>((currentMaxY - yMin) / stepWidth);
+                columnHeights.push_back(columnHeight);
+                counters[columnHeight]++;
+                columnCount++;
                 if (currentMaxY > y + stepWidth) { // only build wall if more than init point
-                    while (y < currentMaxY) {
-                        auto v = pcl::PointXYZRGBNormal(x, y, z, 255, 255, 0);//randR, randG, randB)); // türkis
-                        // set normal
-                        v.normal_x = lasWallNormal.x;
-                        v.normal_y = lasWallNormal.y;
-                        v.normal_z = lasWallNormal.z;
-                        // also set tangents
-                        tangent1Vec.push_back(horPerpVec);
-                        tangent2Vec.emplace_back(0, 1, 0);
-                        texCoords.emplace_back(0, 0);
+                    // TODO die hier nur zählen oder alle?
 
-                        cloud->push_back(v);
-
-                        y += stepWidth;
-                    }
+//                    while (y < currentMaxY) {
+//                        auto v = pcl::PointXYZRGBNormal(x, y, z, osmR, osmG, osmB);//randR, randG, randB)); // türkis
+//                        // set normal
+//                        v.normal_x = lasWallNormal.x;
+//                        v.normal_y = lasWallNormal.y;
+//                        v.normal_z = lasWallNormal.z;
+//                        // also set tangents
+//                        tangent1Vec.push_back(horPerpVec);
+//                        tangent2Vec.emplace_back(0, 1, 0);
+//                        texCoords.emplace_back(0, 0);
+//
+//                        cloud->push_back(v);
+//
+//                        y += stepWidth;
+//                    }
                 }
                 x = xCopy + stepWidth * horPerpVec.x;
                 z = zCopy + stepWidth * horPerpVec.z;
                 distanceMoved += stepWidth;
             }
             //endregion
+            if(counters.empty())
+                continue;
 
+            auto mostCommon = std::max_element(counters.begin(), counters.end(), [] (const auto& p1, const auto& p2) {
+                return p1.second < p2.second;
+            });
+            auto columnHeightsCopy = columnHeights;
+
+            if (mostCommon->first < 3) {
+                // skip weil zu niedrig
+                osmR = 255;
+                osmG = 255;
+                osmB = 255; // rot
+            } else {
+
+                // rot -> kein most common
+                // pink -> zu viele versch höhen
+                // blau -> zu viele sprünge ( einen runter setzen) vllt länge der wand einbeziehen?
+                // pinmkl -> beides chlecht, fällt raus
+                // <= statt < machen beim malen
+                // most common 1 oder 2 raus (nochmal denken mit dem <= oder <)
+                // muss oben auch höhe = 0 mitzählen für columncount
+
+                // vllt darf wenn es wenig sprünge hat auch ohne most common und wenn es klarenmost common hat aber mehr sprünge?
+
+                // wenn das häufigste ding nicht 2/3 von dem cols ist
+                if (mostCommon->second < 0.5 * columnCount) {
+                    // delete wall
+                    for (auto i = indexi; i < cloud->size(); i++) {
+                        osmR = 0;
+                        osmG = 0;
+                        osmB = 255; // rot
+                    }
+                }
+//            if (counters.size() > 5) { //TODO nur sprünge zählen
+//                // delte wall
+//                for (auto i = indexi; i < cloud->size(); i++) {
+//                    osmR = 255;
+//                    osmG = 0;
+//                    osmB = 0; //blau
+//                }
+//            }
+
+
+                int jumpCount = 0;
+
+                // wenn unterschied zum nachbarn zu groß ist male ich stattdessen den häufigsten wert
+                if (columnHeights.size() > 1) {
+                    for (auto it = columnHeights.begin(); it != columnHeights.end(); it++) {
+                        if (it == columnHeights.begin()) {
+
+                        } else {
+                            if (abs(*(it - 1) - *it) > 2) {
+                                jumpCount++;
+                            }
+                        }
+                    }
+
+                    for (auto it = columnHeights.begin(); it != columnHeights.end(); it++) {
+//                    if (*it == 0)
+//                        continue; // TODO??
+                        // end edge case
+                        if (it == columnHeights.begin()) {
+                            if (abs(*(it + 1) - *it) > 2) {
+                                *it = mostCommon->first;
+                            }
+                        } else {
+                            if (abs(*(it - 1) - *it) > 2) {
+                                *it = mostCommon->first;
+                            }
+                        }
+
+
+                    }
+                    for (auto it = columnHeights.rbegin(); it != columnHeights.rend(); it++) {
+//                    if (*it == 0)
+//                        continue; // TODO??
+                        // end edge case
+                        if (it == columnHeights.rbegin()) {
+                            if (abs(*(it + 1) - *it) > 2) {
+                                *it = mostCommon->first;
+                            }
+                        } else {
+                            if (abs(*(it - 1) - *it) > 2) {
+                                *it = mostCommon->first;
+                            }
+                        }
+
+
+                    }
+                }
+
+
+                if (jumpCount > 0) {
+                    // TODO jump cpunt wird falsch gewählt weil der sich dann ja durchhschiebt
+                    if ((float) columnCount / (float) jumpCount < 5) { //TODO nur sprünge zählen
+                        // delte wall
+                        for (auto i = indexi; i < cloud->size(); i++) {
+                            osmR = 255;
+                            osmG = 0;// blau
+//                    osmB = 0;
+                        }
+                    }
+                }
+            }
+            // wenn kein most common und zu viele junmps -> pink
+
+            x = lasWall.point1.x;
+            z = lasWall.point1.z;
+            for (int j = 0; j < columnHeights.size(); j++) {
+                auto columnHeight = columnHeights[j];
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                for (int i = 0; i < columnHeight; i++) { // TODO < oder <=?
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, osmR, osmG, osmB);//randR, randG, randB)); // türkis
+                    // set normal
+                    v.normal_x = lasWallNormal.x;
+                    v.normal_y = lasWallNormal.y;
+                    v.normal_z = lasWallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    cloud->push_back(v);
+
+                    y+= stepWidth;
+                }
+                y = yMin;
+                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
+                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, 0, 255, 255);//randR, randG, randB)); // blau
+                    // set normal
+                    v.normal_x = lasWallNormal.x;
+                    v.normal_y = lasWallNormal.y;
+                    v.normal_z = lasWallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    cloud->push_back(v);
+
+                    y+= stepWidth;
+                }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
+            }
             //endregion
 
         }
@@ -1198,7 +1382,7 @@ DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float
                 continue;
             // distance to wall plane > 1.5
             float distToWall = abs(wallNormal.x * (searchPoint.x - point.x) + wallNormal.z * (searchPoint.z - point.z));
-            if (distToWall > 1.5)
+            if (distToWall > 1.0)
                 continue;
             // distance to wall normal > stepWidth (n * searchPoint_point)
             float distToNormal = abs(wallPlane.x * (searchPoint.x - point.x) + wallPlane.z * (searchPoint.z - point.z));
