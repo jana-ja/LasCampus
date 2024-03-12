@@ -425,149 +425,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     auto usedOsmWalls = std::vector<bool>(osmWallMidPoints->size());
     std::fill(usedOsmWalls.begin(), usedOsmWalls.end(), false);
 
-    // get these points when filtering osm walls and reuse them when drawing the walls
-    std::vector<pcl::Indices> osmWallCertainWallPoints(osmWallMidPoints->size());
-    std::vector<pcl::Indices> osmWallFinalWallPoints(osmWallMidPoints->size());
-
-    //region filter osm walls -> mark walls that would not be drawn anyway, so they don't kick out valid gml walls
-
-    for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
-        if (usedOsmWalls[osmWallIdx])
-            continue;
-
-        // get wall
-        const auto& osmWall = osmWalls[osmWallIdx];
-
-        //region search points from osmWall mid-point with big radius
-
-        pcl::Indices pointIdxRadiusSearch;
-        std::vector<float> pointRadiusSquaredDistance;
-        float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
-        auto searchRadius = static_cast<float>(sqrt(pow(osmWall.point2.x - osmWall.mid.x, 2) +
-                                                    pow(wallHeight - osmWall.mid.y, 2) +
-                                                    pow(osmWall.point2.z - osmWall.mid.z, 2)));;
-        if (lasPointTree->radiusSearch(osmWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
-            usedOsmWalls[osmWallIdx] = true;
-            continue;
-        }
-        //endregion
-
-        pcl::Indices& certainWallPoints = osmWallCertainWallPoints[osmWallIdx];
-        //region filter search results for certain las wall points
-
-        // only take osm wall points that are also las wall points
-        for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
-
-            const auto& nIdx = *nIdxIt;
-            const auto& point = (*cloud)[*nIdxIt];
-            if (Util::horizontalDistance(point, osmWall.mid) > osmWall.length / 2) {
-                continue;
-            }
-            auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWall.mid);
-            if (ppd > osmWallThreshold) {
-                continue;
-            }
-
-            if (lasWallPoints[nIdx]) {
-                certainWallPoints.push_back(nIdx);
-            }
-        }
-        //endregion
-
-        if (certainWallPoints.size() < 3 ) {
-            usedOsmWalls[osmWallIdx] = true;
-            continue;
-        }
-
-        Util::Wall lasWall;
-        //region fit *vertical* plane through certain wall points  - continue if horizontal
-
-        pcl::IndicesPtr certainWallPointsPtr = std::make_shared<pcl::Indices>(certainWallPoints);
-        pca.setIndices(certainWallPointsPtr);
-        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-        Eigen::Vector3f eigenValues = pca.getEigenValues();
-
-        // create plane
-        // get median point of certain wall points
-        float xMedian, yMedian, zMedian;
-        findXYZMedian(cloud, certainWallPoints, xMedian, yMedian, zMedian);
-        lasWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-
-        // normal
-        // check if normal is more vertical
-        auto vertLen = abs(eigenVectors(1, 2));
-        if (vertLen > 0.5) { // length adds up to 1
-            usedOsmWalls[osmWallIdx] = true;
-            continue; //TODO skip this wall for now, maybe find different way to determine wall plane?
-        } else {
-            // make wall vertical
-            auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-            lasWall.mid.normal_x = lasWallNormal.x;
-            lasWall.mid.normal_y = lasWallNormal.y;
-            lasWall.mid.normal_z = lasWallNormal.z;
-        }
-        // project wall start and end point to certain wall point plane
-        // border points
-        auto dist1 = Util::signedPointPlaneDistance(osmWall.point1, lasWall.mid);
-        auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
-        // move point um distance along plane normal (point - (dist * normal))
-        lasWall.point1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWall.mid.normal_x,
-                                                                                     dist1 * lasWall.mid.normal_y,
-                                                                                     dist1 * lasWall.mid.normal_z));
-        lasWall.point2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
-                                                                                     dist2 * lasWall.mid.normal_y,
-                                                                                     dist2 * lasWall.mid.normal_z));
-        auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
-        auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-        // right orientation
-        auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0));
-        lasWall.mid.normal_x = lasWallNormal.x;
-        lasWall.mid.normal_y = lasWallNormal.y;
-        lasWall.mid.normal_z = lasWallNormal.z;
-        // new mid that is in the middle // TODO important (for what? still true?)
-        lasWall.mid.x = (lasWall.point1.x + lasWall.point2.x) / 2.0f;
-        // y stays at median value
-        lasWall.mid.z = (lasWall.point1.z + lasWall.point2.z) / 2.0f;
-
-        //endregion
-
-        pcl::Indices& finalWallPoints = osmWallFinalWallPoints[osmWallIdx];
-        //region get final wall points from new wall plane
-
-        // get min max wall borders
-        auto lasMinX = std::min(lasWall.point1.x, lasWall.point2.x);
-        auto lasMaxX = std::max(lasWall.point1.x, lasWall.point2.x);
-        auto lasMinZ = std::min(lasWall.point1.z, lasWall.point2.z);
-        auto lasMaxZ = std::max(lasWall.point1.z, lasWall.point2.z);
-        for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
-
-            const auto& nIdx = *nIdxIt;
-            const auto& point = (*cloud)[*nIdxIt];
-            if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { //TODO kann ich hier auch las mid nehmen?
-                continue;
-            }
-            auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWall.mid);
-            if (ppd > lasWallThreshold) {
-                continue;
-            }
-            finalWallPoints.push_back(nIdx);
-        }
-        //endregion
-
-        if (finalWallPoints.size() < 3 ) {
-            usedOsmWalls[osmWallIdx] = true;
-            continue;
-        }
-
-        // check if the wall would be drawn / has enough height
-        float yMin, yMax;
-        findYMinMax(cloud, finalWallPoints, yMin, yMax);
-        if (yMax <= yMin + 0.5) { // TODo vllt wert anpassen jetzt wo es klappt? ja das muss definitiv kleiner
-            usedOsmWalls[osmWallIdx] = true;
-        }
-    }
-    // endregion
-
     for (auto bIdx = 0; bIdx < gmlBuildings.size(); bIdx++) {
 
         auto& gmlBuilding = gmlBuildings[bIdx];
@@ -901,11 +758,47 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             int randG = rand() % (156) + 100;
             int randB = rand() % (156) + 100;
 
-            pcl::Indices& certainWallPoints = osmWallCertainWallPoints[osmWallIdx];
 
+            //region search points from osmWall mid-point with big radius
 
+            pcl::Indices pointIdxRadiusSearch;
+            std::vector<float> pointRadiusSquaredDistance;
+            float wallHeight = 80; // mathe tower ist 60m hoch TODO aus daten nehmen
+            auto searchRadius = static_cast<float>(sqrt(pow(osmWall.point2.x - osmWall.mid.x, 2) +
+                                                        pow(wallHeight - osmWall.mid.y, 2) +
+                                                        pow(osmWall.point2.z - osmWall.mid.z, 2)));;
+            if (lasPointTree->radiusSearch(osmWall.mid, searchRadius, pointIdxRadiusSearch, pointRadiusSquaredDistance) <= 0) {
+                usedOsmWalls[osmWallIdx] = true;
+                continue;
+            }
+            //endregion
 
+            pcl::Indices certainWallPoints;
+            //region filter search results for certain las wall points
 
+            // only take osm wall points that are also las wall points
+            for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
+
+                const auto& nIdx = *nIdxIt;
+                const auto& point = (*cloud)[*nIdxIt];
+                if (Util::horizontalDistance(point, osmWall.mid) > osmWall.length / 2) {
+                    continue;
+                }
+                auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWall.mid);
+                if (ppd > osmWallThreshold) {
+                    continue;
+                }
+
+                if (lasWallPoints[nIdx]) {
+                    certainWallPoints.push_back(nIdx);
+                }
+            }
+            //endregion
+
+            if (certainWallPoints.size() < 3 ) {
+                usedOsmWalls[osmWallIdx] = true;
+                continue;
+            }
 
 
 
@@ -970,7 +863,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             int osmG = 255;
             int osmB = 0;
 
-            // check scattering
+            // check scattering TODO remove
             float scatter = 0;
             for (int certainWallPointIdx: certainWallPoints) {
                 scatter += Util::pointPlaneDistance((*cloud)[certainWallPointIdx], lasWall.mid);
@@ -996,17 +889,29 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             // TODO da war vorher zwischen dann stable walls undso, brauche ich nicht mehr?
 
+            pcl::Indices finalWallPoints;
+            //region get final wall points from new wall plane
 
-            // region draw las wall
-
-            pcl::Indices& finalWallPoints = osmWallFinalWallPoints[osmWallIdx];
+            // get min max wall borders
+            auto lasMinX = std::min(lasWall.point1.x, lasWall.point2.x);
+            auto lasMaxX = std::max(lasWall.point1.x, lasWall.point2.x);
+            auto lasMinZ = std::min(lasWall.point1.z, lasWall.point2.z);
+            auto lasMaxZ = std::max(lasWall.point1.z, lasWall.point2.z);
             std::vector<pcl::PointXYZ> finalWallPointsNotGround;
-            //region get all las wall points with lasWallPlane and las border points   +   project these points onto plane
 
-            // select points with las wall plane with smaller threshold
-            for (auto nIdx : finalWallPoints) {
+            for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
-                const auto& point = (*cloud)[nIdx];
+                const auto& nIdx = *nIdxIt;
+                const auto& point = (*cloud)[*nIdxIt];
+                if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { //TODO kann ich hier auch las mid nehmen?
+                    continue;
+                }
+                auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWall.mid);
+                if (ppd > lasWallThreshold) {
+                    continue;
+                }
+                finalWallPoints.push_back(nIdx);
+
 
                 if (!lasGroundPoints[nIdx]) {
                     if (colorFinalLasWallWithoutGround) {
@@ -1026,17 +931,27 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
+            if (finalWallPoints.size() < 3 ) { // TODo welches?
+                usedOsmWalls[osmWallIdx] = true;
+                continue;
+            }
             if (finalWallPoints.empty()) // TODO müsste weg können
                 continue;
 
+            // region draw las wall
 
-            //region fill wall with points
+            // fill wall with points
 
             // get y min and max from finalWallPoints to cover wall from bottom to top
             float yMin, yMax;
             findYMinMax(cloud, finalWallPoints, yMin, yMax);
             lasWall.point1.y = yMin;
             lasWall.point2.y = yMin;
+
+            if (yMax <= yMin + 0.5) {
+                usedOsmWalls[osmWallIdx] = true;
+                continue;
+            }
 
             // draw plane
             float stepWidth = 0.5;
