@@ -964,88 +964,86 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
 
             // debug
-            auto columnHeightsCopy = columnHeights;
+//            auto columnHeightsCopy = columnHeights;
 
             if (mostCommon->first < 3) {
                 // skip weil zu niedrig
-                osmR = 255;
-                osmG = 255;
-                osmB = 255; //
-//                continue;
-            } else {
+                continue;
+            }
 
-                // rot -> kein most common
-                // pink -> zu viele versch höhen
-                // blau -> zu viele sprünge ( einen runter setzen) vllt länge der wand einbeziehen?
-                // pinmkl -> beides chlecht, fällt raus
-                // <= statt < machen beim malen
-                // most common 1 oder 2 raus (nochmal denken mit dem <= oder <)
-                // muss oben auch höhe = 0 mitzählen für columncount
 
-                // vllt darf wenn es wenig sprünge hat auch ohne most common und wenn es klarenmost common hat aber mehr sprünge?
-
-                // wenn das häufigste ding nicht 2/3 von dem cols ist
-                if (mostCommon->second < 0.5 * columnHeights.size()) {
-                    // delete wall
-                    for (auto i = newWallStartIndex; i < cloud->size(); i++) {
-                        osmR = 0;
-                        osmG = 0;
-                        osmB = 255; // rot
-                    }
-                }
-
-                // look at jumping/outlier values
-                int jumpCount = 0;
-                if (columnHeights.size() > 1) {
-                    // jump count
-                    for (auto it = columnHeights.begin(); it != columnHeights.end(); it++) {
-                        if (it != columnHeights.begin()) {
-                            if (abs(*(it - 1) - *it) > 2) {
-                                jumpCount++;
-                            }
-                        }
-                    }
-
-                    // fix outliers/jumps - replace with most common value
-                    for (auto it = columnHeights.begin(); it != columnHeights.end(); it++) {
-                        // end edge case
-                        if (it == columnHeights.begin()) {
-                            if (abs(*(it + 1) - *it) > 2) {
-                                *it = mostCommon->first;
-                            }
-                        } else {
-                            if (abs(*(it - 1) - *it) > 2) {
-                                *it = mostCommon->first;
-                            }
-                        }
-                    }
-                    for (auto it = columnHeights.rbegin(); it != columnHeights.rend(); it++) {
-                        // end edge case
-                        if (it == columnHeights.rbegin()) {
-                            if (abs(*(it + 1) - *it) > 2) {
-                                *it = mostCommon->first;
-                            }
-                        } else {
-                            if (abs(*(it - 1) - *it) > 2) {
-                                *it = mostCommon->first;
-                            }
+            // look at jumping/outlier values
+            int jumpCount = 0;
+            if (columnHeights.size() > 1) {
+                // jump count
+                for (auto it = columnHeights.begin(); it != columnHeights.end(); it++) {
+                    if (it != columnHeights.begin()) {
+                        if (abs(*(it - 1) - *it) > 2) {
+                            jumpCount++;
                         }
                     }
                 }
 
-
-                if (jumpCount > 0) {
-                    if ((float) columnHeights.size() / (float) jumpCount < 5) {
-                        // delte wall
-                        for (auto i = newWallStartIndex; i < cloud->size(); i++) {
-                            osmR = 255;
-                            osmG = 0;// blau
-//                    osmB = 0;
+                // fix outliers/jumps - replace with most common value
+                for (auto it = columnHeights.begin(); it != columnHeights.end(); it++) {
+                    // end edge case
+                    if (it == columnHeights.begin()) {
+                        if (abs(*(it + 1) - *it) > 2) {
+                            *it = mostCommon->first;
+                        }
+                    } else {
+                        if (abs(*(it - 1) - *it) > 2) {
+                            *it = mostCommon->first;
+                        }
+                    }
+                }
+                for (auto it = columnHeights.rbegin(); it != columnHeights.rend(); it++) {
+                    // end edge case
+                    if (it == columnHeights.rbegin()) {
+                        if (abs(*(it + 1) - *it) > 2) {
+                            *it = mostCommon->first;
+                        }
+                    } else {
+                        if (abs(*(it - 1) - *it) > 2) {
+                            *it = mostCommon->first;
                         }
                     }
                 }
             }
-            // wenn kein most common und zu viele junmps -> pink
+
+//                // debug
+//                int osmR = 255;
+//                int osmG = 255;
+//                int osmB = 0;
+//                // wenn das häufigste ding nicht 2/3 von dem cols ist
+//                if (mostCommon->second < 0.5 * columnHeights.size()) {
+//                    // delete wall
+//                    for (auto i = newWallStartIndex; i < cloud->size(); i++) {
+//                        osmR = 0;
+//                        osmG = 0;
+//                        osmB = 255; // rot
+//                    }
+//                }
+//                if (jumpCount > 0) {
+//                    if ((float) columnHeights.size() / (float) jumpCount < 5) {
+//                        // delte wall
+//                        for (auto i = newWallStartIndex; i < cloud->size(); i++) {
+//                            osmR = 255;
+//                            osmG = 0;// blau
+////                    osmB = 0;
+//                        }
+//                    }
+//                }
+//                // wenn kein most common und zu viele junmps -> pink
+
+            // skip wall if it hast too many jumps and most common height is not predominant
+            if (jumpCount > 0) {
+                if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
+                    // skip wall
+                    continue;
+                }
+            }
+
 
             x = lasWall.point1.x;
             z = lasWall.point1.z;
@@ -1069,23 +1067,23 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     y+= stepWidth;
                 }
-                //debug
-                y = yMin;
-                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
-                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, 0, 255, 255);//randR, randG, randB)); // blau
-                    // set normal
-                    v.normal_x = lasWallNormal.x;
-                    v.normal_y = lasWallNormal.y;
-                    v.normal_z = lasWallNormal.z;
-                    // also set tangents
-                    tangent1Vec.push_back(horPerpVec);
-                    tangent2Vec.emplace_back(0, 1, 0);
-                    texCoords.emplace_back(0, 0);
-
-                    cloud->push_back(v);
-
-                    y+= stepWidth;
-                }
+//                //debug
+//                y = yMin;
+//                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
+//                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, 0, 255, 255);//randR, randG, randB)); // blau
+//                    // set normal
+//                    v.normal_x = lasWallNormal.x;
+//                    v.normal_y = lasWallNormal.y;
+//                    v.normal_z = lasWallNormal.z;
+//                    // also set tangents
+//                    tangent1Vec.push_back(horPerpVec);
+//                    tangent2Vec.emplace_back(0, 1, 0);
+//                    texCoords.emplace_back(0, 0);
+//
+//                    cloud->push_back(v);
+//
+//                    y+= stepWidth;
+//                }
                 x = xCopy + stepWidth * horPerpVec.x;
                 z = zCopy + stepWidth * horPerpVec.z;
             }
