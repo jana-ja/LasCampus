@@ -62,9 +62,9 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
-    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
-                wallPointsStartIndex);
-    tree->setInputCloud(cloud);
+//    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
+//                wallPointsStartIndex);
+//    tree->setInputCloud(cloud);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -332,52 +332,69 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         // _ _ n n n r r r
         int8_t returnNumber = point.flags & 7;
         int8_t numOfReturns = (point.flags >> 3) & 7;
-        if (numOfReturns > 1) {
-            if (returnNumber == 1) {
-                // first of many
-                if (colorReturnNumberClasses) {
-                    v.b = 255;
-                    v.g = 0;
-                    v.r = 0;
-                }
-                // bäume oberer teil, teile von wänden, ein dach?
-                // keep wall points, skip others
-                belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
 
-                if (!belongsToWall) {
-                    continue;
-                }
-            } else if (returnNumber != numOfReturns) {
-                // intermediate points
-                // viel baum, ganz wenig wand -> raus
-                if (colorReturnNumberClasses) {
-                    v.b = 0;
-                    v.g = 0;
-                    v.r = 255;
+        if (numOfReturns == 1 && returnNumber == 1 && classification != 2) {
+            // building
+            v.b = 0;
+            v.g = 0;
+            v.r = 255;
+        }
+        if (numOfReturns > 2 && classification != 2) {
+            v.b = 0;
+            v.g = 255;
+            v.r = 0;
+        } else if (numOfReturns > 1 && classification != 2) {
+            v.b = 255;
+            v.g = 0;
+            v.r = 0;
+        }
+
+//        if (numOfReturns > 1) {
+//            if (returnNumber == 1) {
+//                // first of many
+//                if (colorReturnNumberClasses) {
 //                    v.b = 255;
 //                    v.g = 0;
 //                    v.r = 0;
-                }
-                continue;
-            } else {
-                // last of many
-                // boden, bisschen wände, kein baum. einfach lassen
-                if (classification != 2) { // not ground
-                    if (colorReturnNumberClasses) {//} && belongsToWall) {
-                        v.b = 0;
-                        v.g = 255;
-                        v.r = 0;
-//                        v.b = 255;
-//                        v.g = 0;
+//                }
+//                // bäume oberer teil, teile von wänden, ein dach?
+//                // keep wall points, skip others
+//                belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
+//
+//                if (!belongsToWall) {
+//                    continue;
+//                }
+//            } else if (returnNumber != numOfReturns) {
+//                // intermediate points
+//                // viel baum, ganz wenig wand -> raus
+//                if (colorReturnNumberClasses) {
+//                    v.b = 0;
+//                    v.g = 0;
+//                    v.r = 255;
+////                    v.b = 255;
+////                    v.g = 0;
+////                    v.r = 0;
+//                }
+//                continue;
+//            } else {
+//                // last of many
+//                // boden, bisschen wände, kein baum. einfach lassen
+//                if (classification != 2) { // not ground
+//                    if (colorReturnNumberClasses) {//} && belongsToWall) {
+//                        v.b = 0;
+//                        v.g = 255;
 //                        v.r = 0;
-                    }
-                    belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
-                    if (!belongsToWall) {
-                        continue;
-                    }
-                }
-            }
-        }
+////                        v.b = 255;
+////                        v.g = 0;
+////                        v.r = 0;
+//                    }
+//                    belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
+//                    if (!belongsToWall) {
+//                        continue;
+//                    }
+//                }
+//            }
+//        }
         //endregion
 
         int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
