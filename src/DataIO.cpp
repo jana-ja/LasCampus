@@ -415,13 +415,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     auto removePoints = std::vector<bool>(cloud->size());
     std::fill(removePoints.begin(), removePoints.end(), false);
 
-    // mark certain wall points that are used by gml or osm walls -> check if i can/should build walls with the remaining points (maybe unnecessary becaue of gml walls now)
+    // mark certain wall points that are used by gml or osm walls -> check if i can/should build walls with the remaining points (maybe unnecessary because of gml walls now)
     auto usedLasWallPoints = std::vector<bool>(lasWallPoints.size());
     std::fill(usedLasWallPoints.begin(), usedLasWallPoints.end(), false);
 
     auto osmWallMidPoints = osmWallOctree.getInputCloud();
 
-    // mark osm walls that that would not be drawn anyway or that are already covered by gml walls -> only draw remaining osm walls
+    // mark osm walls that are already covered by gml walls -> only draw remaining osm walls
     auto usedOsmWalls = std::vector<bool>(osmWallMidPoints->size());
     std::fill(usedOsmWalls.begin(), usedOsmWalls.end(), false);
 
@@ -570,6 +570,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 }
                 // this gml wall does cover a osm wall (maybe together with more gml walls) -> don't skip it
                 if (matchingGmlWallLengthSum + 3.0 > osmWall.length) {
+//                    if (matchingGmlWallLengthSum /*+ 3.0*/ > osmWall.length * 0.6) { //TODO schauen ob relativ oder mti festem loch wert, ,schauen warum die eine wandi verschwindet
                     usedOsmWalls[osmWallIdx] = true;
                 }
 //
@@ -662,7 +663,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
         }
-
+        //endregion
     }
 
     //region debug draw osm walls filtered
