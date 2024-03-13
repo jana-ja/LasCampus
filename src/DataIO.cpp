@@ -1103,6 +1103,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         texCoords.clear();
         texCoords.insert(texCoords.end(), newTexCoords.begin(), newTexCoords.end());
     }
+
+    // TODO checken welche certainw all points übrig bleiben. denke da muss man nicht extra was noch für machen.
+    //  dann einfach alle entfernen -> mehr baum weg
 }
 bool xComparator2(pcl::PointXYZ& p1, pcl::PointXYZ& p2) {
     return p1.x < p2.x;
