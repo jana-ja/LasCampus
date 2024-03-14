@@ -836,6 +836,31 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             int osmG = 255;
             int osmB = 0;
 
+            //region scatter test
+//
+            int debugR = 100;
+            int debugG = 100;
+            int debugB = 255;
+//            float scatter = 0;
+//            for (int certainWallPointIdx: certainWallPoints) {
+//                scatter += Util::pointPlaneDistance((*cloud)[certainWallPointIdx], lasWall.mid);
+//            }
+//            scatter /= certainWallPoints.size();
+//
+//            if (scatter > epsilon) {
+//                auto bla = "groß";
+//                debugR = 0;
+//                debugG = 0;
+//                debugB = 255;
+//
+//                certainWallPoints.clear();
+//            } else {
+//                auto bla = "klein";
+//                debugR = 255;
+//                debugG = 255; // wand die zu schief ist hat kleinen scatter wert, wand die ich gut finde hat hohen scatter wert..
+//                debugB = 0;
+//            }
+            //endregion
 
             // TODO da war vorher zwischen dann stable walls undso, brauche ich nicht mehr?
 
