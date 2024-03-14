@@ -9,6 +9,7 @@
 #include "stb_image.h"
 #include <map>
 #include <optional>
+#include <pcl/common/pca.h>
 #include "util.h"
 
 class DataIO {
@@ -232,6 +233,9 @@ private:
     bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
 
 
+    bool fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const Util::Wall& osmWall, pcl::Indices& certainWallPoints, pcl::PCA<pcl::PointXYZRGBNormal>& pca, Util::Wall& lasWall);
+
+    float getError(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::Indices certainWallPoints, const Util::Wall& osmWall, const Util::Wall lasWall);
 };
 
 

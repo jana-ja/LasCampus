@@ -5,7 +5,6 @@
 #include "DataIO.h"
 #include <numeric>
 #include <fstream>
-#include <pcl/common/pca.h>
 #include <cstdlib>
 #include <random>
 #include "UTM.h"
@@ -784,52 +783,86 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             Util::Wall lasWall;
             //region fit *vertical* plane through certain wall points
-
-            pcl::IndicesPtr certainWallPointsPtr = std::make_shared<pcl::Indices>(certainWallPoints);
-            pca.setIndices(certainWallPointsPtr);
-            Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-            Eigen::Vector3f eigenValues = pca.getEigenValues();
-
-            // create plane
-            // get median point of certain wall points
-            float xMedian, yMedian, zMedian;
-            findXYZMedian(cloud, certainWallPoints, xMedian, yMedian, zMedian);
-            lasWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
-
-            // normal
-            // check if normal is more vertical
-            auto vertLen = abs(eigenVectors(1, 2));
-            if (vertLen > 0.5) { // length adds up to 1
+            if (!fitPlane(cloud, osmWall, certainWallPoints, pca, lasWall))
                 continue;
-            } else {
-                // make wall vertical
-                auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-                lasWall.mid.normal_x = lasWallNormal.x;
-                lasWall.mid.normal_y = lasWallNormal.y;
-                lasWall.mid.normal_z = lasWallNormal.z;
+
+
+            // region try to improve lasWall by removing certain wall points that increase error
+
+            // die einzeln betrachten ob rausfliegen oder nacheinander mti schon verändertem vector?
+            // wie schauen wie viele entfernt wurden? schauen welche am meisten den fehler reduzieren und die raus?
+            // auf jeden fall iwie ne grenze machen wie viel der fehler verbessert werden muss.
+            // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
+
+            int removableCount = certainWallPoints.size() - 3;
+            if (removableCount > 0) {
+            float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
+            auto lasWallCopy = lasWall;
+
+                std::vector<std::pair<int, float>> mappi;
+                float bla[3];
+                for (int i = 0; i < certainWallPoints.size(); i++) {
+                    auto certainWallPointsTest = certainWallPoints;
+                    certainWallPointsTest.erase(certainWallPointsTest.begin() + i);
+                    if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallCopy))
+                        continue;
+                    float newError = getError(cloud, certainWallPoints, osmWall, lasWallCopy);
+                    auto errorDist = oldError - newError;
+                    if (errorDist > 0) {
+                        // remove this point
+                        mappi.emplace_back(i, errorDist);
+                    }
+                    // try to remove a point and see if plane gets better
+                    // scattering and normal angle to osm wall
+                }
+                if (!mappi.empty()) {
+                    auto certainWallPointsCopy = certainWallPoints;
+
+                    std::sort(mappi.begin(), mappi.end(), [](auto& pair1, auto& pair2) {
+                        return pair1.second < pair2.second;
+                    });
+
+                    if (mappi.size() > removableCount) {
+                        mappi.erase(mappi.begin() + removableCount, mappi.end());
+                    }
+
+                    pcl::Indices newCertainWallPoints;
+                    // debug
+                    for (const auto& item: certainWallPoints) {
+                        (*cloud)[item].r = 0;
+                        (*cloud)[item].g = 0; // rot
+                        (*cloud)[item].b = 255;
+                    }
+                    for (const auto& item: mappi) {
+
+                        certainWallPoints[item.first] = -1;
+                    }
+                    for (const auto& item: certainWallPoints) {
+                        if (item == -1)
+                            continue;
+                        newCertainWallPoints.push_back(item);
+                    }
+                    if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, lasWallCopy))
+                        continue;
+                    float newError = getError(cloud, newCertainWallPoints, osmWall, lasWallCopy);
+                    if (newError < oldError) {
+                        // debug
+
+                        lasWall = lasWallCopy;
+                        certainWallPoints = newCertainWallPoints;
+                        // debug
+                        for (const auto& item: certainWallPoints) {
+                            (*cloud)[item].r = 0;
+                            (*cloud)[item].g = 255; // gelb
+                            (*cloud)[item].b = 255;
+                        }
+                    } else {
+                        //restore old points
+                        certainWallPoints = certainWallPointsCopy;
+                    }
+                    // manchmal wächst der error, dann altes nehmen
+                }
             }
-            // project wall start and end point to certain wall point plane
-            // border points
-            auto dist1 = Util::signedPointPlaneDistance(osmWall.point1, lasWall.mid);
-            auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
-            // move point um distance along plane normal (point - (dist * normal))
-            lasWall.point1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWall.mid.normal_x,
-                                                                                         dist1 * lasWall.mid.normal_y,
-                                                                                         dist1 * lasWall.mid.normal_z));
-            lasWall.point2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
-                                                                                         dist2 * lasWall.mid.normal_y,
-                                                                                         dist2 * lasWall.mid.normal_z));
-            auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
-            auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-            // right orientation
-            auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0));
-            lasWall.mid.normal_x = lasWallNormal.x;
-            lasWall.mid.normal_y = lasWallNormal.y;
-            lasWall.mid.normal_z = lasWallNormal.z;
-            // new mid that is in the middle
-            lasWall.mid.x = (lasWall.point1.x + lasWall.point2.x) / 2.0f;
-            // keep y as median value
-            lasWall.mid.z = (lasWall.point1.z + lasWall.point2.z) / 2.0f;
             //endregion
 
             int osmR = 255;
@@ -883,7 +916,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
-            if (finalWallPoints.size() < 3 ) {
+            // TODO put back after debug - min 1 or 3
+            if (finalWallPoints.size() < 1 ) {
                 continue;
             }
 
@@ -893,9 +927,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             lasWall.point1.y = yMin;
             lasWall.point2.y = yMin;
 
-            if (yMax <= yMin + 0.5) {
-                continue;
-            }
+            // TODO put back after debug
+//            if (yMax <= yMin + 0.5) {
+//                continue;
+//            }
 
             // this is valid las wall
             // mark certain wall points
@@ -911,9 +946,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             float stepWidth = 0.5;
             // get perp vec
             // update values
-            lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
-            horPerpVec = Util::normalize(lasWallVec); // horizontal
-            lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+            pcl::PointXYZ lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
+            pcl::PointXYZ horPerpVec = Util::normalize(lasWallVec); // horizontal
+            pcl::PointXYZ lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
 
             float lasWallLength = Util::vectorLength(lasWallVec);
             float x = lasWall.point1.x;
@@ -947,12 +982,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
 
             // debug
-//            auto columnHeightsCopy = columnHeights;
+            auto columnHeightsCopy = columnHeights;
 
-            if (mostCommon->first < 3) {
-                // skip weil zu niedrig
-                continue;
-            }
+            // TODO put back after debug
+//            if (mostCommon->first < 3) {
+//                // skip weil zu niedrig
+//                continue;
+//            }
 
 
             // look at jumping/outlier values
@@ -1020,12 +1056,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //                // wenn kein most common und zu viele junmps -> pink
 
             // skip wall if it hast too many jumps and most common height is not predominant
-            if (jumpCount > 0) {
-                if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
-                    // skip wall
-                    continue;
-                }
-            }
+
+            // TODO put back after debug
+//            if (jumpCount > 0) {
+//                if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
+//                    // skip wall
+//                    continue;
+//                }
+//            }
 
 
             x = lasWall.point1.x;
@@ -1050,23 +1088,23 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                     y+= stepWidth;
                 }
-//                //debug
-//                y = yMin;
-//                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
-//                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, 0, 255, 255);//randR, randG, randB)); // blau
-//                    // set normal
-//                    v.normal_x = lasWallNormal.x;
-//                    v.normal_y = lasWallNormal.y;
-//                    v.normal_z = lasWallNormal.z;
-//                    // also set tangents
-//                    tangent1Vec.push_back(horPerpVec);
-//                    tangent2Vec.emplace_back(0, 1, 0);
-//                    texCoords.emplace_back(0, 0);
-//
-//                    cloud->push_back(v);
-//
-//                    y+= stepWidth;
-//                }
+                //debug
+                y = yMin;
+                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
+                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, debugR, debugG, debugB);//randR, randG, randB)); // blau
+                    // set normal
+                    v.normal_x = lasWallNormal.x;
+                    v.normal_y = lasWallNormal.y;
+                    v.normal_z = lasWallNormal.z;
+                    // also set tangents
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
+                    texCoords.emplace_back(0, 0);
+
+                    cloud->push_back(v);
+
+                    y+= stepWidth;
+                }
                 x = xCopy + stepWidth * horPerpVec.x;
                 z = zCopy + stepWidth * horPerpVec.z;
             }
@@ -2807,5 +2845,62 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
     }
 
     //endregion
+}
+
+bool DataIO::fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const Util::Wall& osmWall, pcl::Indices& certainWallPoints, pcl::PCA<pcl::PointXYZRGBNormal>& pca, Util::Wall& lasWall) {
+
+        pcl::IndicesPtr certainWallPointsPtr = std::make_shared<pcl::Indices>(certainWallPoints);
+        pca.setIndices(certainWallPointsPtr);
+        Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+        Eigen::Vector3f eigenValues = pca.getEigenValues();
+
+        // create plane
+        // get median point of certain wall points
+        float xMedian, yMedian, zMedian;
+        findXYZMedian(cloud, certainWallPoints, xMedian, yMedian, zMedian);
+        lasWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
+
+        // normal
+        // check if normal is more vertical
+        auto vertLen = abs(eigenVectors(1, 2));
+        if (vertLen > 0.5) { // length adds up to 1
+            return false;
+        } else {
+            // make wall vertical
+            auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
+            lasWall.mid.normal_x = lasWallNormal.x;
+            lasWall.mid.normal_y = lasWallNormal.y;
+            lasWall.mid.normal_z = lasWallNormal.z;
+        }
+        // project wall start and end point to certain wall point plane
+        // border points
+        auto dist1 = Util::signedPointPlaneDistance(osmWall.point1, lasWall.mid);
+        auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
+        // move point um distance along plane normal (point - (dist * normal))
+        lasWall.point1 = Util::vectorSubtract(osmWall.point1, pcl::PointXYZRGBNormal(dist1 * lasWall.mid.normal_x,
+                                                                                     dist1 * lasWall.mid.normal_y,
+                                                                                     dist1 * lasWall.mid.normal_z));
+        lasWall.point2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
+                                                                                     dist2 * lasWall.mid.normal_y,
+                                                                                     dist2 * lasWall.mid.normal_z));
+        auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
+        auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+        // right orientation
+        auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0));
+        lasWall.mid.normal_x = lasWallNormal.x;
+        lasWall.mid.normal_y = lasWallNormal.y;
+        lasWall.mid.normal_z = lasWallNormal.z;
+        // new mid that is in the middle
+        lasWall.mid.x = (lasWall.point1.x + lasWall.point2.x) / 2.0f;
+        // keep y as median value
+        lasWall.mid.z = (lasWall.point1.z + lasWall.point2.z) / 2.0f;
+        //endregion
+        return true;
+
+}
+
+float DataIO::getError(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::Indices certainWallPoints, const Util::Wall& osmWall, const Util::Wall lasWall) {
+
+    return Util::normalAngle(osmWall.mid, lasWall.mid);
 }
 
