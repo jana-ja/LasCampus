@@ -795,18 +795,22 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
 
             int removableCount = certainWallPoints.size() - 3;
+            // TODO move inside after debug
+            auto lasWallCopy = lasWall;
             if (removableCount > 0) {
             float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
-            auto lasWallCopy = lasWall;
+            // debug
+//                auto lasWallCopy = lasWall;
 
                 std::vector<std::pair<int, float>> mappi;
                 float bla[3];
                 for (int i = 0; i < certainWallPoints.size(); i++) {
+                    auto lasWallTest = lasWall;
                     auto certainWallPointsTest = certainWallPoints;
                     certainWallPointsTest.erase(certainWallPointsTest.begin() + i);
-                    if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallCopy))
+                    if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallTest))
                         continue;
-                    float newError = getError(cloud, certainWallPoints, osmWall, lasWallCopy);
+                    float newError = getError(cloud, certainWallPoints, osmWall, lasWallTest);
                     auto errorDist = oldError - newError;
                     if (errorDist > 0) {
                         // remove this point
@@ -826,6 +830,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                         mappi.erase(mappi.begin() + removableCount, mappi.end());
                     }
 
+                    auto newLasWall = lasWall;
                     pcl::Indices newCertainWallPoints;
                     // debug
                     for (const auto& item: certainWallPoints) {
@@ -842,13 +847,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                             continue;
                         newCertainWallPoints.push_back(item);
                     }
-                    if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, lasWallCopy))
+
+                    if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, newLasWall))
                         continue;
-                    float newError = getError(cloud, newCertainWallPoints, osmWall, lasWallCopy);
+                    float newError = getError(cloud, newCertainWallPoints, osmWall, newLasWall);
                     if (newError < oldError) {
                         // debug
 
-                        lasWall = lasWallCopy;
+                        lasWall = newLasWall;
                         certainWallPoints = newCertainWallPoints;
                         // debug
                         for (const auto& item: certainWallPoints) {
@@ -1089,9 +1095,41 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     y+= stepWidth;
                 }
                 //debug
-                y = yMin;
-                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
-                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, debugR, debugG, debugB);//randR, randG, randB)); // blau
+//                y = yMin;
+//                for (int i = 0; i <= columnHeightsCopy[j]; i++) { // TODO < oder <=?
+//                    auto v = pcl::PointXYZRGBNormal(x+0.05, y+0.05, z, debugR, debugG, debugB);//randR, randG, randB)); // blau
+//                    // set normal
+//                    v.normal_x = lasWallNormal.x;
+//                    v.normal_y = lasWallNormal.y;
+//                    v.normal_z = lasWallNormal.z;
+//                    // also set tangents
+//                    tangent1Vec.push_back(horPerpVec);
+//                    tangent2Vec.emplace_back(0, 1, 0);
+//                    texCoords.emplace_back(0, 0);
+//
+//                    cloud->push_back(v);
+//
+//                    y+= stepWidth;
+//                }
+                x = xCopy + stepWidth * horPerpVec.x;
+                z = zCopy + stepWidth * horPerpVec.z;
+            }
+            //endregion
+
+            // debug see if removing certain wall points results in better walls
+            // update
+            lasWallVec = Util::vectorSubtract(lasWallCopy.point2, lasWallCopy.point1);
+            horPerpVec = Util::normalize(lasWallVec); // horizontal
+            lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+            x = lasWallCopy.point1.x;
+            z = lasWallCopy.point1.z;
+            for (int j = 0; j < columnHeights.size(); j++) {
+                auto columnHeight = columnHeights[j];
+                float y = yMin;
+                float xCopy = x;
+                float zCopy = z;
+                for (int i = 0; i < columnHeight; i++) { // TODO < oder <=?
+                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 0, 255);//randR, randG, randB)); // türkis
                     // set normal
                     v.normal_x = lasWallNormal.x;
                     v.normal_y = lasWallNormal.y;
@@ -1108,7 +1146,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 x = xCopy + stepWidth * horPerpVec.x;
                 z = zCopy + stepWidth * horPerpVec.z;
             }
-            //endregion
 
         }
     //endregion
