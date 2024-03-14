@@ -856,7 +856,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { //TODO kann ich hier auch las mid nehmen?
                     continue;
                 }
-                auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], osmWall.mid);
+                auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWall.mid);
                 if (ppd > lasWallThreshold) {
                     continue;
                 }
