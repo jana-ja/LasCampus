@@ -795,12 +795,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
 
             int removableCount = certainWallPoints.size() - 3;
-            // TODO move inside after debug
-            auto lasWallCopy = lasWall;
             if (removableCount > 0) {
             float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
             // debug
-//                auto lasWallCopy = lasWall;
+                auto lasWallCopy = lasWall;
 
                 std::vector<std::pair<int, float>> mappi;
                 float bla[3];
@@ -922,8 +920,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
-            // TODO put back after debug - min 1 or 3
-            if (finalWallPoints.size() < 1 ) {
+            if (finalWallPoints.size() < 3 ) {
                 continue;
             }
 
@@ -933,10 +930,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             lasWall.point1.y = yMin;
             lasWall.point2.y = yMin;
 
-            // TODO put back after debug
-//            if (yMax <= yMin + 0.5) {
-//                continue;
-//            }
+            if (yMax <= yMin + 0.5) {
+                continue;
+            }
 
             // this is valid las wall
             // mark certain wall points
@@ -990,11 +986,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             // debug
             auto columnHeightsCopy = columnHeights;
 
-            // TODO put back after debug
-//            if (mostCommon->first < 3) {
-//                // skip weil zu niedrig
-//                continue;
-//            }
+            if (mostCommon->first < 3) {
+                // skip weil zu niedrig
+                continue;
+            }
 
 
             // look at jumping/outlier values
@@ -1063,13 +1058,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
             // skip wall if it hast too many jumps and most common height is not predominant
 
-            // TODO put back after debug
-//            if (jumpCount > 0) {
-//                if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
-//                    // skip wall
-//                    continue;
-//                }
-//            }
+
+            if (jumpCount > 0) {
+                if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
+                    // skip wall
+                    continue;
+                }
+            }
 
 
             x = lasWall.point1.x;
@@ -1079,7 +1074,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float y = yMin;
                 float xCopy = x;
                 float zCopy = z;
-                for (int i = 0; i < columnHeight; i++) { // TODO < oder <=?
+                for (int i = 0; i <= columnHeight; i++) {
                     auto v = pcl::PointXYZRGBNormal(x, y, z, osmR, osmG, osmB);//randR, randG, randB)); // türkis
                     // set normal
                     v.normal_x = lasWallNormal.x;
@@ -1116,36 +1111,36 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
             //endregion
 
-            // debug see if removing certain wall points results in better walls
-            // update
-            lasWallVec = Util::vectorSubtract(lasWallCopy.point2, lasWallCopy.point1);
-            horPerpVec = Util::normalize(lasWallVec); // horizontal
-            lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
-            x = lasWallCopy.point1.x;
-            z = lasWallCopy.point1.z;
-            for (int j = 0; j < columnHeights.size(); j++) {
-                auto columnHeight = columnHeights[j];
-                float y = yMin;
-                float xCopy = x;
-                float zCopy = z;
-                for (int i = 0; i < columnHeight; i++) { // TODO < oder <=?
-                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 0, 255);//randR, randG, randB)); // türkis
-                    // set normal
-                    v.normal_x = lasWallNormal.x;
-                    v.normal_y = lasWallNormal.y;
-                    v.normal_z = lasWallNormal.z;
-                    // also set tangents
-                    tangent1Vec.push_back(horPerpVec);
-                    tangent2Vec.emplace_back(0, 1, 0);
-                    texCoords.emplace_back(0, 0);
-
-                    cloud->push_back(v);
-
-                    y+= stepWidth;
-                }
-                x = xCopy + stepWidth * horPerpVec.x;
-                z = zCopy + stepWidth * horPerpVec.z;
-            }
+//            // debug see if removing certain wall points results in better walls
+//            // update
+//            lasWallVec = Util::vectorSubtract(lasWallCopy.point2, lasWallCopy.point1);
+//            horPerpVec = Util::normalize(lasWallVec); // horizontal
+//            lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0)); // TODO use stuff from wall struct
+//            x = lasWallCopy.point1.x;
+//            z = lasWallCopy.point1.z;
+//            for (int j = 0; j < columnHeights.size(); j++) {
+//                auto columnHeight = columnHeights[j];
+//                float y = yMin;
+//                float xCopy = x;
+//                float zCopy = z;
+//                for (int i = 0; i < columnHeight; i++) { // TODO < oder <=?
+//                    auto v = pcl::PointXYZRGBNormal(x, y, z, 0, 0, 255);//randR, randG, randB)); // türkis
+//                    // set normal
+//                    v.normal_x = lasWallNormal.x;
+//                    v.normal_y = lasWallNormal.y;
+//                    v.normal_z = lasWallNormal.z;
+//                    // also set tangents
+//                    tangent1Vec.push_back(horPerpVec);
+//                    tangent2Vec.emplace_back(0, 1, 0);
+//                    texCoords.emplace_back(0, 0);
+//
+//                    cloud->push_back(v);
+//
+//                    y+= stepWidth;
+//                }
+//                x = xCopy + stepWidth * horPerpVec.x;
+//                z = zCopy + stepWidth * horPerpVec.z;
+//            }
 
         }
     //endregion
