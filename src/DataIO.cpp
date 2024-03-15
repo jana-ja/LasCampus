@@ -17,10 +17,19 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     std::vector<DataIO::Polygon> osmPolygons;
 
     std::cout << TAG << "begin loading data" << std::endl;
-
-    // read las file
     std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
     const auto& file = lasFiles[0];
+
+    // get cached points
+    std::string cacheFile = file;
+    cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "cache");
+    if(readPointFeaturesFromCache(lasDir + cacheFile, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex)) {
+        return true;
+    }
+
+    // read las file
+//    std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
+//    const auto& file = lasFiles[0];
     // sets: las to opengl offsets, bounds for shp and numOfPoints
     readLas(lasDir + file);
 
@@ -40,12 +49,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     // TODO add error handling if osmPolygons are empty
     float maxWallRadius = preprocessWalls(wallOctree, osmPolygons);
 
-    // get cached features
-    // TODO probleme mit cache files da ich ja jetzt schon vorher punkte rauswerfe, muss dann exakt übereinstimmen also vllt verwendete params (zB wallthreshold im cache speichern)
-//    std::string cacheFile = file;
-//    cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "features");
-//    bool loadedCachedFeatures = readFeaturesFromCache(lasDir + cacheFile, cloud);
-//    return loadedCachedFeatures;
+
 
     std::cout << TAG << "begin filtering and coloring points" << std::endl;
     std::vector<bool> lasWallPoints;
@@ -64,6 +68,8 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
                 wallPointsStartIndex);
     tree->setInputCloud(cloud);
+
+    writePointFeaturesToCache(lasDir + cacheFile, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -1735,12 +1741,14 @@ DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFile, c
 
 
 // ********** cache **********
-bool DataIO::readFeaturesFromCache(const std::string& normalPath,
-                                   const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
+bool DataIO::readPointFeaturesFromCache(const std::string& cachePath,
+                                   const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
+                                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
 
     std::cout << TAG << "try to read features from cache" << std::endl;
+    std::cout << TAG << "try to read features from cache..." << std::endl;
 
-    std::ifstream inf(normalPath, std::ios::binary);
+    std::ifstream inf(cachePath, std::ios::binary);
     if (!inf.good()) {
         std::cout << TAG << "no cache file found" << std::endl;
         return false;
@@ -1750,39 +1758,70 @@ bool DataIO::readFeaturesFromCache(const std::string& normalPath,
         std::cout << TAG << "cache file found" << std::endl;
 
         // read header
-        FeatureCacheHeader normalHeader;
-        inf.read((char*) (&normalHeader), sizeof(FeatureCacheHeader));
+        FeatureCacheHeader cacheHeader;
+        inf.read((char*) (&cacheHeader), sizeof(FeatureCacheHeader));
 
 
         // check if right version
-        if (normalHeader.version != FEATURE_CACHE_VERSION) {
+        if (cacheHeader.version != FEATURE_CACHE_VERSION) {
             throw std::runtime_error("Feature Cache File has wrong version");
         }
+        
+        wallPointsStartIndex = cacheHeader.wallPointStartIndex;
 
+        std::cout << TAG << "reading " << cacheHeader.numberOfPoints << " points from cache" << std::endl;
+        
+        // read features
+        for (int i = 0; i < cacheHeader.numberOfPoints; i++) {
 
-        // read normals
-        for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
+            pcl::PointXYZRGBNormal point;
+            
+            float coords[3];
+            inf.read((char*) (&coords), 3 * sizeof(float));
+            point.x = coords[0];
+            point.y = coords[1];
+            point.z = coords[2];
+            
             float normal[3];
             inf.read((char*) (&normal), 3 * sizeof(float));
+            point.normal_x = normal[0];
+            point.normal_y = normal[1];
+            point.normal_z = normal[2];
 
-            (*it).normal_x = normal[0];
-            (*it).normal_y = normal[1];
-            (*it).normal_z = normal[2];
+//            float radius;
+//            inf.read((char*) (&radius), sizeof(float));
+//            point.curvature = radius;
 
-            float radius;
-            inf.read((char*) (&radius), sizeof(float));
-            (*it).curvature = radius;
+            float rgb;
+            inf.read((char*) (&rgb), sizeof(float));
+            point.rgb = rgb;
+            
+            cloud->push_back(point);
+
+
+            float tangen1Cache[3];
+            inf.read((char*) (&tangen1Cache), 3 * sizeof(float));
+            auto tan1 = pcl::PointXYZ(tangen1Cache[0], tangen1Cache[1], tangen1Cache[2]);
+            tangent1Vec.emplace_back(tangen1Cache[0], tangen1Cache[1], tangen1Cache[2]);
+
+            float tangen2Cache[3];
+            inf.read((char*) (&tangen2Cache), 3 * sizeof(float));
+            tangent2Vec.emplace_back(tangen2Cache[0], tangen2Cache[1], tangen2Cache[2]);
+
+            float texCoordsCache[2];
+            inf.read((char*) (&texCoordsCache), 2 * sizeof(float));
+            texCoords.emplace_back(texCoordsCache[0], texCoordsCache[1]);
 
         }
 
         if (!inf.good())
-            throw std::runtime_error("Reading .normal ran into error");
+            throw std::runtime_error("Reading .cache ran into error");
 
-        std::cout << TAG << "finished reading normals from cache" << std::endl;
+        std::cout << TAG << "finished reading points from cache" << std::endl;
         return true;
 
     } else {
-        throw std::runtime_error("Can't find .normal file");
+        throw std::runtime_error("Can't find .cache file");
     }
 }
 
@@ -1794,34 +1833,57 @@ bool DataIO::readFeaturesFromCache(const std::string& normalPath,
  * @param endIdx exclusive
  */
 void
-DataIO::writeFeaturesToCache(const std::string& normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud) {
-    std::ofstream out(normalPath, std::ios::binary);
+DataIO::writePointFeaturesToCache(const std::string& cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
+                                  std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
 
     std::cout << TAG << "writing normals to cache" << std::endl;
 
+    std::cout << TAG << "writing features to cache" << std::endl;
+
+    std::ofstream out(cachePath, std::ios::binary);
     if (out.is_open()) {
         // write header
-        FeatureCacheHeader normalHeader;
-        normalHeader.numberOfPoints = cloud->size();
-        normalHeader.version = FEATURE_CACHE_VERSION;
+        FeatureCacheHeader cacheHeader;
+        cacheHeader.numberOfPoints = cloud->size();
+        cacheHeader.version = FEATURE_CACHE_VERSION;
+        cacheHeader.wallPointStartIndex = wallPointsStartIndex;
 
-        out.write((char*) (&normalHeader), sizeof(FeatureCacheHeader));
+        out.write((char*) (&cacheHeader), sizeof(FeatureCacheHeader));
 
-        // write normals and radii
-        for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
-            out.write((char*) (&*it->normal), 3 * sizeof(float));
-            out.write((char*) (&it->curvature), sizeof(float));
+        // write features
+        for (int i = 0; i < cloud->points.size(); i++) {
+            const auto& point = (*cloud)[i];
+            out.write((char*) (&point.x), sizeof(float));
+            out.write((char*) (&point.y), sizeof(float));
+            out.write((char*) (&point.z), sizeof(float));
+            out.write((char*) (&point.normal), 3 * sizeof(float));
+            out.write((char*) (&point.rgb), sizeof(float));
+//            out.write((char*) (&it->curvature), sizeof(float));
+
+            const auto& tangent1 = tangent1Vec[i];
+            out.write((char*) (&tangent1.x), sizeof(float));
+            out.write((char*) (&tangent1.y), sizeof(float));
+            out.write((char*) (&tangent1.z), sizeof(float));
+
+            const auto& tangent2 = tangent2Vec[i];
+            out.write((char*) (&tangent2.x), sizeof(float));
+            out.write((char*) (&tangent2.y), sizeof(float));
+            out.write((char*) (&tangent2.z), sizeof(float));
+
+            const auto& texCoord = texCoords[i];
+            out.write((char*) (&texCoord.x), sizeof(float));
+            out.write((char*) (&texCoord.y), sizeof(float));
         }
 
         if (!out.good())
-            throw std::runtime_error("Writing .normal ran into error");
+            throw std::runtime_error("Writing .cache ran into error");
 
         out.close();
         std::cout << TAG << "finished writing normals to cache" << std::endl;
 
 
     } else {
-        throw std::runtime_error("Can't find .normal file");
+        throw std::runtime_error("Can't find .cache file");
     }
 }
 

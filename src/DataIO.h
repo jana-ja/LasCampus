@@ -17,7 +17,8 @@ class DataIO {
 public:
 
     // ********** cache **********
-    void writeFeaturesToCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
+    void writePointFeaturesToCache(const std::string &cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
+                                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
 
 
 
@@ -100,6 +101,7 @@ private:
     struct FeatureCacheHeader {
         uint32_t numberOfPoints;
         uint8_t version;
+        int wallPointStartIndex;
     };
 
 
@@ -229,8 +231,9 @@ private:
     bool readImg(std::vector<unsigned char>& image, const std::string& filename, const int& desiredChannels, int& width, int& height);
 
     // ********** cache **********
-    const uint8_t FEATURE_CACHE_VERSION = 2;
-    bool readFeaturesFromCache(const std::string &normalPath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
+    const uint8_t FEATURE_CACHE_VERSION = 3;
+    bool readPointFeaturesFromCache(const std::string &cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
+                                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
 
 
     bool fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const Util::Wall& osmWall, pcl::Indices& certainWallPoints, pcl::PCA<pcl::PointXYZRGBNormal>& pca, Util::Wall& lasWall);
