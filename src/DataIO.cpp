@@ -563,6 +563,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 // if this osm wall is covered by gml walls (so that there is at max a 3m hole) -> mark this osm wall (don't need to draw it later)
 
                 float matchingGmlWallLengthSum = 0;
+                // TODO at one point a building is split in two buildings in gml but not in osm -> osm wall matches with two gml walls separately and dos not get removed although it should!
                 for (const auto& matchingGmlWallIdx: osmToGmlMap[osmWallIdx]) { // works because the match maps are built per building
                     const auto& matchingGmlWall = gmlBuilding.osmWalls[matchingGmlWallIdx];
                     matchingGmlWallLengthSum += matchingGmlWall.length;
@@ -1288,7 +1289,7 @@ DataIO::getMaxY(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, float
                 continue;
             // distance to wall plane > 1.5
             float distToWall = abs(wallNormal.x * (searchPoint.x - point.x) + wallNormal.z * (searchPoint.z - point.z));
-            if (distToWall > 1.0)
+            if (distToWall > 1.5) // back to 1.5, fix wall after introducing remove point strategy for osm walls
                 continue;
             // distance to wall normal > stepWidth (n * searchPoint_point)
             float distToNormal = abs(wallPlane.x * (searchPoint.x - point.x) + wallPlane.z * (searchPoint.z - point.z));
