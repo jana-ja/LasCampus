@@ -85,6 +85,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
  * @param path
  */
 void DataIO::readLas(const std::string& path) {
+    std::string TAG = DataIO::TAG + "readLas\t";
 
     std::cout << TAG << "read las file..." << std::endl;
 
@@ -276,6 +277,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                                   std::vector<bool>& lasWallPoints,
                                   std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords) {
 
+    std::string TAG = DataIO::TAG + "filterAndColorPoints\t";
     // init cloud
     cloud->width = numOfPoints;
     cloud->height = 1;
@@ -411,6 +413,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                          std::vector<pcl::PointXY>& texCoords,
                          std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
                          int& wallPointsStartIndex) {
+    std::string TAG = DataIO::TAG + "detectWalls\t";
+
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;
     bool colorCertainLasWallRandom = false;
@@ -1336,6 +1340,9 @@ inline void trim(std::string& s) {
 }
 
 void DataIO::readGml(const std::string& path) {
+    std::string TAG = DataIO::TAG + "readGml\t";
+
+
     std::cout << TAG << "read gml file..." << std::endl;
 
     std::ifstream inf(path);
@@ -1549,6 +1556,7 @@ T swap_endian(T u) {
 }
 
 void DataIO::readShp(const std::string& path, std::vector<Polygon>* polygons) {
+    std::string TAG = DataIO::TAG + "readShp\t";
 
     std::cout << TAG << "read shp file..." << std::endl;
 
@@ -1679,6 +1687,7 @@ void DataIO::readShp(const std::string& path, std::vector<Polygon>* polygons) {
 
 float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                               std::vector<Polygon>& polygons) {
+    std::string TAG = DataIO::TAG + "preprocessWalls\t";
     // preprocessing of polygons to buildings
     // save all walls (min, mid, max point & radius)
     // dann beim normalen orientieren spatial search nach mid point mit max radius von allen walls
@@ -1785,7 +1794,7 @@ bool DataIO::readPointFeaturesFromCache(const std::string& cachePath,
                                    const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
                                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
 
-    std::cout << TAG << "try to read features from cache" << std::endl;
+    std::string TAG = DataIO::TAG + "readPointFeaturesFromCache\t";
     std::cout << TAG << "try to read features from cache..." << std::endl;
 
     std::ifstream inf(cachePath, std::ios::binary);
@@ -1876,7 +1885,8 @@ void
 DataIO::writePointFeaturesToCache(const std::string& cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
                                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
 
-    std::cout << TAG << "writing normals to cache" << std::endl;
+    std::string TAG = DataIO::TAG + "writePointFeaturesToCache\t";
+
 
     std::cout << TAG << "writing features to cache" << std::endl;
 
