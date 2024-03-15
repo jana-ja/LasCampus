@@ -61,7 +61,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     tangent1Vec = std::vector<pcl::PointXYZ>((*cloud).size());
     tangent2Vec = std::vector<pcl::PointXYZ>((*cloud).size());
 
-    std::cout << TAG << "begin detecting walls" << std::endl;
+    std::cout << TAG << "begin processing walls" << std::endl;
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
@@ -100,7 +100,7 @@ void DataIO::readLas(const std::string& path) {
 
         std::cout << TAG << "File: " << path << std::endl;
         std::cout << TAG << "Version: " << +header.versionMaj << "." << +header.versionMin << std::endl;
-        std::cout << TAG << "ShpPoint Data Record Format: " << +header.pointDataRecordFormat << std::endl;
+        std::cout << TAG << "Point Data Record Format: " << +header.pointDataRecordFormat << std::endl;
 
 
         // version checks
@@ -195,7 +195,6 @@ void DataIO::readLas(const std::string& path) {
 
                 lasPoints.push_back(point);
             }
-            std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
 
 
         }
@@ -289,6 +288,10 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         std::cout << "Error loading image\n";
         // TODO stop
     }
+
+    std::cout << TAG << "remove tree/vegetation points"  << std::endl;
+    std::cout << TAG << "+ mark wall points" << std::endl;
+    std::cout << TAG << "+ assign texture coordinates to points" << std::endl;
 
     // filter stuff
     int idxxx = 0;
@@ -393,6 +396,10 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         lasWallPoints.push_back(belongsToWall);
         lasGroundPoints.push_back(classification == 2);
     }
+
+    std::cout << TAG << "new number of points: " << (*cloud).size() << std::endl;
+    std::cout << TAG << "finished filtering points" << std::endl;
+
 }
 
 
@@ -430,6 +437,9 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     // mark osm walls that are already covered by gml walls -> only draw remaining osm walls
     auto usedOsmWalls = std::vector<bool>(osmWallMidPoints->size());
     std::fill(usedOsmWalls.begin(), usedOsmWalls.end(), false);
+
+    std::cout << TAG << "match gml walls to osm walls" << std::endl;
+    std::cout << TAG << "+ draw gml walls" << std::endl;
 
     for (auto bIdx = 0; bIdx < gmlBuildings.size(); bIdx++) {
 
@@ -734,7 +744,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //    }
     //endregion
 
-    // region draw remaining osm walls
+    std::cout << TAG << "draw osm walls that are not covered by gml walls" << std::endl;
+
+    //region draw remaining osm walls
+
     for (auto osmWallIdx = 0; osmWallIdx < osmWalls.size(); osmWallIdx++) {
         if (usedOsmWalls[osmWallIdx])
             continue;
@@ -1138,7 +1151,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
     }
     //endregion
+
+    auto insertedWallPointCount = (*cloud).size() - removePoints.size();
+    std::cout << TAG << "added " << insertedWallPointCount << " new wall points" << std::endl;
+    std::cout << TAG << "new number of points: " << (*cloud).size() << std::endl;
+
+
     if (removeOldWallPoints) {
+        std::cout << TAG << "removing old wall points.." << std::endl;
+
         auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
         auto newTexCoords = std::vector<pcl::PointXY>();
         // only keep old points that do not belong to walls
@@ -1171,6 +1192,11 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
         texCoords.clear();
         texCoords.insert(texCoords.end(), newTexCoords.begin(), newTexCoords.end());
+
+        std::cout << TAG << "removed " << pointCountDif << " old points" << std::endl;
+        std::cout << TAG << "new number of points: " << (*cloud).size() << std::endl;
+
+
     }
 
     // TODO checken welche certainw all points übrig bleiben. denke da muss man nicht extra was noch für machen.
@@ -1319,6 +1345,8 @@ void DataIO::readGml(const std::string& path) {
 //    float maxR = -1;
 
     if (inf.is_open()) {
+
+        std::cout << TAG << "File: " << path << std::endl;
 
         int buildingCount = 0;
         std::string line;
@@ -1487,6 +1515,12 @@ void DataIO::readGml(const std::string& path) {
 //                buildings.push_back(newBuilding);
             }
         }
+
+        std::cout << TAG << "read data of " << gmlBuildings.size() << " buildings" << std::endl;
+        std::cout << TAG << "finished reading gml file" << std::endl;
+
+    } else {
+        throw std::runtime_error("Can't find .gml file");
     }
 //    wallOctree.setInputCloud(wallMidPoints);
 //    wallOctree.defineBoundingBox();
@@ -1634,6 +1668,7 @@ void DataIO::readShp(const std::string& path, std::vector<Polygon>* polygons) {
         if (!inf.good())
             throw std::runtime_error("Reading .shp ran into error");
 
+        std::cout << TAG << "read data of " << polygons->size() << " polygons" << std::endl;
         std::cout << TAG << "finished reading shp file" << std::endl;
 
 
@@ -1647,6 +1682,7 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
     // preprocessing of polygons to buildings
     // save all walls (min, mid, max point & radius)
     // dann beim normalen orientieren spatial search nach mid point mit max radius von allen walls
+    std::cout << TAG << "preprocess polygons to buildings/walls" << std::endl;
     float maxR = 0;
     buildings = std::vector<Building>(polygons.size());
     auto wallMidPoints = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -1718,6 +1754,7 @@ float DataIO::preprocessWalls(pcl::octree::OctreePointCloudSearch<pcl::PointXYZR
 
         }
     }
+    std::cout << TAG << "processed " << wallMidPoints->size() << " walls" << std::endl;
 
     wallOctree.setInputCloud(wallMidPoints);
     wallOctree.defineBoundingBox();
