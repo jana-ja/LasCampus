@@ -1143,10 +1143,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         auto newTexCoords = std::vector<pcl::PointXY>();
         // only keep old points that do not belong to walls
         for (auto pIdx = 0; pIdx < removePoints.size(); pIdx++) {
-            if (!removePoints[pIdx]) {
-                newPoints.push_back((*cloud)[pIdx]);
-                newTexCoords.push_back(texCoords[pIdx]);
-            }
+            if (removePoints[pIdx])
+                continue;
+            if (lasWallPoints[pIdx])
+                continue;
+
+            newPoints.push_back((*cloud)[pIdx]);
+            newTexCoords.push_back(texCoords[pIdx]);
         }
         wallPointsStartIndex = newPoints.size();
 
