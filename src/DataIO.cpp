@@ -571,8 +571,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     matchingGmlWallLengthSum += matchingGmlWall.length;
                 }
                 // this gml wall does cover a osm wall (maybe together with more gml walls) -> don't skip it
-                if (matchingGmlWallLengthSum + 3.0 > osmWall.length) {
-//                    if (matchingGmlWallLengthSum /*+ 3.0*/ > osmWall.length * 0.6) { //TODO schauen ob relativ oder mti festem loch wert, ,schauen warum die eine wandi verschwindet
+//                if (matchingGmlWallLengthSum + 3.0 > osmWall.length) { // kleinere prozentzahl -> mehr wände fliegen raus. zB nur 10% müssen abgedeckt sein damit die rausfliegt  im ggsatz zu 70%
+                    if (matchingGmlWallLengthSum /*+ 3.0*/ > osmWall.length * 0.70  || matchingGmlWallLengthSum + 3.0 > osmWall.length) { //TODO schauen ob relativ oder mti festem loch wert, ,schauen warum die eine wandi verschwindet
                     usedOsmWalls[osmWallIdx] = true;
                 }
 //
