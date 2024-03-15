@@ -832,12 +832,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 
                 auto newLasWall = lasWall;
                 pcl::Indices newCertainWallPoints;
-                // debug
-                for (const auto& item: certainWallPoints) {
-                    (*cloud)[item].r = 0;
-                    (*cloud)[item].g = 0; // rot
-                    (*cloud)[item].b = 255;
-                }
+
                 for (const auto& item: mappi) {
 
                     certainWallPoints[item.first] = -1;
@@ -852,21 +847,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     continue;
                 float newError = getError(cloud, newCertainWallPoints, osmWall, newLasWall);
                 if (newError < oldError) {
-                    // debug
-
                     lasWall = newLasWall;
                     certainWallPoints = newCertainWallPoints;
-                    // debug
-                    for (const auto& item: certainWallPoints) {
-                        (*cloud)[item].r = 0;
-                        (*cloud)[item].g = 255; // gelb
-                        (*cloud)[item].b = 255;
-                    }
                 } else {
                     //restore old points
                     certainWallPoints = certainWallPointsCopy;
                 }
-                // manchmal wächst der error, dann altes nehmen
             }
         }
         //endregion
@@ -939,7 +925,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             usedLasWallPoints[nIdx] = true;
         }
 
-        // region draw las wall
+        // region draw wall
 
         // fill wall with points
         // draw plane
