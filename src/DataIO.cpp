@@ -784,7 +784,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         }
 
         Util::Wall lasWall;
-        //region fit *vertical* plane through certain wall points
+        // fit *vertical* plane through certain wall points
         if (!fitPlane(cloud, osmWall, certainWallPoints, pca, lasWall))
             continue;
 
