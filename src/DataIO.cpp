@@ -884,17 +884,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         //region get final wall points from new wall plane
 
         // get min max wall borders
-        auto lasMinX = std::min(lasWall.point1.x, lasWall.point2.x);
-        auto lasMaxX = std::max(lasWall.point1.x, lasWall.point2.x);
-        auto lasMinZ = std::min(lasWall.point1.z, lasWall.point2.z);
-        auto lasMaxZ = std::max(lasWall.point1.z, lasWall.point2.z);
         std::vector<pcl::PointXYZ> finalWallPointsNotGround;
 
         for (auto nIdxIt = pointIdxRadiusSearch.begin(); nIdxIt != pointIdxRadiusSearch.end(); nIdxIt++) {
 
             const auto& nIdx = *nIdxIt;
             const auto& point = (*cloud)[*nIdxIt];
-            if (point.x > lasMaxX || point.x < lasMinX || point.z > lasMaxZ || point.z < lasMinZ) { //TODO kann ich hier auch las mid nehmen?
+            if (Util::horizontalDistance(point, lasWall.mid) > lasWall.length / 2) {
                 continue;
             }
             auto ppd = Util::pointPlaneDistance(cloud->points[*nIdxIt], lasWall.mid);
