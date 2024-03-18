@@ -20,20 +20,19 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
 
     DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
 
-    bool cachedFeatues = dataIO.readData(lasFiles, shpFile, gmlFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
-//    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
-//            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
-//    tree->setInputCloud(cloud);
-//    //TODO tree ist grad doppelt
+    bool cachedSplats = dataIO.readData(lasFiles, shpFile, gmlFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    tree->setInputCloud(cloud);
+    //TODO tree ist grad doppelt
 
-    if (!cachedFeatues) {
-//        adaSplats(tree);
+    if (!cachedSplats) {
+        adaSplats(tree);
 
-//        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
-//        const auto& file = lasFiles[0];
-//        std::string cacheFile = file;
-//        cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "features");
-//        dataIO.writeFeaturesToCache(lasDir + cacheFile, cloud);
+        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
+        const auto& file = lasFiles[0];
+
+        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
     }
 
 }

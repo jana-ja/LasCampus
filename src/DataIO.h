@@ -17,8 +17,8 @@ class DataIO {
 public:
 
     // ********** cache **********
-    void writePointFeaturesToCache(const std::string &cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
-                                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+    void writeCache(const std::string &cachePath, bool splatCache, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
+                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
 
 
 
@@ -232,7 +232,7 @@ private:
 
     // ********** cache **********
     const uint8_t FEATURE_CACHE_VERSION = 3;
-    bool readPointFeaturesFromCache(const std::string &cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
+    std::string readCache(const std::string &cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
                                     std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
 
 

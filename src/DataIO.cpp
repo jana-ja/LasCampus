@@ -21,10 +21,13 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     const auto& file = lasFiles[0];
 
     // get cached points
-    std::string cacheFile = file;
-    cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "cache");
-    if(readPointFeaturesFromCache(lasDir + cacheFile, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex)) {
+
+    auto cacheType = readCache(lasDir + file, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    if (cacheType == "splat"){
         return true;
+    }
+    if (cacheType == "point") {
+        return false;
     }
 
     // read las file
@@ -69,7 +72,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
                 wallPointsStartIndex);
     tree->setInputCloud(cloud);
 
-    writePointFeaturesToCache(lasDir + cacheFile, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    writeCache(lasDir + file, false, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -1790,21 +1793,36 @@ DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFile, c
 
 
 // ********** cache **********
-bool DataIO::readPointFeaturesFromCache(const std::string& cachePath,
+std::string DataIO::readCache(const std::string& lasFile,
                                    const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
                                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
 
-    std::string TAG = DataIO::TAG + "readPointFeaturesFromCache\t";
-    std::cout << TAG << "try to read features from cache..." << std::endl;
+    std::string TAG = DataIO::TAG + "readCache\t";
+    std::cout << TAG << "try to find cache file..." << std::endl;
 
-    std::ifstream inf(cachePath, std::ios::binary);
+    std::string cacheFile = lasFile;
+    cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "splat_cache");
+
+    std::string cacheType = "splat";
+
+    std::ifstream inf(cacheFile, std::ios::binary);
     if (!inf.good()) {
-        std::cout << TAG << "no cache file found" << std::endl;
-        return false;
+        std::cout << TAG << "no splat cache file found" << std::endl;
+        cacheType = "point";
+
+        cacheFile = lasFile;
+        cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "point_cache");
+        inf = std::ifstream(cacheFile, std::ios::binary);
+
+        if (!inf.good()) {
+            std::cout << TAG << "no point cache file found" << std::endl;
+            return "none";
+        }
     }
 
+
     if (inf.is_open()) {
-        std::cout << TAG << "cache file found" << std::endl;
+        std::cout << TAG << cacheType << " cache file found" << std::endl;
 
         // read header
         FeatureCacheHeader cacheHeader;
@@ -1867,7 +1885,7 @@ bool DataIO::readPointFeaturesFromCache(const std::string& cachePath,
             throw std::runtime_error("Reading .cache ran into error");
 
         std::cout << TAG << "finished reading points from cache" << std::endl;
-        return true;
+        return cacheType;
 
     } else {
         throw std::runtime_error("Can't find .cache file");
@@ -1882,15 +1900,24 @@ bool DataIO::readPointFeaturesFromCache(const std::string& cachePath,
  * @param endIdx exclusive
  */
 void
-DataIO::writePointFeaturesToCache(const std::string& cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
-                                  std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
+DataIO::writeCache(const std::string& lasFile, bool splatCache, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
+                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
 
-    std::string TAG = DataIO::TAG + "writePointFeaturesToCache\t";
-
+    std::string TAG = DataIO::TAG + "writeCache\t";
 
     std::cout << TAG << "writing features to cache" << std::endl;
 
-    std::ofstream out(cachePath, std::ios::binary);
+
+
+
+    std::string cacheFile = lasFile;
+    if (splatCache) {
+        cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "splat_cache");
+    } else {
+        cacheFile.replace(cacheFile.end() - 3, cacheFile.end(), "point_cache");
+    }
+
+    std::ofstream out(cacheFile, std::ios::binary);
     if (out.is_open()) {
         // write header
         FeatureCacheHeader cacheHeader;
