@@ -302,16 +302,27 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 
     // for every point
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-//        if (pointIdx < wallPointsStartIndex ) {
+//        if (pointIdx < wallPointsStartIndex + 39100) {
 //            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
 //            continue;
 //        }
-//        if (pointIdx > wallPointsStartIndex + 3000) {
+//        if (pointIdx > wallPointsStartIndex + 39128) {
 //            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
 //            continue;
 //        }
-
-
+//
+//        // TODO debug
+//        (*cloud)[pointIdx].r = 0;
+//        (*cloud)[pointIdx].g = 0;
+//        (*cloud)[pointIdx].b = 255;
+//
+//
+//        if (pointIdx == wallPointsStartIndex + 39125) {
+//            (*cloud)[pointIdx].r = 0;
+//            (*cloud)[pointIdx].g = 255;
+//            (*cloud)[pointIdx].b = 255;
+//            auto r = 3;
+//        }
 //        if (pointIdx % 1000 != 0){
 //            continue;
 //        }
@@ -356,7 +367,7 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
         // for every neighbour
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
-            if (!growTangent1 || !growTangent2) {
+            if (!growTangent1 && !growTangent2) {
                 break;
             }
 
@@ -383,15 +394,7 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
             }
 
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
-            // stop growing when neighbour has different class
-            if (pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]) {
-                if (concernsTangent1) {
-                    growTangent1 = false;
-                } else {
-                    growTangent2 = false;
-                }
-                continue;
-            }
+
 
             // stop growing when angle between point normal and neighbour normal is too big
             // smoothness check
@@ -428,10 +431,31 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
                 continue;
             }
 
+            // stop growing when neighbour has different class
+            if (pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]) {
+                // TODO neu der punkt kommt aber noch mit rein
+                epsilonSum += eps;
+                if (concernsTangent1) {
+                    epsilonCount1++;
+                    lastEpsilonNeighbourIdx1 = nIdx;
+                } else {
+                    epsilonCount2++;
+                    lastEpsilonNeighbourIdx2 = nIdx;
+                }
+                if (concernsTangent1) {
+                    growTangent1 = false;
+                } else {
+                    growTangent2 = false;
+                }
+                continue;
+            }
+
             // skip discarded points
             if (discardPoint[neighbourhood[nIdx]]) {
                 continue;
             }
+
+
 
             epsilonSum += eps;
             if (concernsTangent1) {
@@ -456,24 +480,25 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
             }
             tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             continue;
-        } else if (epsilonCount2 == 0) {
-            // minor achse
-            if (colorInvalid) {
-                (*cloud)[pointIdx].r = 255;
-                (*cloud)[pointIdx].g = 0;
-                (*cloud)[pointIdx].b = 0;
-            }
-            epsilonCount2++;
-            lastEpsilonNeighbourIdx2 = 1;
-        } else if (epsilonCount1 == 0) {
-            if (colorInvalid) {
-                (*cloud)[pointIdx].r = 255;
-                (*cloud)[pointIdx].g = 0;
-                (*cloud)[pointIdx].b = 0;
-            }
-            epsilonCount1++;
-            lastEpsilonNeighbourIdx1 = 1;
         }
+//        else if (epsilonCount2 == 0) {
+//            // minor achse
+//            if (colorInvalid) {
+//                (*cloud)[pointIdx].r = 255;
+//                (*cloud)[pointIdx].g = 0;
+//                (*cloud)[pointIdx].b = 0;
+//            }
+//            epsilonCount2++;
+//            lastEpsilonNeighbourIdx2 = 1;
+//        } else if (epsilonCount1 == 0) {
+//            if (colorInvalid) {
+//                (*cloud)[pointIdx].r = 255;
+//                (*cloud)[pointIdx].g = 0;
+//                (*cloud)[pointIdx].b = 0;
+//            }
+//            epsilonCount1++;
+//            lastEpsilonNeighbourIdx1 = 1;
+//        }
 
         // compute avg of the epsilons
         float epsilonAvg = epsilonSum / (epsilonCount1 + epsilonCount2);
@@ -490,16 +515,25 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
         auto bla1 = Util::dotProduct(normal, pointToNeighbourVec1);
         auto rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
         float radius1 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec1, rightSide1));
+//        float radius1 = Util::vectorLength(pointToNeighbourVec1);
         // tangent 2
         const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx2]];
         auto pointToNeighbourVec2 = Util::vectorSubtract(lastNeighbourPoint2, point);
         auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
         auto rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
         float radius2 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec2, rightSide2));
+//        float radius2 = Util::vectorLength(pointToNeighbourVec2);
         // length of axes has to be 1/radius
+
+        // TODO test debug
+//        auto minRadius = 2.0f;//std::min(radius1, radius2);
+//        radius1 = 0.5;
+//        radius2 = 1.5;
         tangent1Vec[pointIdx] = pcl::PointXYZ(tangent1Vec[pointIdx].x / radius1, tangent1Vec[pointIdx].y / radius1, tangent1Vec[pointIdx].z / radius1);
         tangent2Vec[pointIdx] = pcl::PointXYZ(tangent2Vec[pointIdx].x / radius2, tangent2Vec[pointIdx].y / radius2, tangent2Vec[pointIdx].z / radius2);
 //        (*cloud)[pointIdx].curvature = radius;
+
+auto bla = Util::vectorLength(tangent1Vec[pointIdx]);
 
 
         // discard points

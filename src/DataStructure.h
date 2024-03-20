@@ -54,7 +54,7 @@ public:
 
 private:
 
-    bool colorClasses = false;
+    bool colorClasses = true;
     // splats + invalid + discarded = 1
     bool colorSplats = false;
     bool colorInvalid = false; // pink und blue
