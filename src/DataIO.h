@@ -18,14 +18,14 @@ public:
 
     // ********** cache **********
     void writeCache(const std::string &cachePath, bool splatCache, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
-                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses);
 
 
 
 //    DataIO(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& imgFile): {}
     bool readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& gmlFile, const std::string& imgFile,
                   const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
-                  std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+                  std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses);
 
 private:
     const std::string TAG = "DataIO\t";
@@ -183,7 +183,7 @@ private:
                               const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
     void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
                      const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& lasPointTree, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& osmWallOctree, std::vector<pcl::PointXY>& texCoords,
-                     std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+                     std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses);
     void complexStableWalls(Building& building);
     void simpleStableWalls(DataIO::Building& building, std::map<int, pcl::Indices>& lasCertainWallPoints, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud);
     void wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>& usedLasWallPoints, std::vector<bool>& removePoints, const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree,
@@ -231,9 +231,9 @@ private:
     bool readImg(std::vector<unsigned char>& image, const std::string& filename, const int& desiredChannels, int& width, int& height);
 
     // ********** cache **********
-    const uint8_t FEATURE_CACHE_VERSION = 3;
+    const uint8_t FEATURE_CACHE_VERSION = 4;
     std::string readCache(const std::string &cachePath, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
-                                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex);
+                                    std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses);
 
 
     bool fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const Util::Wall& osmWall, pcl::Indices& certainWallPoints, pcl::PCA<pcl::PointXYZRGBNormal>& pca, Util::Wall& lasWall);

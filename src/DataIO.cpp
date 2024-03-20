@@ -12,7 +12,7 @@
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& gmlFile, const std::string& imgFile,
                       const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
                       std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
-                      int& wallPointsStartIndex) {
+                      int& wallPointsStartIndex, std::vector<int>& pointClasses) {
 
     std::vector<DataIO::Polygon> osmPolygons;
 
@@ -22,7 +22,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
 
     // get cached points
 
-    auto cacheType = readCache(lasDir + file, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    auto cacheType = readCache(lasDir + file, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
     if (cacheType == "splat"){
         return true;
     }
@@ -67,12 +67,14 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     std::cout << TAG << "begin processing walls" << std::endl;
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+    pointClasses = std::vector<int>(cloud->points.size());
+    fill(pointClasses.begin(), pointClasses.end(), 2);
     tree->setInputCloud(cloud);
     detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
-                wallPointsStartIndex);
+                wallPointsStartIndex, pointClasses);
     tree->setInputCloud(cloud);
 
-    writeCache(lasDir + file, false, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    writeCache(lasDir + file, false, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
 
 
     std::cout << TAG << "loading data successful" << std::endl;
@@ -175,13 +177,13 @@ void DataIO::readLas(const std::string& path) {
 
 
         // points
-//        numOfPoints = 800000;
-        numOfPoints = header.numberOfPoints;
+        numOfPoints = 800000;
+//        numOfPoints = header.numberOfPoints;
 
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
         // skip to point tree TODO because i dont use all points for testing
-//        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
+        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {
@@ -214,7 +216,7 @@ void DataIO::readLas(const std::string& path) {
     }
 }
 
-bool polygonCheck(pcl::PointXYZRGBNormal& point, std::vector<pcl::PointXYZ>& points) {
+bool polygonCheck(const pcl::PointXYZRGBNormal& point, std::vector<pcl::PointXYZ>& points) {
     // create ray for this point
     auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
     auto rayDir = pcl::PointXYZ(0, -1, 0); // TODO muss auf ebene liegen
@@ -415,7 +417,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                          const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& osmWallOctree,
                          std::vector<pcl::PointXY>& texCoords,
                          std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
-                         int& wallPointsStartIndex) {
+                         int& wallPointsStartIndex, std::vector<int>& pointClasses) {
     std::string TAG = DataIO::TAG + "detectWalls\t";
 
     bool colorOsmWall = false;
@@ -424,10 +426,6 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     bool colorFinalLasWall = false;
     bool colorFinalLasWallWithoutGround = false;
     bool removeOldWallPoints = true;
-
-    // TODO
-    //  schauen ob dann noch sichere wandpunkte übrig sind
-
 
     pcl::PCA<pcl::PointXYZRGBNormal> pca = new pcl::PCA<pcl::PointXYZ>;
     pca.setInputCloud(cloud);
@@ -662,13 +660,18 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 float zCopy = z;
                 while (y < yMax) {
 
-                    y += stepWidth;
+
 
                     auto v = pcl::PointXYZRGBNormal(x, y, z, gmlR, gmlG, gmlB);//randR, randG, randB));
 
                     // if the wall is not a rectangle I have to check if the new vertex is inside the polygon
                     if (!gmlWall.isRect && !polygonCheck(v, gmlWall.points)) {
+                        y += stepWidth;
                         continue;
+                    }
+
+                    if (!gmlWall.isRect) {
+                        auto f = 3;
                     }
 
                     // set normal
@@ -680,7 +683,31 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     tangent2Vec.emplace_back(0, 1, 0);
                     texCoords.emplace_back(0, 0);
 
+                    // set class
+                    if (gmlWall.isRect) {
+                        if (distanceMoved == 0 || distanceMoved + stepWidth > gmlWall.length || y == yMin || y+stepWidth > yMax ) {
+                            pointClasses.emplace_back(0);
+                        } else {
+                            pointClasses.emplace_back(1);
+                        }
+                    } else {
+                        // TODO
+                        if (distanceMoved == 0 || distanceMoved + stepWidth > gmlWall.length || y == yMin || y+stepWidth > yMax
+                            || !polygonCheck(pcl::PointXYZRGBNormal(x - stepWidth * wallVec.x, y, z - stepWidth * wallVec.z), gmlWall.points)
+                            || !polygonCheck(pcl::PointXYZRGBNormal(x + stepWidth * wallVec.x, y, z + stepWidth * wallVec.z), gmlWall.points)
+                            || !polygonCheck(pcl::PointXYZRGBNormal(x, y - stepWidth, z), gmlWall.points)
+                            || !polygonCheck(pcl::PointXYZRGBNormal(x, y + stepWidth, z), gmlWall.points)
+                            ) {
+                            pointClasses.emplace_back(0);
+                        }
+                        else {
+                            pointClasses.emplace_back(1);
+                        }
+                    }
+
                     cloud->push_back(v);
+
+                    y += stepWidth;
                 }
                 x = xCopy + stepWidth * wallVec.x;
                 z = zCopy + stepWidth * wallVec.z;
@@ -1098,6 +1125,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 tangent1Vec.push_back(horPerpVec);
                 tangent2Vec.emplace_back(0, 1, 0);
                 texCoords.emplace_back(0, 0);
+                // set class
+                if (j == 0 || j + 1 == columnHeights.size() || y == yMin || y + stepWidth > columnHeight ) {
+                    pointClasses.emplace_back(0);
+                } else {
+                    pointClasses.emplace_back(1);
+                }
 
                 cloud->push_back(v);
 
@@ -1181,12 +1214,13 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         }
         wallPointsStartIndex = newPoints.size();
 
-        // move partition of wall tangents in tangent1Vec and tangent2Vec to match point cloud by inserting or removing points
+        // move partition of wall tangents in tangent1Vec and tangent2Vec to match point cloud by removing points
         int initCloudLength = removePoints.size();
         int pointCountDif = initCloudLength - wallPointsStartIndex; // is always >=0 because points just got removed
         // fewer points than before, remove points
         tangent1Vec.erase(tangent1Vec.begin(), tangent1Vec.begin() + pointCountDif);
         tangent2Vec.erase(tangent2Vec.begin(), tangent2Vec.begin() + pointCountDif);
+        pointClasses.erase(pointClasses.begin(), pointClasses.begin() + pointCountDif);
 
         // keep all new points
         int tangentIdx = 0;
@@ -1795,7 +1829,7 @@ DataIO::readImg(std::vector<unsigned char>& image, const std::string& imgFile, c
 // ********** cache **********
 std::string DataIO::readCache(const std::string& lasFile,
                                    const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
-                                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
+                                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses) {
 
     std::string TAG = DataIO::TAG + "readCache\t";
     std::cout << TAG << "try to find cache file..." << std::endl;
@@ -1879,6 +1913,10 @@ std::string DataIO::readCache(const std::string& lasFile,
             inf.read((char*) (&texCoordsCache), 2 * sizeof(float));
             texCoords.emplace_back(texCoordsCache[0], texCoordsCache[1]);
 
+            int pointClass;
+            inf.read((char*) (&pointClass), sizeof(int));
+            pointClasses.emplace_back(pointClass);
+
         }
 
         if (!inf.good())
@@ -1901,11 +1939,11 @@ std::string DataIO::readCache(const std::string& lasFile,
  */
 void
 DataIO::writeCache(const std::string& lasFile, bool splatCache, const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const std::vector<pcl::PointXY>& texCoords,
-                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex) {
+                   std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses) {
 
     std::string TAG = DataIO::TAG + "writeCache\t";
 
-    std::cout << TAG << "writing features to cache" << std::endl;
+    std::cout << TAG << "writing points to cache" << std::endl;
 
 
 
@@ -1950,13 +1988,16 @@ DataIO::writeCache(const std::string& lasFile, bool splatCache, const pcl::Point
             const auto& texCoord = texCoords[i];
             out.write((char*) (&texCoord.x), sizeof(float));
             out.write((char*) (&texCoord.y), sizeof(float));
+
+            const auto& pointClass = pointClasses[i];
+            out.write((char*) (&pointClass), sizeof(int));
         }
 
         if (!out.good())
             throw std::runtime_error("Writing .cache ran into error");
 
         out.close();
-        std::cout << TAG << "finished writing normals to cache" << std::endl;
+        std::cout << TAG << "finished writing cache" << std::endl;
 
 
     } else {

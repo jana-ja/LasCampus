@@ -19,25 +19,27 @@ using namespace std;
 DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& gmlFile, const std::string& imgFile): imgFile(imgFile) {
 
     DataIO dataIO = DataIO();//lasFiles, shpFile, imgFile);
-
-    bool cachedSplats = dataIO.readData(lasFiles, shpFile, gmlFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+    std::vector<int> pointClasses;
+    bool cachedSplats = dataIO.readData(lasFiles, shpFile, gmlFile, imgFile, cloud,  texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
     //TODO tree ist grad doppelt
 
     if (!cachedSplats) {
-        adaSplats(tree);
+
+
+        adaSplats(tree, pointClasses);
 
         std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
         const auto& file = lasFiles[0];
 
-        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex);
+        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
     }
 
 }
 
-void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree) {
+void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int>& pointClasses) {
     auto start = std::chrono::high_resolution_clock::now();
     std::cout << TAG << "start ada" << std::endl;
 
@@ -45,8 +47,7 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
     int k = 40;
     std::vector<pcl::Indices> pointNeighbourhoods(cloud->points.size());
     std::vector<vector<float>> pointNeighbourhoodsDistance(cloud->points.size());
-    std::vector<int> pointClasses(cloud->points.size());
-    fill(pointClasses.begin(), pointClasses.end(), 2);
+
 
     // ********** knn and compute avgRadius **********
     float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
@@ -152,48 +153,42 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                             tangent2Vec[pointIdx] = tangent1;
                         }
                     }
+
+                    // local descriptors
+                    const auto& l1 = eigenValues(0);
+                    const auto& l2 = eigenValues(1);
+                    const auto& l3 = eigenValues(2);
+                    float linearity = (l1 - l2) / l1;
+                    float planarity = (l2 - l3) / l1;
+                    float sphericity = l3 / l1;
+                    std::array bla = {linearity, planarity, sphericity};
+                    int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
+
+                    pointClasses[pointIdx] = mainDings;
+
+
                 } // else: are already set from wall detection
-
-
-
-                // local descriptors
-                const auto& l1 = eigenValues(0);
-                const auto& l2 = eigenValues(1);
-                const auto& l3 = eigenValues(2);
-                float linearity = (l1 - l2) / l1;
-                float planarity = (l2 - l3) / l1;
-                float sphericity = l3 / l1;
-                std::array bla = {linearity, planarity, sphericity};
-                int mainDings = std::distance(bla.begin(), std::max_element(bla.begin(), bla.end()));
-
-                switch (mainDings) {
-                    case 0:
-                        pointClasses[pointIdx] = 0;
-                        // linearity is main
-                        if (colorClasses) {
-                            (*cloud)[pointIdx].r = 255;
-                            (*cloud)[pointIdx].g = 0;
-                            (*cloud)[pointIdx].b = 0;
-                        }
-                        break;
-                    case 1:
-                        pointClasses[pointIdx] = 1;
-                        // planarity is main
-                        if (colorClasses) {
-                            (*cloud)[pointIdx].r = 0;
-                            (*cloud)[pointIdx].g = 255;
-                            (*cloud)[pointIdx].b = 0;
-                        }
-                        break;
-                    default:
-                        pointClasses[pointIdx] = 2;
-                        // sphericity is main
-                        if (colorClasses) {
-                            (*cloud)[pointIdx].r = 0;
-                            (*cloud)[pointIdx].g = 0;
-                            (*cloud)[pointIdx].b = 255;
-                        }
-                        break;
+                if (colorClasses) {
+                    switch (pointClasses[pointIdx]) {
+                        case 0:
+                            // linearity is main
+                                (*cloud)[pointIdx].r = 255;
+                                (*cloud)[pointIdx].g = 0;
+                                (*cloud)[pointIdx].b = 0;
+                            break;
+                        case 1:
+                            // planarity is main
+                                (*cloud)[pointIdx].r = 0;
+                                (*cloud)[pointIdx].g = 255;
+                                (*cloud)[pointIdx].b = 0;
+                            break;
+                        default:
+                            // sphericity is main
+                                (*cloud)[pointIdx].r = 0;
+                                (*cloud)[pointIdx].g = 0;
+                                (*cloud)[pointIdx].b = 255;
+                            break;
+                    }
                 }
 
                 // splat grow epsilon

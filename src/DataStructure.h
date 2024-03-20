@@ -90,7 +90,7 @@ private:
 
 
 
-    void adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree);
+    void adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int>& pointClasses);
 
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx);
 
