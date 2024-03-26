@@ -324,6 +324,8 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         }
 
 
+
+
         //region filter multiple return points
 
         // get info out of 8 bit flags:
@@ -333,21 +335,58 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         int8_t returnNumber = point.flags & 7;
         int8_t numOfReturns = (point.flags >> 3) & 7;
 
-        if (numOfReturns == 1 && returnNumber == 1 && classification != 2) {
-            // building
-            v.b = 0;
-            v.g = 0;
-            v.r = 255;
+
+        //region test intensity values
+
+        // max ist 255?
+        if (classification != 2) {
+            if (point.intensity > 120) {
+                if (numOfReturns > 1) {
+                    v.b = 255; // gelb - high int, mehrere returns
+                    v.g = 255;
+                    v.r = 0;
+                } else {
+//                v.b = 255; // rot - high int, 1 return
+//                v.g = 0;
+//                v.r = 0;
+                    v.b = 100;
+                    v.g = 100;
+                    v.r = 100;
+                }
+            } else {
+                if (numOfReturns > 1) {
+                    v.b = 0; // türkis - low int, mehrere returns
+                    v.g = 255;
+                    v.r = 255;
+                } else {
+//                v.b = 0; // blau - low int, 1 return
+//                v.g = 0;
+//                v.r = 255;
+                    v.b = 100;
+                    v.g = 100;
+                    v.r = 100;
+                }
+            }
         }
-        if (numOfReturns > 2 && classification != 2) {
-            v.b = 0;
-            v.g = 255;
-            v.r = 0;
-        } else if (numOfReturns > 1 && classification != 2) {
-            v.b = 255;
-            v.g = 0;
-            v.r = 0;
-        }
+        //endregion
+
+
+
+//        if (numOfReturns == 1 && returnNumber == 1 && classification != 2) {
+//            // building
+//            v.b = 0;
+//            v.g = 0;
+//            v.r = 255;
+//        }
+//        if (numOfReturns > 2 && classification != 2) {
+//            v.b = 0;
+//            v.g = 255;
+//            v.r = 0;
+//        } else if (numOfReturns > 1 && classification != 2) {
+//            v.b = 255;
+//            v.g = 0;
+//            v.r = 0;
+//        }
 
 //        if (numOfReturns > 1) {
 //            if (returnNumber == 1) {
