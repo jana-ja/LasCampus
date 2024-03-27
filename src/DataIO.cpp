@@ -339,8 +339,8 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         //region test intensity values
 
         // max ist 255?
-        if (classification != 2) {
-            if (point.intensity > 120) {
+        if (classification != 2 && (returnNumber == numOfReturns || returnNumber ==1)) {
+            if (point.intensity > 100) {
                 if (numOfReturns > 1) {
                     v.b = 255; // gelb - high int, mehrere returns
                     v.g = 255;
