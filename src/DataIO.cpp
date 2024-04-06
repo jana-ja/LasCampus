@@ -1107,6 +1107,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             }
         }
 
+        bool horMajor = (yMax - yMin) < lasWallLength;
+
 
         x = lasWall.point1.x;
         z = lasWall.point1.z;
@@ -1121,16 +1123,40 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                 v.normal_x = lasWallNormal.x;
                 v.normal_y = lasWallNormal.y;
                 v.normal_z = lasWallNormal.z;
-                // also set tangents
-                tangent1Vec.push_back(horPerpVec);
-                tangent2Vec.emplace_back(0, 1, 0);
-                texCoords.emplace_back(0, 0);
+
+
                 // set class
-                if (j == 0 || j + 1 == columnHeights.size() || y == yMin || y + stepWidth > columnHeight ) {
+                // also set tangents
+                // set major and minor
+                // inner (planar points) get according to wall ratio
+                // border points (linear) get according to border
+                if (j == 0 || j + 1 == columnHeights.size()) {
+
                     pointClasses.emplace_back(0);
+                    // left / right column
+                    // vertical is major
+                    tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                    tangent2Vec.push_back(horPerpVec);
+                } else if (y == yMin || y + stepWidth > columnHeight){
+                    pointClasses.emplace_back(0);
+                    // bottom / top row
+                    // horizontal is major
+                    tangent1Vec.push_back(horPerpVec);
+                    tangent2Vec.emplace_back(0, 1, 0);
                 } else {
                     pointClasses.emplace_back(1);
+
+                    if (horMajor) {
+                        tangent1Vec.push_back(horPerpVec);
+                        tangent2Vec.emplace_back(0, 1, 0);
+                    } else {
+                        tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                        tangent2Vec.push_back(horPerpVec);
+                    }
+
                 }
+
+                texCoords.emplace_back(0, 0);
 
                 cloud->push_back(v);
 
