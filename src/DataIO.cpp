@@ -653,6 +653,8 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             float z = gmlWall.point1.z;
             float distanceMoved = 0;
 
+            bool horMajor = yMax - yMin < gmlWall.length;
+
             // move horizontal
             while (distanceMoved < gmlWall.length) {
                 float y = yMin;
@@ -678,30 +680,69 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     v.normal_x = gmlWall.mid.normal_x;
                     v.normal_y = gmlWall.mid.normal_y;
                     v.normal_z = gmlWall.mid.normal_z;
-                    // also set tangents
-                    tangent1Vec.push_back(wallVec);
-                    tangent2Vec.emplace_back(0, 1, 0);
+
                     texCoords.emplace_back(0, 0);
 
+
                     // set class
+                    // also set tangents
+                    // set major and minor
+                    // inner (planar points) get according to wall ratio
+                    // border points (linear) get according to border
                     if (gmlWall.isRect) {
-                        if (distanceMoved == 0 || distanceMoved + stepWidth > gmlWall.length || y == yMin || y+stepWidth > yMax ) {
+                        if (distanceMoved == 0 || distanceMoved + stepWidth > gmlWall.length) {
+
                             pointClasses.emplace_back(0);
+                            // left / right column
+                            // vertical is major
+                            tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                            tangent2Vec.push_back(wallVec);
+                        } else if (y == yMin || y+stepWidth > yMax ){
+                            pointClasses.emplace_back(0);
+                            // bottom / top row
+                            // horizontal is major
+                            tangent1Vec.push_back(wallVec);
+                            tangent2Vec.emplace_back(0, 1, 0);
                         } else {
                             pointClasses.emplace_back(1);
+                            if (horMajor) {
+                                tangent1Vec.push_back(wallVec);
+                                tangent2Vec.emplace_back(0, 1, 0);
+                            } else {
+                                tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                                tangent2Vec.push_back(wallVec);
+                            }
                         }
                     } else {
                         // TODO
-                        if (distanceMoved == 0 || distanceMoved + stepWidth > gmlWall.length || y == yMin || y+stepWidth > yMax
+                        // left / right
+                        if (distanceMoved == 0 || distanceMoved + stepWidth > gmlWall.length
                             || !polygonCheck(pcl::PointXYZRGBNormal(x - stepWidth * wallVec.x, y, z - stepWidth * wallVec.z), gmlWall.points)
                             || !polygonCheck(pcl::PointXYZRGBNormal(x + stepWidth * wallVec.x, y, z + stepWidth * wallVec.z), gmlWall.points)
+                            ) {
+                            pointClasses.emplace_back(0);
+                            // vertical is major
+                            tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                            tangent2Vec.push_back(wallVec);
+                        }
+                        // bottom / top
+                        else if (y == yMin || y+stepWidth > yMax
                             || !polygonCheck(pcl::PointXYZRGBNormal(x, y - stepWidth, z), gmlWall.points)
                             || !polygonCheck(pcl::PointXYZRGBNormal(x, y + stepWidth, z), gmlWall.points)
                             ) {
                             pointClasses.emplace_back(0);
-                        }
-                        else {
+                            // horizontal is major
+                            tangent1Vec.push_back(wallVec);
+                            tangent2Vec.emplace_back(0, 1, 0);
+                        } else {
                             pointClasses.emplace_back(1);
+                            if (horMajor) {
+                                tangent1Vec.push_back(wallVec);
+                                tangent2Vec.emplace_back(0, 1, 0);
+                            } else {
+                                tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                                tangent2Vec.push_back(wallVec);
+                            }
                         }
                     }
 
