@@ -395,6 +395,8 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
 
+            // TODO bei discardeten abbrechen!
+            // TODO erst kreis growen und dann mit dem komischen lambda ding ellipse growen!
 
             // stop growing when angle between point normal and neighbour normal is too big
             // smoothness check
