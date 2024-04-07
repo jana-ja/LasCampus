@@ -328,7 +328,7 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
 void
 DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
-    float alpha = 0.4;
+    float alpha = 0.2;
 
     // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
     float angleThreshold = 0.86; // ~30°
@@ -391,49 +391,54 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
         auto normal = pcl::PointXYZ(point.normal_x, point.normal_y, point.normal_z);
 
         float epsilonSum = 0;
-        int epsilonCount1 = 0;
-        int epsilonCount2 = 0;
-        int lastEpsilonNeighbourIdx1 = 0;
-        int lastEpsilonNeighbourIdx2 = 0;
+        int epsilonCount = 0;
+//        int epsilonCount1 = 0;
+//        int epsilonCount2 = 0;
+        int lastEpsilonNeighbourIdx = 0;
+//        int lastEpsilonNeighbourIdx1 = 0;
+//        int lastEpsilonNeighbourIdx2 = 0;
 
-        bool growTangent1 = true;
-        bool growTangent2 = true;
-
-        bool concernsTangent1;
+//        bool growTangent1 = true;
+//        bool growTangent2 = true;
+//
+//        bool concernsTangent1;
 
         // grow
         // for every neighbour
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
-            if (!growTangent1 && !growTangent2) {
-                break;
-            }
+//            if (!growTangent1 && !growTangent2) {
+//                break;
+//            }
 
-            // first check if neighbour point concerns tangent1 growth or tangent2 growth
-            // project vector onto plane:
-            auto neighbourVec = Util::vectorSubtract(cloud->points[neighbourhood[nIdx]], point);
-            auto projectedDistance = Util::dotProduct(normal, neighbourVec);
-            auto normalProjectedVec = pcl::PointXYZ(projectedDistance * normal.x, projectedDistance * normal.y, projectedDistance * normal.z);
-            auto planeProjectedVec = Util::vectorSubtract(neighbourVec, normalProjectedVec);
-            // angle
-            auto vecLen = Util::vectorLength(planeProjectedVec);
-            float cosAngle = Util::dotProduct(tangent1Vec[pointIdx], planeProjectedVec) / vecLen;
-            if (abs(cosAngle) > 0.7) { // 45°
-                // concerns tangent1 -> less then 45° between tangent1 and projected neighbour vector
-                concernsTangent1 = true;
-                if (!growTangent1) {
-                    continue;
-                }
-            } else {
-                concernsTangent1 = false;
-                if (!growTangent2) {
-                    continue;
-                }
-            }
+//            // first check if neighbour point concerns tangent1 growth or tangent2 growth
+//            // project vector onto plane:
+//            auto neighbourVec = Util::vectorSubtract(cloud->points[neighbourhood[nIdx]], point);
+//            auto projectedDistance = Util::dotProduct(normal, neighbourVec);
+//            auto normalProjectedVec = pcl::PointXYZ(projectedDistance * normal.x, projectedDistance * normal.y, projectedDistance * normal.z);
+//            auto planeProjectedVec = Util::vectorSubtract(neighbourVec, normalProjectedVec);
+//            // angle
+//            auto vecLen = Util::vectorLength(planeProjectedVec);
+//            float cosAngle = Util::dotProduct(tangent1Vec[pointIdx], planeProjectedVec) / vecLen;
+//            if (abs(cosAngle) > 0.7) { // 45°
+//                // concerns tangent1 -> less then 45° between tangent1 and projected neighbour vector
+//                concernsTangent1 = true;
+//                if (!growTangent1) {
+//                    continue;
+//                }
+//            } else {
+//                concernsTangent1 = false;
+//                if (!growTangent2) {
+//                    continue;
+//                }
+//            }
 
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
 
             // TODO bei discardeten abbrechen!
+//            if (discardPoint[nIdx]) {
+//                break;
+//            }
             // TODO erst kreis growen und dann mit dem komischen lambda ding ellipse growen!
 
             // stop growing when angle between point normal and neighbour normal is too big
@@ -445,12 +450,13 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 
             float angle = Util::dotProduct(normal, neighbourNormal);
             if (angle < angleThreshold) {
-                if (concernsTangent1) {
-                    growTangent1 = false;
-                } else {
-                    growTangent2 = false;
-                }
-                continue;
+//                if (concernsTangent1) {
+//                    growTangent1 = false;
+//                } else {
+//                    growTangent2 = false;
+//                }
+//                continue;
+                break;
             }
 
             auto eps = Util::signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
@@ -463,54 +469,60 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 //                    (*cloud)[pointIdx].b = 0;
 //                }
 
-                if (concernsTangent1) {
-                    growTangent1 = false;
-                } else {
-                    growTangent2 = false;
-                }
-                continue;
+//                if (concernsTangent1) {
+//                    growTangent1 = false;
+//                } else {
+//                    growTangent2 = false;
+//                }
+//                continue;
+                break;
             }
 
             // stop growing when neighbour has different class
             if (pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]) {
                 // TODO neu der punkt kommt aber noch mit rein
-                epsilonSum += eps;
-                if (concernsTangent1) {
-                    epsilonCount1++;
-                    lastEpsilonNeighbourIdx1 = nIdx;
-                } else {
-                    epsilonCount2++;
-                    lastEpsilonNeighbourIdx2 = nIdx;
-                }
-                if (concernsTangent1) {
-                    growTangent1 = false;
-                } else {
-                    growTangent2 = false;
-                }
-                continue;
+//                epsilonSum += eps;
+//                if (concernsTangent1) {
+//                    epsilonCount1++;
+//                    lastEpsilonNeighbourIdx1 = nIdx;
+//                } else {
+//                    epsilonCount2++;
+//                    lastEpsilonNeighbourIdx2 = nIdx;
+//                }
+//                if (concernsTangent1) {
+//                    growTangent1 = false;
+//                } else {
+//                    growTangent2 = false;
+//                }
+//                continue;
+                break;
             }
 
-            // skip discarded points
-            if (discardPoint[neighbourhood[nIdx]]) {
-                continue;
-            }
+//            // skip discarded points
+//            if (discardPoint[neighbourhood[nIdx]]) {
+//                continue;
+//            }
 
 
 
             epsilonSum += eps;
-            if (concernsTangent1) {
-                epsilonCount1++;
-                lastEpsilonNeighbourIdx1 = nIdx;
-            } else {
-                epsilonCount2++;
-                lastEpsilonNeighbourIdx2 = nIdx;
-            }
+            epsilonCount++;
+            lastEpsilonNeighbourIdx = nIdx;
+//            if (concernsTangent1) {
+//                epsilonCount1++;
+//                lastEpsilonNeighbourIdx1 = nIdx;
+//            } else {
+//                epsilonCount2++;
+//                lastEpsilonNeighbourIdx2 = nIdx;
+//            }
         }
 
         // no valid neighbours in at least one direction // TODO schauen ob sinn macht getrennt zu betrachten
         // TODO PROBLEM: glaube schon dass das sinn macht, aber die ungewollten kanten sind so grade dass die hier invalid werden weil in eine richtung nichts passiert
-        if (epsilonCount1 == 0 || epsilonCount2 == 0) {
-            // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
+//        if (epsilonCount1 == 0 || epsilonCount2 == 0) {
+        // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
+        if (epsilonCount == 0 ) {
+            // no valid neighbours
             if (colorInvalid) {
                 if ((*cloud)[pointIdx].g != 255) {
                     (*cloud)[pointIdx].r = 255;
@@ -541,7 +553,7 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 //        }
 
         // compute avg of the epsilons
-        float epsilonAvg = epsilonSum / (epsilonCount1 + epsilonCount2);
+        float epsilonAvg = epsilonSum / static_cast<float>(epsilonCount);//(epsilonCount1 + epsilonCount2);
 
         // move splat point
         (*cloud)[pointIdx].x += epsilonAvg * normal.x;
@@ -550,19 +562,17 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 
         // compute splat radii
         // tangent 1
-        const auto& lastNeighbourPoint1 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx1]];
+        const auto& lastNeighbourPoint1 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]];
         auto pointToNeighbourVec1 = Util::vectorSubtract(lastNeighbourPoint1, point);
         auto bla1 = Util::dotProduct(normal, pointToNeighbourVec1);
         auto rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
         float radius1 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec1, rightSide1));
-//        float radius1 = Util::vectorLength(pointToNeighbourVec1);
         // tangent 2
-        const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx2]];
-        auto pointToNeighbourVec2 = Util::vectorSubtract(lastNeighbourPoint2, point);
-        auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
-        auto rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
-        float radius2 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec2, rightSide2));
-//        float radius2 = Util::vectorLength(pointToNeighbourVec2);
+//        const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]];
+//        auto pointToNeighbourVec2 = Util::vectorSubtract(lastNeighbourPoint2, point);
+//        auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
+//        auto rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
+        float radius2 = radius1;//Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec2, rightSide2));
         // length of axes has to be 1/radius
 
         // TODO test debug
