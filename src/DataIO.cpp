@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <random>
 #include "UTM.h"
+#include <pcl/filters/statistical_outlier_removal.h>
 
 bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::string& shpFile, const std::string& gmlFile, const std::string& imgFile,
                       const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<pcl::PointXY>& texCoords,
@@ -282,6 +283,9 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                                   std::vector<bool>& lasWallPoints,
                                   std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords) {
 
+    pcl::Indices notWallPoints;
+
+
     std::string TAG = DataIO::TAG + "filterAndColorPoints\t";
     // init cloud
     cloud->width = numOfPoints;
@@ -401,10 +405,102 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 
         cloud->push_back(v);
         lasWallPoints.push_back(belongsToWall);
+        if (!belongsToWall) {
+            notWallPoints.push_back((*cloud).size()-1);
+        }
         lasGroundPoints.push_back(classification == 2);
     }
 
     std::cout << TAG << "new number of points: " << (*cloud).size() << std::endl;
+
+    std::cout << TAG << "filter outliers... " << std::endl;
+//    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
+//    tree->setInputCloud(cloud);
+//    auto densitySum = 0;
+//    for (auto pointIdx = 0; pointIdx < (*cloud).size(); pointIdx++ ) {
+//        auto& point = (*cloud)[pointIdx];
+//        pcl::Indices searchIdx;
+//        std::vector<float> searchDist;
+//        auto searchRadius = 0.56f;
+//        auto neighbourCount = tree->radiusSearch(pointIdx, searchRadius, searchIdx, searchDist);
+//
+//        densitySum += neighbourCount;
+//    }
+//    float densityAvg = static_cast<float>(densitySum) / static_cast<float>((*cloud).size());
+//    for (auto pointIdx = 0; pointIdx < (*cloud).size(); pointIdx++ ) {
+//        auto& point = (*cloud)[pointIdx];
+//        pcl::Indices searchIdx;
+//        std::vector<float> searchDist;
+//        auto searchRadius = 0.79f;
+//        if (tree->radiusSearch(pointIdx, searchRadius, searchIdx, searchDist) < densityAvg) {
+//            point.r = 255;
+//            point.b = 255;
+//            point.g = 0;
+//        }
+//    }
+
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+// Create the filtering object
+    auto sor = pcl::StatisticalOutlierRemoval<pcl::PointXYZRGBNormal>(true);
+    sor.setInputCloud (cloud);
+    pcl::IndicesPtr notWallPointsPtr = std::make_shared<pcl::Indices>(notWallPoints);
+    sor.setIndices(notWallPointsPtr);
+    sor.setMeanK (40);
+    sor.setStddevMulThresh (2.0);
+//    sor.setNegative(true); // removed points get put in cloud_filtered
+    sor.filter (*cloud_filtered);
+//    for (auto& point: *cloud_filtered) {
+//        point.b = 255;
+//        point.g = 0;
+//        point.r = 0;
+////        point.x += 0.1;
+//        point.y += 0.1;
+////        point.z += 0.1;
+//    }
+//    cloud->insert(cloud->end(), cloud_filtered->begin(), cloud_filtered->end());
+//    lasGroundPoints.insert(lasGroundPoints.end(), cloud_filtered->size(), false);
+//    texCoords.insert(texCoords.end(), cloud_filtered->size(), pcl::PointXY(0,0));
+
+//
+    auto removedIndices = sor.getRemovedIndices();
+
+    // copy cloud points here because they get filtered as well because the set indices before filtering
+    auto newPoints = std::vector<pcl::PointXYZRGBNormal>();
+    std::vector<bool> newLasGroundPoints;
+    std::vector<pcl::PointXY> newTexCoords;
+    std::vector<bool> newLasWallPoints;
+    auto idxIdx = 0;
+    for (auto i = 0; i < lasGroundPoints.size(); i++) {
+        if (idxIdx < removedIndices->size()) {
+            // check
+            auto cloudIdx = (*removedIndices)[idxIdx];
+            if (i == cloudIdx) {
+                idxIdx++;
+                // skip this, dont copy
+                continue;
+            }
+        }
+
+        newPoints.push_back((*cloud)[i]);
+        newLasGroundPoints.push_back(lasGroundPoints[i]);
+        newLasWallPoints.push_back(lasWallPoints[i]);
+        newTexCoords.push_back(texCoords[i]);
+    }
+//    for (auto arg = removedIndices->rbegin(); arg != removedIndices->rend(); arg++) {
+//        const auto& idx = *arg;
+//        lasGroundPoints.erase(lasGroundPoints.begin () + idx);
+//        texCoords.erase(texCoords.begin() + idx);
+//        lasWallPoints.erase(lasWallPoints.begin() + idx);
+//    }
+    (*cloud).clear();
+    (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
+    lasWallPoints = newLasWallPoints;
+    lasGroundPoints = newLasGroundPoints;
+    texCoords = newTexCoords;
+
+
+
+
     std::cout << TAG << "finished filtering points" << std::endl;
 
 }
