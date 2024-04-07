@@ -414,30 +414,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
     std::cout << TAG << "new number of points: " << (*cloud).size() << std::endl;
 
     std::cout << TAG << "filter outliers... " << std::endl;
-//    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
-//    tree->setInputCloud(cloud);
-//    auto densitySum = 0;
-//    for (auto pointIdx = 0; pointIdx < (*cloud).size(); pointIdx++ ) {
-//        auto& point = (*cloud)[pointIdx];
-//        pcl::Indices searchIdx;
-//        std::vector<float> searchDist;
-//        auto searchRadius = 0.56f;
-//        auto neighbourCount = tree->radiusSearch(pointIdx, searchRadius, searchIdx, searchDist);
-//
-//        densitySum += neighbourCount;
-//    }
-//    float densityAvg = static_cast<float>(densitySum) / static_cast<float>((*cloud).size());
-//    for (auto pointIdx = 0; pointIdx < (*cloud).size(); pointIdx++ ) {
-//        auto& point = (*cloud)[pointIdx];
-//        pcl::Indices searchIdx;
-//        std::vector<float> searchDist;
-//        auto searchRadius = 0.79f;
-//        if (tree->radiusSearch(pointIdx, searchRadius, searchIdx, searchDist) < densityAvg) {
-//            point.r = 255;
-//            point.b = 255;
-//            point.g = 0;
-//        }
-//    }
+
 
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 // Create the filtering object
@@ -447,21 +424,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
     sor.setIndices(notWallPointsPtr);
     sor.setMeanK (40);
     sor.setStddevMulThresh (2.0);
-//    sor.setNegative(true); // removed points get put in cloud_filtered
     sor.filter (*cloud_filtered);
-//    for (auto& point: *cloud_filtered) {
-//        point.b = 255;
-//        point.g = 0;
-//        point.r = 0;
-////        point.x += 0.1;
-//        point.y += 0.1;
-////        point.z += 0.1;
-//    }
-//    cloud->insert(cloud->end(), cloud_filtered->begin(), cloud_filtered->end());
-//    lasGroundPoints.insert(lasGroundPoints.end(), cloud_filtered->size(), false);
-//    texCoords.insert(texCoords.end(), cloud_filtered->size(), pcl::PointXY(0,0));
-
-//
     auto removedIndices = sor.getRemovedIndices();
 
     // copy cloud points here because they get filtered as well because the set indices before filtering
@@ -486,12 +449,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         newLasWallPoints.push_back(lasWallPoints[i]);
         newTexCoords.push_back(texCoords[i]);
     }
-//    for (auto arg = removedIndices->rbegin(); arg != removedIndices->rend(); arg++) {
-//        const auto& idx = *arg;
-//        lasGroundPoints.erase(lasGroundPoints.begin () + idx);
-//        texCoords.erase(texCoords.begin() + idx);
-//        lasWallPoints.erase(lasWallPoints.begin() + idx);
-//    }
+
     (*cloud).clear();
     (*cloud).insert((*cloud).end(), newPoints.begin(), newPoints.end());
     lasWallPoints = newLasWallPoints;
