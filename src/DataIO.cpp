@@ -336,38 +336,90 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
         int8_t numOfReturns = (point.flags >> 3) & 7;
 
 
-        //region test intensity values
+        //region switch klassifikation
+        switch (classification) {
+            case 1: // unclassified
+                v.b = 255; // pink
+                v.g = 0;
+                v.r = 255;
+                break;
+            case 2: // ground
+                v.b = 165; // braun
+                v.g = 42;
+                v.r = 42;
+                break;
+            case 3: // low veg
+                v.b = 0; // grün noch weniger
+                v.g = 100;
+                v.r = 0;
+                break;
+            case 4: // mid veg
+                v.b = 0; // grün weniger
+                v.g = 180;
+                v.r = 0;
+                break;
+            case 5: // high veg
+                v.b = 0; // grün
+                v.g = 255;
+                v.r = 0;
+                break;
+            case 6: // building
+                v.b = 255; // rot
+                v.g = 0;
+                v.r = 0;
+                break;
+            case 20: // last return not ground oder so
+                v.b = 0; // grau
+                v.g = 0;
+                v.r = 255;
+                break;
+            case 26: // synthetic ground
+                v.b = 255; // orange
+                v.g = 265;
+                v.r = 0;
+                break;
+            default:
+                v.b = 100; // grau
+                v.g = 100;
+                v.r = 100;
+                break;
 
-        // max ist 255?
-        if (classification != 2 && (returnNumber == numOfReturns || returnNumber ==1)) {
-            if (point.intensity > 100) {
-                if (numOfReturns > 1) {
-                    v.b = 255; // gelb - high int, mehrere returns
-                    v.g = 255;
-                    v.r = 0;
-                } else {
-//                v.b = 255; // rot - high int, 1 return
-//                v.g = 0;
-//                v.r = 0;
-                    v.b = 100;
-                    v.g = 100;
-                    v.r = 100;
-                }
-            } else {
-                if (numOfReturns > 1) {
-                    v.b = 0; // türkis - low int, mehrere returns
-                    v.g = 255;
-                    v.r = 255;
-                } else {
-//                v.b = 0; // blau - low int, 1 return
-//                v.g = 0;
-//                v.r = 255;
-                    v.b = 100;
-                    v.g = 100;
-                    v.r = 100;
-                }
-            }
         }
+        //endregion
+
+
+        //region test intensity values
+//
+//        // max ist 255?
+//        if (classification != 2 && (returnNumber == numOfReturns || returnNumber ==1)) {
+//            if (point.intensity > 100) {
+//                if (numOfReturns > 1) {
+//                    v.b = 255; // gelb - high int, mehrere returns
+//                    v.g = 255;
+//                    v.r = 0;
+//                } else {
+////                v.b = 255; // rot - high int, 1 return
+////                v.g = 0;
+////                v.r = 0;
+//                    v.b = 100;
+//                    v.g = 100;
+//                    v.r = 100;
+//                }
+//            } else {
+//                if (numOfReturns > 1) {
+//                    v.b = 0; // türkis - low int, mehrere returns
+//                    v.g = 255;
+//                    v.r = 255;
+//                } else {
+////                v.b = 0; // blau - low int, 1 return
+////                v.g = 0;
+////                v.r = 255;
+//                    v.b = 100;
+//                    v.g = 100;
+//                    v.r = 100;
+//                }
+//            }
+//        }
         //endregion
 
 
