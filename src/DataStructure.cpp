@@ -87,13 +87,17 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
         if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
             3) { // need at least 3 points for pca
 
-            auto const count = static_cast<float>(neighboursSquaredDistance.size());
-            auto avgRadius = std::reduce(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end()) /
+            // desquare it
+            auto neighboursDistance = std::vector<float>(k);
+            std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
+
+            auto const count = static_cast<float>(neighboursDistance.size());
+            auto avgRadius = std::reduce(neighboursDistance.begin(), neighboursDistance.end()) /
                              (count - 1); // count - 1, weil die erste distance immer 0 ist
             avgRadiusSumNeighbourhoods += avgRadius;
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
-            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
+            pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
         } else {
             pointNeighbourhoods[pointIdx] = pcl::Indices();
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
@@ -283,8 +287,11 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
         if (tree->nearestKSearch(pointIdx, currentK, neighboursPointIdx, neighboursSquaredDistance) >=
             3) { // need at least 3 points for pca
 
+            auto neighboursDistance = std::vector<float>(currentK);
+            std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
+
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
-            pointNeighbourhoodsDistance[pointIdx] = neighboursSquaredDistance;
+            pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
         } else {
             pointNeighbourhoods[pointIdx] = pcl::Indices();
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
@@ -495,6 +502,10 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 //                    growTangent2 = false;
 //                }
 //                continue;
+
+//                epsilonSum += eps;
+//                epsilonCount++;
+//                lastEpsilonNeighbourIdx = nIdx;
                 break;
             }
 
