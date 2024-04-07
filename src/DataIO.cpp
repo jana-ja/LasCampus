@@ -695,21 +695,21 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                             pointClasses.emplace_back(0);
                             // left / right column
                             // vertical is major
-                            tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                            tangent1Vec.emplace_back(0, 1, 0); // swap sign for right orientation
                             tangent2Vec.push_back(wallVec);
                         } else if (y == yMin || y+stepWidth > yMax ){
                             pointClasses.emplace_back(0);
                             // bottom / top row
                             // horizontal is major
                             tangent1Vec.push_back(wallVec);
-                            tangent2Vec.emplace_back(0, 1, 0);
+                            tangent2Vec.emplace_back(0, -1, 0);
                         } else {
                             pointClasses.emplace_back(1);
                             if (horMajor) {
                                 tangent1Vec.push_back(wallVec);
-                                tangent2Vec.emplace_back(0, 1, 0);
+                                tangent2Vec.emplace_back(0, -1, 0);
                             } else {
-                                tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                                tangent1Vec.emplace_back(0, 1, 0); // swap sign for right orientation
                                 tangent2Vec.push_back(wallVec);
                             }
                         }
@@ -722,7 +722,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                             ) {
                             pointClasses.emplace_back(0);
                             // vertical is major
-                            tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                            tangent1Vec.emplace_back(0, 1, 0); // swap sign for right orientation
                             tangent2Vec.push_back(wallVec);
                         }
                         // bottom / top
@@ -733,14 +733,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                             pointClasses.emplace_back(0);
                             // horizontal is major
                             tangent1Vec.push_back(wallVec);
-                            tangent2Vec.emplace_back(0, 1, 0);
+                            tangent2Vec.emplace_back(0, -1, 0);
                         } else {
                             pointClasses.emplace_back(1);
                             if (horMajor) {
                                 tangent1Vec.push_back(wallVec);
-                                tangent2Vec.emplace_back(0, 1, 0);
+                                tangent2Vec.emplace_back(0, -1, 0);
                             } else {
-                                tangent1Vec.emplace_back(0, -1, 0); // swap sign for right orientation
+                                tangent1Vec.emplace_back(0, 1, 0); // swap sign for right orientation
                                 tangent2Vec.push_back(wallVec);
                             }
                         }
