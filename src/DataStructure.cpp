@@ -106,7 +106,9 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
 float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
                                                                std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
     float uPtpDistSumNeighbourhoods = 0;
-    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+    auto epsilonSumCount = 0;
+
+    for (auto pointIdx = 0; pointIdx < wallPointsStartIndex; pointIdx++) {
 
         if (pointNeighbourhoods[pointIdx].size() >= 3) { // need at least 3 points for pca
 
@@ -125,8 +127,9 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
                 Eigen::Vector3f eigenValues = pca.getEigenValues();
 
-                // only set normal and tangents for non-wall points
-                if (pointIdx < wallPointsStartIndex) {
+                // set normal and tangents for non-wall points
+                // else: are already set from wall detection
+
                     // set normal
                     cloud->points[pointIdx].normal_x = eigenVectors(0, 2);
                     cloud->points[pointIdx].normal_y = eigenVectors(1, 2);
@@ -167,7 +170,7 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                     pointClasses[pointIdx] = mainDings;
 
 
-                } // else: are already set from wall detection
+
                 if (colorClasses) {
                     switch (pointClasses[pointIdx]) {
                         case 0:
@@ -204,19 +207,54 @@ float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNe
                 }
                 float uPtpDistAvg = uPtpDistSum / static_cast<float>(neighbourhood.size() - 1);
                 uPtpDistSumNeighbourhoods += uPtpDistAvg;
+                epsilonSumCount++;
 
             } else {
                 tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
                 tangent2Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+
+                (*cloud)[pointIdx].b = 255;
+                (*cloud)[pointIdx].r = 255;
+                (*cloud)[pointIdx].g = 0;
             }
         } else {
             tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             tangent2Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+            (*cloud)[pointIdx].b = 255;
+            (*cloud)[pointIdx].r = 0;
+            (*cloud)[pointIdx].g = 0;
+
+        }
+    }
+
+
+    if (colorClasses) {
+        for (auto pointIdx = wallPointsStartIndex; pointIdx < (*cloud).size(); pointIdx++) {
+            switch (pointClasses[pointIdx]) {
+                case 0:
+                    // linearity is main
+                    (*cloud)[pointIdx].r = 255;
+                    (*cloud)[pointIdx].g = 0;
+                    (*cloud)[pointIdx].b = 0;
+                    break;
+                case 1:
+                    // planarity is main
+                    (*cloud)[pointIdx].r = 0;
+                    (*cloud)[pointIdx].g = 255;
+                    (*cloud)[pointIdx].b = 0;
+                    break;
+                default:
+                    // sphericity is main
+                    (*cloud)[pointIdx].r = 0;
+                    (*cloud)[pointIdx].g = 0;
+                    (*cloud)[pointIdx].b = 255;
+                    break;
+            }
         }
     }
 
     // ********** compute epsilon **********
-    return uPtpDistSumNeighbourhoods / static_cast<float>(pointNeighbourhoods.size());
+    return uPtpDistSumNeighbourhoods / static_cast<float>(epsilonSumCount);
 }
 
 void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, float avgRadiusNeighbourhoods,
