@@ -163,7 +163,7 @@ private:
 
     bool colorReturnNumberClasses = false;
 
-    float lasWallThreshold = 0.5;
+    float lasWallThreshold = 0.2;
     float osmWallThreshold = 1.0;
 
 
