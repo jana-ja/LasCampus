@@ -81,7 +81,15 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
                                std::vector<std::vector<float>>& pointNeighbourhoodsDistance) {
     // ********** knn with default k and compute avgRadius **********
     float avgRadiusSumNeighbourhoods = 0;
-    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+    auto radiusCount = 0;
+
+    // TODO test if looks better, maybe cloud with all points, and only wall points separat
+    // normal points
+//    pcl::Indices normalPoints(wallPointsStartIndex);
+//    std::iota (std::begin(normalPoints), std::end(normalPoints), 0);
+//    auto normalPointsPtr = make_shared<pcl::Indices>(normalPoints);
+    tree->setInputCloud(cloud);//, normalPointsPtr);
+    for (auto pointIdx = 0; pointIdx < wallPointsStartIndex; pointIdx++) {
         pcl::Indices neighboursPointIdx(k);
         auto neighboursSquaredDistance = std::vector<float>(k);
         if (tree->nearestKSearch(pointIdx, k, neighboursPointIdx, neighboursSquaredDistance) >=
@@ -98,13 +106,43 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
             pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
+
+            radiusCount++;
+        } else {
+            pointNeighbourhoods[pointIdx] = pcl::Indices();
+            pointNeighbourhoodsDistance[pointIdx] = vector<float>();
+        }
+    }
+    // wall points
+    pcl::Indices wallPoints((*cloud).size() - wallPointsStartIndex);
+    std::iota (std::begin(wallPoints), std::end(wallPoints), wallPointsStartIndex);
+    auto wallPointsPtr = make_shared<pcl::Indices>(wallPoints);
+    tree->setInputCloud(cloud, wallPointsPtr);
+    for (auto pointIdx = wallPointsStartIndex; pointIdx < cloud->points.size(); pointIdx++) {
+        pcl::Indices neighboursPointIdx(k);
+        auto searchIndex = pointIdx - wallPointsStartIndex;
+        auto neighboursSquaredDistance = std::vector<float>(k);
+        if (tree->nearestKSearch(searchIndex, k, neighboursPointIdx, neighboursSquaredDistance) >=
+            3) { // need at least 3 points for pca
+
+            // desquare it
+            auto neighboursDistance = std::vector<float>(k);
+            std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
+
+//            auto const count = static_cast<float>(neighboursDistance.size());
+//            auto avgRadius = std::reduce(neighboursDistance.begin(), neighboursDistance.end()) /
+//                             (count - 1); // count - 1, weil die erste distance immer 0 ist
+//            avgRadiusSumNeighbourhoods += avgRadius;
+
+            pointNeighbourhoods[pointIdx] = neighboursPointIdx;
+            pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
         } else {
             pointNeighbourhoods[pointIdx] = pcl::Indices();
             pointNeighbourhoodsDistance[pointIdx] = vector<float>();
         }
     }
 
-    return avgRadiusSumNeighbourhoods / static_cast<float>(cloud->points.size());;
+    return avgRadiusSumNeighbourhoods / static_cast<float>(radiusCount);;
 }
 
 float DataStructure::adaNeighbourhoodsClassificationAndEpsilon(float avgRadiusNeighbourhoods, std::vector<pcl::Indices>& pointNeighbourhoods,
@@ -268,7 +306,12 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
     // get new knn
     int currentK;
 
-    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+    // normal points
+//    pcl::Indices normalPoints(wallPointsStartIndex);
+//    std::iota (std::begin(normalPoints), std::end(normalPoints), 0);
+//    auto normalPointsPtr = make_shared<pcl::Indices>(normalPoints);
+    tree->setInputCloud(cloud);//, normalPointsPtr);
+    for (auto pointIdx = 0; pointIdx < wallPointsStartIndex; pointIdx++) {
 
         // get new k-neighbourhood with adjusted k
         switch (pointClasses[pointIdx]) {
@@ -285,6 +328,73 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
         pcl::Indices neighboursPointIdx(currentK);
         auto neighboursSquaredDistance = std::vector<float>(currentK);
         if (tree->nearestKSearch(pointIdx, currentK, neighboursPointIdx, neighboursSquaredDistance) >=
+            3) { // need at least 3 points for pca
+
+            auto neighboursDistance = std::vector<float>(currentK);
+            std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
+
+            pointNeighbourhoods[pointIdx] = neighboursPointIdx;
+            pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
+        } else {
+            pointNeighbourhoods[pointIdx] = pcl::Indices();
+            pointNeighbourhoodsDistance[pointIdx] = vector<float>();
+        }
+
+
+
+        // get new neighbourhood with adjusted radius
+        float currentAvgRadius;
+
+        if (pointNeighbourhoods[pointIdx].size() >= 3) { // need at least 3 points for pca
+            switch (pointClasses[pointIdx]) {
+                case 0: // linearity is main
+                    currentAvgRadius = avgRadiusNeighbourhoods * 2;//0.33;
+                    break;
+                case 1: // planarity is main
+                    currentAvgRadius = avgRadiusNeighbourhoods * 2;
+                    break;
+                default: // sphericity is main
+                    currentAvgRadius = avgRadiusNeighbourhoods * 0.25;
+                    break;
+            }
+            // define Npi as all points here from knn search but within avg radius?
+            // find border index
+            int lastNeighbour = findIndex(currentAvgRadius, pointNeighbourhoodsDistance[pointIdx]);
+            // do stuff
+            auto neighbours = pcl::Indices(pointNeighbourhoods[pointIdx].begin(),
+                                           pointNeighbourhoods[pointIdx].begin() + lastNeighbour);
+            if (neighbours.size() >= 3) {
+                // save new neighbourhood
+                pointNeighbourhoods[pointIdx] = neighbours;
+            } else {
+                pointNeighbourhoods[pointIdx] = pcl::Indices();
+            }
+        } else {
+            pointNeighbourhoods[pointIdx] = pcl::Indices();
+        }
+    }
+    // wall points
+    pcl::Indices wallPoints((*cloud).size() - wallPointsStartIndex);
+    std::iota (std::begin(wallPoints), std::end(wallPoints), wallPointsStartIndex);
+    auto wallPointsPtr = make_shared<pcl::Indices>(wallPoints);
+    tree->setInputCloud(cloud, wallPointsPtr);
+    for (auto pointIdx = wallPointsStartIndex; pointIdx < cloud->points.size(); pointIdx++) {
+        // get new k-neighbourhood with adjusted k
+        switch (pointClasses[pointIdx]) {
+            case 0: // linearity is main
+                currentK = k * 2;//0.33;
+                break;
+            case 1: // planarity is main
+                currentK = k * 2;
+                break;
+            default: // sphericity is main
+                currentK = k * 0.25;
+                break;
+        }
+        auto searchIndex = pointIdx - wallPointsStartIndex;
+        pcl::Indices neighboursPointIdx(currentK);
+        auto neighboursSquaredDistance = std::vector<float>(currentK);
+        if (tree->nearestKSearch(searchIndex, currentK, neighboursPointIdx, neighboursSquaredDistance) >=
             3) { // need at least 3 points for pca
 
             auto neighboursDistance = std::vector<float>(currentK);
