@@ -500,12 +500,14 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
     std::cout << TAG << "match gml walls to osm walls" << std::endl;
     std::cout << TAG << "+ draw gml walls" << std::endl;
 
+    std::map<int, std::vector<std::pair<int, int>>> osmToGmlMap;
+    std::map<std::pair<int, int>, std::vector<int>> gmlToOsmMap;
+
     for (auto bIdx = 0; bIdx < gmlBuildings.size(); bIdx++) {
 
         auto& gmlBuilding = gmlBuildings[bIdx];
 
-        std::map<int, std::vector<int>> osmToGmlMap;
-        std::map<int, std::vector<int>> gmlToOsmMap;
+
         //region match osm to gml walls of this building
 
         for (auto gmlWallIdx = 0; gmlWallIdx < gmlBuilding.osmWalls.size(); gmlWallIdx++) {
@@ -544,13 +546,15 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                     }
 
                     // found matching osm wall
-                    osmToGmlMap[osmWallIdx].emplace_back(gmlWallIdx);
-                    gmlToOsmMap[gmlWallIdx].emplace_back(osmWallIdx);
+                    osmToGmlMap[osmWallIdx].emplace_back(bIdx, gmlWallIdx);
+                    gmlToOsmMap[std::pair(bIdx, gmlWallIdx)].emplace_back(osmWallIdx);
                 }
             }
         }
         //endregion
-
+    }
+    for (auto bIdx = 0; bIdx < gmlBuildings.size(); bIdx++) {
+        auto& gmlBuilding = gmlBuildings[bIdx];
 
         // region draw gml walls after cover check
 
@@ -633,16 +637,16 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //            if (gmlToOsmMap[gmlWallIdx].empty()) {
 //                skip = false;
 //            }
-            for (const auto& osmWallIdx: gmlToOsmMap[gmlWallIdx]) {
+            for (const auto& osmWallIdx: gmlToOsmMap[std::pair(bIdx,gmlWallIdx)]) {
                 if (usedOsmWalls[osmWallIdx])
                     continue;
                 const auto& osmWall = osmWalls[osmWallIdx];
                 // if this osm wall is covered by gml walls (so that there is at max a 3m hole) -> mark this osm wall (don't need to draw it later)
 
                 float matchingGmlWallLengthSum = 0;
-                // TODO at one point a building is split in two buildings in gml but not in osm -> osm wall matches with two gml walls separately and dos not get removed although it should!
-                for (const auto& matchingGmlWallIdx: osmToGmlMap[osmWallIdx]) { // works because the match maps are built per building
-                    const auto& matchingGmlWall = gmlBuilding.osmWalls[matchingGmlWallIdx];
+                for (const auto& matchingGmlWallIdxPair: osmToGmlMap[osmWallIdx]) { // works because the match maps are built per building
+                    auto& matchingBuilding = gmlBuildings[matchingGmlWallIdxPair.first];
+                    const auto& matchingGmlWall = matchingBuilding.osmWalls[matchingGmlWallIdxPair.second];
                     matchingGmlWallLengthSum += matchingGmlWall.length;
                 }
                 // this gml wall does cover a osm wall (maybe together with more gml walls) -> don't skip it
