@@ -941,73 +941,73 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             continue;
 
 
-//        // region try to improve lasWall by removing certain wall points that increase error
-//
-//        // die einzeln betrachten ob rausfliegen oder nacheinander mti schon verändertem vector?
-//        // wie schauen wie viele entfernt wurden? schauen welche am meisten den fehler reduzieren und die raus?
-//        // auf jeden fall iwie ne grenze machen wie viel der fehler verbessert werden muss.
-//        // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
-//
-//        int removableCount = certainWallPoints.size() - 3;
-//        if (removableCount > 0) {
-//            float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
-//            // debug
-//            auto lasWallCopy = lasWall;
-//
-//            std::vector<std::pair<int, float>> mappi;
-//            float bla[3];
-//            for (int i = 0; i < certainWallPoints.size(); i++) {
-//                auto lasWallTest = lasWall;
-//                auto certainWallPointsTest = certainWallPoints;
-//                certainWallPointsTest.erase(certainWallPointsTest.begin() + i);
-//                if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallTest))
-//                    continue;
-//                float newError = getError(cloud, certainWallPoints, osmWall, lasWallTest);
-//                auto errorDist = oldError - newError;
-//                if (errorDist > 0) {
-//                    // remove this point
-//                    mappi.emplace_back(i, errorDist);
-//                }
-//                // try to remove a point and see if plane gets better
-//                // scattering and normal angle to osm wall
-//            }
-//            if (!mappi.empty()) {
-//                auto certainWallPointsCopy = certainWallPoints;
-//
-//                std::sort(mappi.begin(), mappi.end(), [](auto& pair1, auto& pair2) {
-//                    return pair1.second < pair2.second;
-//                });
-//
-//                if (mappi.size() > removableCount) {
-//                    mappi.erase(mappi.begin() + removableCount, mappi.end());
-//                }
-//
-//                auto newLasWall = lasWall;
-//                pcl::Indices newCertainWallPoints;
-//
-//                for (const auto& item: mappi) {
-//
-//                    certainWallPoints[item.first] = -1;
-//                }
-//                for (const auto& item: certainWallPoints) {
-//                    if (item == -1)
-//                        continue;
-//                    newCertainWallPoints.push_back(item);
-//                }
-//
-//                if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, newLasWall))
-//                    continue;
-//                float newError = getError(cloud, newCertainWallPoints, osmWall, newLasWall);
-//                if (newError < oldError) {
-//                    lasWall = newLasWall;
-//                    certainWallPoints = newCertainWallPoints;
-//                } else {
-//                    //restore old points
-//                    certainWallPoints = certainWallPointsCopy;
-//                }
-//            }
-//        }
-//        //endregion
+        // region try to improve lasWall by removing certain wall points that increase error
+
+        // die einzeln betrachten ob rausfliegen oder nacheinander mti schon verändertem vector?
+        // wie schauen wie viele entfernt wurden? schauen welche am meisten den fehler reduzieren und die raus?
+        // auf jeden fall iwie ne grenze machen wie viel der fehler verbessert werden muss.
+        // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
+
+        int removableCount = certainWallPoints.size() - 3;
+        if (removableCount > 0) {
+            float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
+            // debug
+            auto lasWallCopy = lasWall;
+
+            std::vector<std::pair<int, float>> mappi;
+            float bla[3];
+            for (int i = 0; i < certainWallPoints.size(); i++) {
+                auto lasWallTest = lasWall;
+                auto certainWallPointsTest = certainWallPoints;
+                certainWallPointsTest.erase(certainWallPointsTest.begin() + i);
+                if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallTest))
+                    continue;
+                float newError = getError(cloud, certainWallPoints, osmWall, lasWallTest);
+                auto errorDist = oldError - newError;
+                if (errorDist > 0) {
+                    // remove this point
+                    mappi.emplace_back(i, errorDist);
+                }
+                // try to remove a point and see if plane gets better
+                // scattering and normal angle to osm wall
+            }
+            if (!mappi.empty()) {
+                auto certainWallPointsCopy = certainWallPoints;
+
+                std::sort(mappi.begin(), mappi.end(), [](auto& pair1, auto& pair2) {
+                    return pair1.second < pair2.second;
+                });
+
+                if (mappi.size() > removableCount) {
+                    mappi.erase(mappi.begin() + removableCount, mappi.end());
+                }
+
+                auto newLasWall = lasWall;
+                pcl::Indices newCertainWallPoints;
+
+                for (const auto& item: mappi) {
+
+                    certainWallPoints[item.first] = -1;
+                }
+                for (const auto& item: certainWallPoints) {
+                    if (item == -1)
+                        continue;
+                    newCertainWallPoints.push_back(item);
+                }
+
+                if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, newLasWall))
+                    continue;
+                float newError = getError(cloud, newCertainWallPoints, osmWall, newLasWall);
+                if (newError < oldError) {
+                    lasWall = newLasWall;
+                    certainWallPoints = newCertainWallPoints;
+                } else {
+                    //restore old points
+                    certainWallPoints = certainWallPointsCopy;
+                }
+            }
+        }
+        //endregion
 
         int osmR = 255;
         int osmG = 255;
@@ -3177,10 +3177,10 @@ void DataIO::wallsWithoutOsm(std::vector<bool>& lasWallPoints, std::vector<bool>
 bool DataIO::fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const Util::Wall& osmWall, pcl::Indices& certainWallPoints,
                       pcl::PCA<pcl::PointXYZRGBNormal>& pca, Util::Wall& lasWall) {
 
-//    pcl::IndicesPtr certainWallPointsPtr = std::make_shared<pcl::Indices>(certainWallPoints);
-//    pca.setIndices(certainWallPointsPtr);
-//    Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
-//    Eigen::Vector3f eigenValues = pca.getEigenValues();
+    pcl::IndicesPtr certainWallPointsPtr = std::make_shared<pcl::Indices>(certainWallPoints);
+    pca.setIndices(certainWallPointsPtr);
+    Eigen::Matrix3f eigenVectors = pca.getEigenVectors();
+    Eigen::Vector3f eigenValues = pca.getEigenValues();
 
     // create plane
     // get median point of certain wall points
@@ -3188,19 +3188,19 @@ bool DataIO::fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud,
     findXYZMedian(cloud, certainWallPoints, xMedian, yMedian, zMedian);
     lasWall.mid = pcl::PointXYZRGBNormal(xMedian, yMedian, zMedian);
 
-//    // normal
-//    // check if normal is more vertical
-//    auto vertLen = abs(eigenVectors(1, 2));
-//    if (vertLen > 0.5) { // length adds up to 1
-//        return false;
-//    } else {
-//        // make wall vertical
-//        auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
-//        lasWall.mid.normal_x = lasWallNormal.x;
-//        lasWall.mid.normal_y = lasWallNormal.y;
-//        lasWall.mid.normal_z = lasWallNormal.z;
-//    }
-    // project wall start and end point to new point plane
+    // normal
+    // check if normal is more vertical
+    auto vertLen = abs(eigenVectors(1, 2));
+    if (vertLen > 0.5) { // length adds up to 1
+        return false;
+    } else {
+        // make wall vertical
+        auto lasWallNormal = Util::normalize(pcl::PointXYZ(eigenVectors(0, 2), 0, eigenVectors(2, 2)));
+        lasWall.mid.normal_x = lasWallNormal.x;
+        lasWall.mid.normal_y = lasWallNormal.y;
+        lasWall.mid.normal_z = lasWallNormal.z;
+    }
+    // project wall start and end point to certain wall point plane
     // border points
     auto dist1 = Util::signedPointPlaneDistance(osmWall.point1, lasWall.mid);
     auto dist2 = Util::signedPointPlaneDistance(osmWall.point2, lasWall.mid);
@@ -3211,13 +3211,13 @@ bool DataIO::fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud,
     lasWall.point2 = Util::vectorSubtract(osmWall.point2, pcl::PointXYZRGBNormal(dist2 * lasWall.mid.normal_x,
                                                                                  dist2 * lasWall.mid.normal_y,
                                                                                  dist2 * lasWall.mid.normal_z));
-//    auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
-//    auto horPerpVec = Util::normalize(lasWallVec); // horizontal
-//    // right orientation
-//    auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0));
-//    lasWall.mid.normal_x = lasWallNormal.x;
-//    lasWall.mid.normal_y = lasWallNormal.y;
-//    lasWall.mid.normal_z = lasWallNormal.z;
+    auto lasWallVec = Util::vectorSubtract(lasWall.point2, lasWall.point1);
+    auto horPerpVec = Util::normalize(lasWallVec); // horizontal
+    // right orientation
+    auto lasWallNormal = Util::crossProduct(horPerpVec, pcl::PointXYZ(0, -1, 0));
+    lasWall.mid.normal_x = lasWallNormal.x;
+    lasWall.mid.normal_y = lasWallNormal.y;
+    lasWall.mid.normal_z = lasWallNormal.z;
     // new mid that is in the middle
     lasWall.mid.x = (lasWall.point1.x + lasWall.point2.x) / 2.0f;
     // keep y as median value
