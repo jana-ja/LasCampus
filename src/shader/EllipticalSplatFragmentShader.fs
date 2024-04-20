@@ -10,37 +10,57 @@ in vec3 v2f_color;
 in vec3 v2f_center;
 in vec3  v2f_tangent0;
 in vec3  v2f_tangent1;
-in vec3 v2f_light_dir;
+in vec3 v2f_light_pos;
 in vec2 v2f_tex_coord;
 
 out vec4 f_color;
 
 vec3 phong_lighting(const vec3  normal, const vec3  color, const vec3 view_dir, const vec3 light_dir)
 {
-    const float  ambient   = 0.5; // 0.1
-    const float  diffuse   = 0.8;
-    const float  specular  = 0.6;
-    const float  shininess = 100.0;
-    vec3   V         = view_dir;
-    vec3 L, R, N = normalize(normal);
-    float NL, RV;
+//     const float  ambient   = 0.4; // 0.1
+//     const float  diffuse   = 1.0;
+//     const float  specular  = 0.5;
+//     const float  shininess = 32.0;
+//     vec3   V         = view_dir;
+//     vec3 L, R, N = normalize(normal);
+//     float NL, RV;
+//
+//     vec3 result = ambient *  color; // 0.1 weg?
+//
+//     L = normalize(light_dir);
+//     NL = dot(N, L);
+//     if (NL > 0.0)
+//     {
+//         result += diffuse * NL * color;
+//
+//         R  = normalize(reflect(-L, N));
+//         RV = dot(R, V);
+// //         if (RV > 0.0)
+//         result += vec3( specular * pow(RV, shininess) );
+//     }
+//
+//     result = clamp(result, 0.0, 1.0);
+//
+//     return result;
 
-    vec3 result = ambient *  color; // 0.1 weg?
+    float ambient_strength = 0.4;//0.1;
+    vec3 ambient_color = ambient_strength * vec3(1,1,1);// * light_color;
 
-    L = normalize(light_dir);
-    NL = dot(N, -L);
-    if (NL > 0.0)
-    {
-        result += diffuse * NL * color;
+//     vec3 normal = normalize(v2f_normal);
+//     vec3 light_dir = normalize(light_pos - v2f_pos);
+    float diffuse = max(dot(normal, light_dir), 0.0);
+    vec3 diffuse_color = diffuse * vec3(1,1,1);
 
-        R  = normalize(reflect(L, N));
-        RV = dot(R, V);
-        if (RV > 0.0) result += vec3( specular * pow(RV, shininess) );
-    }
+//     vec3 view_dir = normalize(camera_pos - v2f_pos);
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float specular_strength = 0.5;
+    float specular = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    vec3 specular_color = specular_strength * specular * vec3(1,1,1);// * light_color;
 
-    result = clamp(result, 0.0, 1.0);
+    vec3 result_color = (ambient_color + diffuse_color + specular_color) * v2f_color;
 
-    return result;
+
+    return result_color;
 }
 
 void main()
@@ -75,7 +95,8 @@ void main()
             f_color = texture(ortho_texture, v2f_tex_coord);
         }
     } else {
-        f_color = vec4(phong_lighting(n, v2f_color, normalize(v2f_center), normalize(v2f_light_dir)), 1.0);
+        vec3 light_dir = normalize(v2f_light_pos - v2f_center);
+        f_color = vec4(phong_lighting(n, v2f_color, normalize(-v2f_center), normalize(light_dir)), 1.0);
     }
 
     // depth correction

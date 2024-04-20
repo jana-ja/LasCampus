@@ -8,7 +8,7 @@ layout(location = 6) in vec2 v_tex_coord;
 uniform mat4 view_matrix;
 uniform mat4 projection_matrix;
 uniform float point_size;
-uniform vec3 light_dir;
+uniform vec3 light_pos;
 uniform float size_const;
 uniform bool backface_culling;
 
@@ -16,7 +16,7 @@ out vec3 v2f_color;
 out vec3 v2f_center;
 out vec3 v2f_tangent0;
 out vec3 v2f_tangent1;
-out vec3 v2f_light_dir;
+out vec3 v2f_light_pos;
 out vec2 v2f_tex_coord;
 
 void main(){
@@ -27,7 +27,7 @@ void main(){
     v2f_tangent1 = (view_matrix * vec4((v_tangent1 / size_fac), 0.0)).xyz;
     v2f_center = (view_matrix * vec4(v_world_pos, 1.0)).xyz;
     v2f_color = v_color;
-    v2f_light_dir = (view_matrix * vec4(light_dir, 0.0)).xyz;
+    v2f_light_pos = (view_matrix * vec4(light_pos, 1.0)).xyz;
     v2f_tex_coord = v_tex_coord;
 
     gl_Position = projection_matrix * view_matrix * vec4(v_world_pos, 1.0);
