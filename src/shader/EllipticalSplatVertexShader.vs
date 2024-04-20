@@ -21,7 +21,7 @@ out vec2 v2f_tex_coord;
 
 void main(){
 
-    float size_fac = 1.1;
+    float size_fac = 1.0;
 
     v2f_tangent0 = (view_matrix * vec4((v_tangent0 / size_fac), 0.0)).xyz;
     v2f_tangent1 = (view_matrix * vec4((v_tangent1 / size_fac), 0.0)).xyz;
