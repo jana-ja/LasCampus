@@ -52,11 +52,11 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
         splatShader.setVec4("vp", vp);
         splatShader.setVec3("zb", zb);
 
-    // texture
-    unsigned int texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    // set the texture wrapping/filtering options (on the currently bound texture object)
+    // birdsEyeTexture
+    unsigned int birdsEyeTexture;
+    glGenTextures(1, &birdsEyeTexture);
+    glBindTexture(GL_TEXTURE_2D, birdsEyeTexture);
+    // set the birdsEyeTexture wrapping/filtering options (on the currently bound birdsEyeTexture object)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -70,11 +70,11 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
     int actualChannels;
     unsigned char* data = stbi_load(imgPath.c_str(), &width, &height, &actualChannels, desiredChannels);
     if (data != nullptr) {
-        // texture target, mipmap level, color format for texture, width, height, always zero, color format of source image, datatype of source (here char/bytes), image data
+        // birdsEyeTexture target, mipmap level, color format for birdsEyeTexture, width, height, always zero, color format of source image, datatype of source (here char/bytes), image data
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
-        std::cout << TAG << "Failed to load texture" << std::endl;
+        std::cout << TAG << "Failed to load birdsEyeTexture" << std::endl;
     }
     stbi_image_free(data);
 
@@ -141,7 +141,7 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
 
         // draw point cloud
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture); //TODO nach oben schieben weil immer gleich?
+        glBindTexture(GL_TEXTURE_2D, birdsEyeTexture); //TODO nach oben schieben weil immer gleich?
         glBindVertexArray(pcVAO);
         glDrawArrays(GL_POINTS, 0, pointCloud.getVertexCount()); // Starting from vertex 0
 
