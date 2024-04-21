@@ -37,6 +37,18 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
     }
 
+//    (*cloud).erase((*cloud).begin(), (*cloud).begin()+wallPointsStartIndex);
+//    (*cloud).erase((*cloud).begin()+wallPointsStartIndex, (*cloud).end());
+//
+//    auto count = 0;
+//    auto bla = pcl::PointXYZ(0,0,0);
+//    for(auto t: tangent1Vec) {
+//        if (t.x != 0 || t.y != 0 ||t.z != 0) {
+//            count++;
+//        }
+//    }
+//    auto count2 = tangent1Vec.size();
+
 }
 
 void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int>& pointClasses) {
@@ -50,7 +62,7 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
 
 
     // ********** knn and compute avgRadius **********
-    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);
+    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance) * 3;
     std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
 
     // ********** get neighbourhood with radius, use pca for normal and classification and compute epsilon **********
@@ -85,9 +97,9 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
 
     // TODO test if looks better, maybe cloud with all points, and only wall points separat
     // normal points
-//    pcl::Indices normalPoints(wallPointsStartIndex);
-//    std::iota (std::begin(normalPoints), std::end(normalPoints), 0);
-//    auto normalPointsPtr = make_shared<pcl::Indices>(normalPoints);
+    pcl::Indices normalPoints(wallPointsStartIndex);
+    std::iota (std::begin(normalPoints), std::end(normalPoints), 0);
+    auto normalPointsPtr = make_shared<pcl::Indices>(normalPoints);
     tree->setInputCloud(cloud);//, normalPointsPtr);
     for (auto pointIdx = 0; pointIdx < wallPointsStartIndex; pointIdx++) {
         pcl::Indices neighboursPointIdx(k);
@@ -100,8 +112,8 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
             std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
 
             auto const count = static_cast<float>(neighboursDistance.size());
-            auto avgRadius = std::reduce(neighboursDistance.begin(), neighboursDistance.end()) /
-                             (count - 1); // count - 1, weil die erste distance immer 0 ist
+            auto avgRadius = *(neighboursDistance.end()-1);
+//            auto avgRadius = std::reduce(neighboursDistance.begin(), neighboursDistance.end()) / (count - 1); // count - 1, weil die erste distance immer 0 ist
             avgRadiusSumNeighbourhoods += avgRadius;
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
@@ -445,18 +457,25 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
 void
 DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
-    float alpha = 0.2;
+    float alpha = 0.4;
 
     // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
-    float angleThreshold = 0.86; // ~30°
+    float angleThreshold = 0.6;//0.86; // ~30°
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
 
     float currentSplatGrowEpsilon = splatGrowEpsilon;
 
+    std::vector<int> indices(cloud->points.size());
+    std::iota (std::begin(indices), std::end(indices), 0); // Fill with 0, 1, ..., 99.
+    auto rng = std::default_random_engine {};
+    std::shuffle(indices.begin(), indices.end(), rng);
+
     // for every point
-    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+//    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+    for (auto pointIdx: indices) {
+
 //        if (pointIdx < wallPointsStartIndex + 39100) {
 //            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
 //            continue;
@@ -484,6 +503,7 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 
         if (discardPoint[pointIdx]) {
             tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
+            tangent2Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             continue;
         }
 
@@ -553,9 +573,9 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
 
             // TODO bei discardeten abbrechen!
-//            if (discardPoint[nIdx]) {
-//                break;
-//            }
+            if (discardPoint[nIdx]) {
+                break;
+            }
             // TODO erst kreis growen und dann mit dem komischen lambda ding ellipse growen!
 
             // stop growing when angle between point normal and neighbour normal is too big
@@ -712,6 +732,7 @@ auto bla = Util::vectorLength(tangent1Vec[pointIdx]);
 //        int randR = rand() % (255 - 0 + 1) + 0;
 //        int randG = rand() % (255 - 0 + 1) + 0;
 //        int randB = rand() % (255 - 0 + 1) + 0;
+        discardPoint[pointIdx] = true;
         // TODO temp lösung
         float radius = max(radius1, radius2);
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
@@ -732,7 +753,7 @@ auto bla = Util::vectorLength(tangent1Vec[pointIdx]);
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
                 // color debug - discarded points
-                if (colorDiscarded) {
+                if (true) {
                     if (nIdx != 0) {
                         (*cloud)[neighbourhood[nIdx]].r = 255;
                         (*cloud)[neighbourhood[nIdx]].g = 255;
