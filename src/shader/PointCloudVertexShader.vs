@@ -16,10 +16,10 @@ out vec2 v2f_tex_coord;
 
 void main(){
     gl_Position = projection_matrix * view_matrix * vec4(v_world_pos, 1.0);
-    gl_PointSize = point_size * (100 / distance(camera_pos, v_world_pos.xyz) / 10);
+    gl_PointSize = point_size * (100 / distance(camera_pos, v_world_pos.xyz) / 10) * 2;
 
     v2f_normal = v_normal;
     v2f_pos = v_world_pos;
-    v2f_color = v_color;
+    v2f_color = v_color; // vec3(0.5,0.5,0.5);//
     v2f_tex_coord = v_tex_coord;
 }

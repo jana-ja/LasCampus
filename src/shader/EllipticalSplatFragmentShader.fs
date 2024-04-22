@@ -12,6 +12,7 @@ in vec3  v2f_tangent0;
 in vec3  v2f_tangent1;
 in vec3 v2f_light_pos;
 in vec2 v2f_tex_coord;
+in float v2f_radius;
 
 out vec4 f_color;
 
@@ -96,7 +97,8 @@ void main()
         }
     } else {
         vec3 light_dir = normalize(v2f_light_pos - v2f_center);
-        f_color = vec4(phong_lighting(n, v2f_color, normalize(-v2f_center), normalize(light_dir)), 1.0);
+        float alpha = 1.0 - (distance(q, v2f_center) / v2f_radius);
+        f_color = vec4(phong_lighting(n, v2f_color, normalize(-v2f_center), normalize(light_dir)), alpha);
     }
 
     // depth correction

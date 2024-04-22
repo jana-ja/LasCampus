@@ -62,7 +62,7 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
 
 
     // ********** knn and compute avgRadius **********
-    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance) * 3;
+    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance) * 4;
     std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
 
     // ********** get neighbourhood with radius, use pca for normal and classification and compute epsilon **********
@@ -457,24 +457,29 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
 void
 DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
-    float alpha = 0.4;
+    float alpha = 0.2;
 
     // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
-    float angleThreshold = 0.6;//0.86; // ~30°
+    float angleThreshold = 0.3;//0.6;//0.86; // ~30°
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
 
     float currentSplatGrowEpsilon = splatGrowEpsilon;
 
-    std::vector<int> indices(cloud->points.size());
-    std::iota (std::begin(indices), std::end(indices), 0); // Fill with 0, 1, ..., 99.
-    auto rng = std::default_random_engine {};
-    std::shuffle(indices.begin(), indices.end(), rng);
+//    std::vector<int> indices(cloud->points.size());
+//    std::iota (std::begin(indices), std::end(indices), 0); // Fill with 0, 1, ..., 99.
+//    std::random_device rd;
+//    std::mt19937 mt(rd());
+//    auto rng = std::default_random_engine {};
+//    rng.seed(mt19937);
+//    std::shuffle(indices.begin(), indices.end(), rng);
+//    std::shuffle(indices.begin(), indices.end(), rng);
+
 
     // for every point
-//    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-    for (auto pointIdx: indices) {
+    for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
+//    for (auto pointIdx: indices) {
 
 //        if (pointIdx < wallPointsStartIndex + 39100) {
 //            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
@@ -573,9 +578,9 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
             // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
 
             // TODO bei discardeten abbrechen!
-            if (discardPoint[nIdx]) {
-                break;
-            }
+//            if (discardPoint[nIdx]) {
+//                break;
+//            }
             // TODO erst kreis growen und dann mit dem komischen lambda ding ellipse growen!
 
             // stop growing when angle between point normal and neighbour normal is too big
