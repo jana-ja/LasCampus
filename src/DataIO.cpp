@@ -178,13 +178,13 @@ void DataIO::readLas(const std::string& path) {
 
 
         // points
-        numOfPoints = 800000;
-//        numOfPoints = header.numberOfPoints;
+//        numOfPoints = 800000;
+        numOfPoints = header.numberOfPoints;
 //
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
         // skip to point tree TODO because i dont use all points for testing
-        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
+//        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {
@@ -205,6 +205,11 @@ void DataIO::readLas(const std::string& path) {
 
 
         }
+
+        // fitte wände auf punktwolke
+        // dann alle wände speichern
+        // dann multi return und ausreißer raus
+        // dann die wände hinzufügen
 
         if (!inf.good())
             throw std::runtime_error("Reading .las ran into error");
@@ -283,7 +288,6 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                                   std::vector<bool>& lasWallPoints,
                                   std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords) {
 
-    pcl::Indices notWallPoints;
 
 
     std::string TAG = DataIO::TAG + "filterAndColorPoints\t";
@@ -303,6 +307,13 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
     std::cout << TAG << "remove tree/vegetation points"  << std::endl;
     std::cout << TAG << "+ mark wall points" << std::endl;
     std::cout << TAG << "+ assign texture coordinates to points" << std::endl;
+
+    // wall points go in extra cloud
+    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloudMulti = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(
+            new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+    std::vector<bool> lasGroundPointsMulti;
+    std::vector<bool> lasWallPointsMulti;
+    std::vector<pcl::PointXY> texCoordsMulti;
 
     // filter stuff
     int idxxx = 0;
@@ -401,14 +412,25 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 
         int imageX = (point.x - 389000.05) * 10; // data from jp2 world file
         int imageY = (point.y - 5705999.95) * -10;
-        texCoords.emplace_back(static_cast<float>(imageX) / 10000, static_cast<float>(imageY) / 10000);
 
-        cloud->push_back(v);
-        lasWallPoints.push_back(belongsToWall);
-        if (!belongsToWall) {
-            notWallPoints.push_back((*cloud).size()-1);
+
+        if (numOfReturns != 1) {
+            // if multi return points -> wall cloud
+            texCoordsMulti.emplace_back(static_cast<float>(imageX) / 10000, static_cast<float>(imageY) / 10000);
+
+            cloudMulti->push_back(v);
+            lasWallPointsMulti.push_back(belongsToWall);
+            lasGroundPointsMulti.push_back(classification == 2);
+
+        } else {
+            // else -> normal cloud
+            texCoords.emplace_back(static_cast<float>(imageX) / 10000, static_cast<float>(imageY) / 10000);
+
+            cloud->push_back(v);
+            lasWallPoints.push_back(belongsToWall);
+            lasGroundPoints.push_back(classification == 2);
         }
-        lasGroundPoints.push_back(classification == 2);
+
     }
 
     std::cout << TAG << "new number of points: " << (*cloud).size() << std::endl;
@@ -416,12 +438,11 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
     std::cout << TAG << "filter outliers... " << std::endl;
 
 
+    // filter single return points for outliers, multi return points werden eh später entfernt
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 // Create the filtering object
     auto sor = pcl::StatisticalOutlierRemoval<pcl::PointXYZRGBNormal>(true);
     sor.setInputCloud (cloud);
-    pcl::IndicesPtr notWallPointsPtr = std::make_shared<pcl::Indices>(notWallPoints);
-    sor.setIndices(notWallPointsPtr);
     sor.setMeanK (40);
     sor.setStddevMulThresh (2.0);
     sor.filter (*cloud_filtered);
@@ -455,6 +476,14 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
     lasWallPoints = newLasWallPoints;
     lasGroundPoints = newLasGroundPoints;
     texCoords = newTexCoords;
+
+    // warum gehen textur koords kaputt?
+
+    // attach multi points to end
+    (*cloud).insert((*cloud).end(), (*cloudMulti).begin(), (*cloudMulti).end());
+    lasWallPoints.insert(lasWallPoints.end(), lasWallPointsMulti.begin(), lasWallPointsMulti.end());
+    lasGroundPoints.insert(lasGroundPoints.end(), lasGroundPointsMulti.begin(), lasGroundPointsMulti.end());
+    texCoords.insert(texCoords.end(), texCoordsMulti.begin(), texCoordsMulti.end());
 
 
 
@@ -1106,7 +1135,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             float y = yMin;
             float xCopy = x;
             float zCopy = z;
-            float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, removePoints, lasWallNormal, lasPointTree);
+            float currentMaxY = getMaxY(cloud, x, z, yMin, yMax, stepWidth, lasWallPoints, lasWallNormal, lasPointTree);
             int columnHeight = static_cast<int>((currentMaxY - yMin) / stepWidth);
             columnHeights.push_back(columnHeight);
             counters[columnHeight]++;
@@ -1200,12 +1229,12 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
         // skip wall if it hast too many jumps and most common height is not predominant
 
 
-        if (jumpCount > 0) {
-            if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
-                // skip wall
-                continue;
-            }
-        }
+//        if (jumpCount > 0) {
+//            if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
+//                // skip wall
+//                continue;
+//            }
+//        }
 
         bool horMajor = (yMax - yMin) < lasWallLength;
 

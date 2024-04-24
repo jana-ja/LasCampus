@@ -33,6 +33,6 @@ void main(){
     if (enable_textures) {
         f_color = texture(ortho_texture, v2f_tex_coord);
     } else {
-        f_color = vec4(result_color, 1.0);
+        f_color = vec4(v2f_color, 1.0);
     }
 }

@@ -26,16 +26,16 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
     //TODO tree ist grad doppelt
 
-    if (!cachedSplats) {
-
-
-        adaSplats(tree, pointClasses);
-
-        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
-        const auto& file = lasFiles[0];
-
-        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
-    }
+//    if (!cachedSplats) {
+//
+//
+//        adaSplats(tree, pointClasses);
+//
+//        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
+//        const auto& file = lasFiles[0];
+//
+//        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
+//    }
 
 //    (*cloud).erase((*cloud).begin(), (*cloud).begin()+wallPointsStartIndex);
 //    (*cloud).erase((*cloud).begin()+wallPointsStartIndex, (*cloud).end());
