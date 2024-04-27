@@ -178,13 +178,13 @@ void DataIO::readLas(const std::string& path) {
 
 
         // points
-//        numOfPoints = 800000;
-        numOfPoints = header.numberOfPoints;
+        numOfPoints = 800000;
+//        numOfPoints = header.numberOfPoints;
 //
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
         // skip to point tree TODO because i dont use all points for testing
-//        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
+        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {
@@ -970,73 +970,73 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
             continue;
 
 
-        // region try to improve lasWall by removing certain wall points that increase error
-
-        // die einzeln betrachten ob rausfliegen oder nacheinander mti schon verändertem vector?
-        // wie schauen wie viele entfernt wurden? schauen welche am meisten den fehler reduzieren und die raus?
-        // auf jeden fall iwie ne grenze machen wie viel der fehler verbessert werden muss.
-        // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
-
-        int removableCount = certainWallPoints.size() - 3;
-        if (removableCount > 0) {
-            float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
-            // debug
-            auto lasWallCopy = lasWall;
-
-            std::vector<std::pair<int, float>> mappi;
-            float bla[3];
-            for (int i = 0; i < certainWallPoints.size(); i++) {
-                auto lasWallTest = lasWall;
-                auto certainWallPointsTest = certainWallPoints;
-                certainWallPointsTest.erase(certainWallPointsTest.begin() + i);
-                if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallTest))
-                    continue;
-                float newError = getError(cloud, certainWallPoints, osmWall, lasWallTest);
-                auto errorDist = oldError - newError;
-                if (errorDist > 0) {
-                    // remove this point
-                    mappi.emplace_back(i, errorDist);
-                }
-                // try to remove a point and see if plane gets better
-                // scattering and normal angle to osm wall
-            }
-            if (!mappi.empty()) {
-                auto certainWallPointsCopy = certainWallPoints;
-
-                std::sort(mappi.begin(), mappi.end(), [](auto& pair1, auto& pair2) {
-                    return pair1.second < pair2.second;
-                });
-
-                if (mappi.size() > removableCount) {
-                    mappi.erase(mappi.begin() + removableCount, mappi.end());
-                }
-
-                auto newLasWall = lasWall;
-                pcl::Indices newCertainWallPoints;
-
-                for (const auto& item: mappi) {
-
-                    certainWallPoints[item.first] = -1;
-                }
-                for (const auto& item: certainWallPoints) {
-                    if (item == -1)
-                        continue;
-                    newCertainWallPoints.push_back(item);
-                }
-
-                if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, newLasWall))
-                    continue;
-                float newError = getError(cloud, newCertainWallPoints, osmWall, newLasWall);
-                if (newError < oldError) {
-                    lasWall = newLasWall;
-                    certainWallPoints = newCertainWallPoints;
-                } else {
-                    //restore old points
-                    certainWallPoints = certainWallPointsCopy;
-                }
-            }
-        }
-        //endregion
+//        // region try to improve lasWall by removing certain wall points that increase error
+//
+//        // die einzeln betrachten ob rausfliegen oder nacheinander mti schon verändertem vector?
+//        // wie schauen wie viele entfernt wurden? schauen welche am meisten den fehler reduzieren und die raus?
+//        // auf jeden fall iwie ne grenze machen wie viel der fehler verbessert werden muss.
+//        // wenn ich das aufbauende entfernen mache ist die reihenfolge womöglich relevant.
+//
+//        int removableCount = certainWallPoints.size() - 3;
+//        if (removableCount > 0) {
+//            float oldError = getError(cloud, certainWallPoints, osmWall, lasWall);
+//            // debug
+//            auto lasWallCopy = lasWall;
+//
+//            std::vector<std::pair<int, float>> mappi;
+//            float bla[3];
+//            for (int i = 0; i < certainWallPoints.size(); i++) {
+//                auto lasWallTest = lasWall;
+//                auto certainWallPointsTest = certainWallPoints;
+//                certainWallPointsTest.erase(certainWallPointsTest.begin() + i);
+//                if (!fitPlane(cloud, osmWall, certainWallPointsTest, pca, lasWallTest))
+//                    continue;
+//                float newError = getError(cloud, certainWallPoints, osmWall, lasWallTest);
+//                auto errorDist = oldError - newError;
+//                if (errorDist > 0) {
+//                    // remove this point
+//                    mappi.emplace_back(i, errorDist);
+//                }
+//                // try to remove a point and see if plane gets better
+//                // scattering and normal angle to osm wall
+//            }
+//            if (!mappi.empty()) {
+//                auto certainWallPointsCopy = certainWallPoints;
+//
+//                std::sort(mappi.begin(), mappi.end(), [](auto& pair1, auto& pair2) {
+//                    return pair1.second < pair2.second;
+//                });
+//
+//                if (mappi.size() > removableCount) {
+//                    mappi.erase(mappi.begin() + removableCount, mappi.end());
+//                }
+//
+//                auto newLasWall = lasWall;
+//                pcl::Indices newCertainWallPoints;
+//
+//                for (const auto& item: mappi) {
+//
+//                    certainWallPoints[item.first] = -1;
+//                }
+//                for (const auto& item: certainWallPoints) {
+//                    if (item == -1)
+//                        continue;
+//                    newCertainWallPoints.push_back(item);
+//                }
+//
+//                if (!fitPlane(cloud, osmWall, newCertainWallPoints, pca, newLasWall))
+//                    continue;
+//                float newError = getError(cloud, newCertainWallPoints, osmWall, newLasWall);
+//                if (newError < oldError) {
+//                    lasWall = newLasWall;
+//                    certainWallPoints = newCertainWallPoints;
+//                } else {
+//                    //restore old points
+//                    certainWallPoints = certainWallPointsCopy;
+//                }
+//            }
+//        }
+//        //endregion
 
         int osmR = 255;
         int osmG = 255;
@@ -1232,7 +1232,10 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
 //        if (jumpCount > 0) {
 //            if ((float) columnHeights.size() / (float) jumpCount < 5 && mostCommon->second < 0.5 * columnHeights.size()) {
 //                // skip wall
-//                continue;
+//                osmR = 255;
+//                osmG = 0;
+//                osmB = 255;
+////                continue;
 //            }
 //        }
 
@@ -1638,11 +1641,11 @@ void DataIO::readGml(const std::string& path) {
 //                                        v.z = -(float) (point.y - zOffset);
                                         points.emplace_back(glX, glY, glZ);
                                         if (points.size() > 1) {
-//                                            if (Util::distance(points[points.size()-1], points[points.size()-2]) < 0.1) {
-//                                                // skip this wall because its too thin
-//                                                invalid = true;
-//                                                break;
-//                                            }
+                                            if (Util::distance(points[points.size()-1], points[points.size()-2]) < 0.1) {
+                                                // skip this wall because its too thin
+                                                invalid = true;
+                                                break;
+                                            }
                                             // check is this wall is rectangular
                                             bool difX = points[points.size() - 1].x != points[points.size() - 2].x;
                                             bool difY = points[points.size() - 1].y != points[points.size() - 2].y;
