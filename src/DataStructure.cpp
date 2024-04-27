@@ -26,16 +26,15 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     tree->setInputCloud(cloud);
     //TODO tree ist grad doppelt
 
-//    if (!cachedSplats) {
-//
-//
-//        adaSplats(tree, pointClasses);
-//
-//        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
-//        const auto& file = lasFiles[0];
-//
-//        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
-//    }
+    if (!cachedSplats) {
+
+        adaSplats(tree, pointClasses);
+
+        std::string lasDir = ".." + Util::PATH_SEPARATOR + "las" + Util::PATH_SEPARATOR;
+        const auto& file = lasFiles[0];
+
+        dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
+    }
 
 //    (*cloud).erase((*cloud).begin(), (*cloud).begin()+wallPointsStartIndex);
 //    (*cloud).erase((*cloud).begin()+wallPointsStartIndex, (*cloud).end());
@@ -62,7 +61,7 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
 
 
     // ********** knn and compute avgRadius **********
-    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance) * 4;
+    float avgRadiusNeighbourhoods = adaKnnAndRadius(k, tree, pointNeighbourhoods, pointNeighbourhoodsDistance);// * 4;
     std::cout << TAG << "avg radius R is: " << avgRadiusNeighbourhoods << std::endl;
 
     // ********** get neighbourhood with radius, use pca for normal and classification and compute epsilon **********
@@ -457,10 +456,10 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
 void
 DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices>& pointNeighbourhoods,
                                 std::vector<std::vector<float>>& pointNeighbourhoodsDistance, std::vector<int>& pointClasses) {
-    float alpha = 0.2;
+    float alpha = 0.5;
 
     // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
-    float angleThreshold = 0.3;//0.6;//0.86; // ~30°
+    float angleThreshold = 0.26;//0.26;//0.6;//0.86; // ~30°
 
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
@@ -590,8 +589,9 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
             neighbourNormal.y = (*cloud)[neighbourhood[nIdx]].normal_y;
             neighbourNormal.z = (*cloud)[neighbourhood[nIdx]].normal_z;
 
-            float angle = Util::dotProduct(normal, neighbourNormal);
-            if (angle < angleThreshold) {
+            auto blub = Util::dotProduct(normal, neighbourNormal);
+            float angle = acos(blub);
+            if (abs(angle) > angleThreshold) {
 //                if (concernsTangent1) {
 //                    growTangent1 = false;
 //                } else {
