@@ -27,7 +27,7 @@ void main(){
     v2f_tangent0 = (view_matrix * vec4((v_tangent0 / size_fac), 0.0)).xyz;
     v2f_tangent1 = (view_matrix * vec4((v_tangent1 / size_fac), 0.0)).xyz;
     v2f_center = (view_matrix * vec4(v_world_pos, 1.0)).xyz;
-    v2f_color = vec3(0.5,0.5,0.5);//v_color;
+    v2f_color = v_color;
     v2f_light_pos = (view_matrix * vec4(light_pos, 1.0)).xyz;
     v2f_tex_coord = v_tex_coord;
 
