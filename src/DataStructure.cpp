@@ -36,18 +36,6 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
         dataIO.writeCache(lasDir + file, true, cloud, texCoords, tangent1Vec, tangent2Vec, wallPointsStartIndex, pointClasses);
     }
 
-//    (*cloud).erase((*cloud).begin(), (*cloud).begin()+wallPointsStartIndex);
-//    (*cloud).erase((*cloud).begin()+wallPointsStartIndex, (*cloud).end());
-//
-//    auto count = 0;
-//    auto bla = pcl::PointXYZ(0,0,0);
-//    for(auto t: tangent1Vec) {
-//        if (t.x != 0 || t.y != 0 ||t.z != 0) {
-//            count++;
-//        }
-//    }
-//    auto count2 = tangent1Vec.size();
-
 }
 
 void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree, std::vector<int>& pointClasses) {
@@ -70,10 +58,6 @@ void DataStructure::adaSplats(pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr t
 
     // ********** get new neighbourhood with new k and new radius (depending on classification) and use pca for normal **********
     adaNewNeighbourhoods(k, tree, avgRadiusNeighbourhoods, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
-
-    // ********** horizontal normal orientation (walls) **********
-//    float wallThreshold = 1.0;
-//    adaNormalOrientation(wallThreshold, tree);
 
     // ********** compute splats **********
     adaComputeSplats(splatGrowEpsilon, pointNeighbourhoods, pointNeighbourhoodsDistance, pointClasses);
@@ -111,9 +95,8 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
             std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
 
             auto const count = static_cast<float>(neighboursDistance.size());
-            auto avgRadius = *(neighboursDistance.end()-1);
-//            auto avgRadius = std::reduce(neighboursDistance.begin(), neighboursDistance.end()) / (count - 1); // count - 1, weil die erste distance immer 0 ist
-            avgRadiusSumNeighbourhoods += avgRadius;
+            auto maxRadius = *(neighboursDistance.end() - 1);
+            avgRadiusSumNeighbourhoods += maxRadius;
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
             pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
@@ -139,11 +122,6 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
             // desquare it
             auto neighboursDistance = std::vector<float>(k);
             std::transform(neighboursSquaredDistance.begin(), neighboursSquaredDistance.end(), neighboursDistance.begin(), [](float number){ return sqrt(number);});
-
-//            auto const count = static_cast<float>(neighboursDistance.size());
-//            auto avgRadius = std::reduce(neighboursDistance.begin(), neighboursDistance.end()) /
-//                             (count - 1); // count - 1, weil die erste distance immer 0 ist
-//            avgRadiusSumNeighbourhoods += avgRadius;
 
             pointNeighbourhoods[pointIdx] = neighboursPointIdx;
             pointNeighbourhoodsDistance[pointIdx] = neighboursDistance;
@@ -318,10 +296,7 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
     int currentK;
 
     // normal points
-//    pcl::Indices normalPoints(wallPointsStartIndex);
-//    std::iota (std::begin(normalPoints), std::end(normalPoints), 0);
-//    auto normalPointsPtr = make_shared<pcl::Indices>(normalPoints);
-    tree->setInputCloud(cloud);//, normalPointsPtr);
+    tree->setInputCloud(cloud);
     for (auto pointIdx = 0; pointIdx < wallPointsStartIndex; pointIdx++) {
 
         // get new k-neighbourhood with adjusted k
@@ -384,6 +359,8 @@ void DataStructure::adaNewNeighbourhoods(int k, pcl::search::KdTree<pcl::PointXY
             pointNeighbourhoods[pointIdx] = pcl::Indices();
         }
     }
+
+
     // wall points
     pcl::Indices wallPoints((*cloud).size() - wallPointsStartIndex);
     std::iota (std::begin(wallPoints), std::end(wallPoints), wallPointsStartIndex);
@@ -464,46 +441,12 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
     std::vector<bool> discardPoint(cloud->points.size());
     fill(discardPoint.begin(), discardPoint.end(), false);
 
-    float currentSplatGrowEpsilon = splatGrowEpsilon;
+    float currentSplatGrowEpsilon;
 
-//    std::vector<int> indices(cloud->points.size());
-//    std::iota (std::begin(indices), std::end(indices), 0); // Fill with 0, 1, ..., 99.
-//    std::random_device rd;
-//    std::mt19937 mt(rd());
-//    auto rng = std::default_random_engine {};
-//    rng.seed(mt19937);
-//    std::shuffle(indices.begin(), indices.end(), rng);
-//    std::shuffle(indices.begin(), indices.end(), rng);
-
+    int splatCount = 0;
 
     // for every point
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
-//    for (auto pointIdx: indices) {
-
-//        if (pointIdx < wallPointsStartIndex + 39100) {
-//            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
-//            continue;
-//        }
-//        if (pointIdx > wallPointsStartIndex + 39128) {
-//            tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
-//            continue;
-//        }
-//
-//        // TODO debug
-//        (*cloud)[pointIdx].r = 0;
-//        (*cloud)[pointIdx].g = 0;
-//        (*cloud)[pointIdx].b = 255;
-//
-//
-//        if (pointIdx == wallPointsStartIndex + 39125) {
-//            (*cloud)[pointIdx].r = 0;
-//            (*cloud)[pointIdx].g = 255;
-//            (*cloud)[pointIdx].b = 255;
-//            auto r = 3;
-//        }
-//        if (pointIdx % 1000 != 0){
-//            continue;
-//        }
 
         if (discardPoint[pointIdx]) {
             tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
@@ -533,142 +476,43 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 
         float epsilonSum = 0;
         int epsilonCount = 0;
-//        int epsilonCount1 = 0;
-//        int epsilonCount2 = 0;
         int lastEpsilonNeighbourIdx = 0;
-//        int lastEpsilonNeighbourIdx1 = 0;
-//        int lastEpsilonNeighbourIdx2 = 0;
-
-//        bool growTangent1 = true;
-//        bool growTangent2 = true;
-//
-//        bool concernsTangent1;
 
         // grow
         // for every neighbour
         for (auto nIdx = 1; nIdx < neighbourhood.size(); nIdx++) {
 
-//            if (!growTangent1 && !growTangent2) {
-//                break;
-//            }
-
-//            // first check if neighbour point concerns tangent1 growth or tangent2 growth
-//            // project vector onto plane:
-//            auto neighbourVec = Util::vectorSubtract(cloud->points[neighbourhood[nIdx]], point);
-//            auto projectedDistance = Util::dotProduct(normal, neighbourVec);
-//            auto normalProjectedVec = pcl::PointXYZ(projectedDistance * normal.x, projectedDistance * normal.y, projectedDistance * normal.z);
-//            auto planeProjectedVec = Util::vectorSubtract(neighbourVec, normalProjectedVec);
-//            // angle
-//            auto vecLen = Util::vectorLength(planeProjectedVec);
-//            float cosAngle = Util::dotProduct(tangent1Vec[pointIdx], planeProjectedVec) / vecLen;
-//            if (abs(cosAngle) > 0.7) { // 45°
-//                // concerns tangent1 -> less then 45° between tangent1 and projected neighbour vector
-//                concernsTangent1 = true;
-//                if (!growTangent1) {
-//                    continue;
-//                }
-//            } else {
-//                concernsTangent1 = false;
-//                if (!growTangent2) {
-//                    continue;
-//                }
-//            }
-
-            // TODO ich teste jetzt abbruchbedingungen auch bei discardeten punkten zu checken
-
-            // TODO bei discardeten abbrechen!
-//            if (discardPoint[nIdx]) {
-//                break;
-//            }
-            // TODO erst kreis growen und dann mit dem komischen lambda ding ellipse growen!
-
-            // stop growing when angle between point normal and neighbour normal is too big
-            // smoothness check
             pcl::PointXYZ neighbourNormal;
             neighbourNormal.x = (*cloud)[neighbourhood[nIdx]].normal_x;
             neighbourNormal.y = (*cloud)[neighbourhood[nIdx]].normal_y;
             neighbourNormal.z = (*cloud)[neighbourhood[nIdx]].normal_z;
 
-            auto blub = Util::dotProduct(normal, neighbourNormal);
-            float angle = acos(blub);
+            // stop growing when angle is too big
+            float angle = acos(Util::dotProduct(normal, neighbourNormal));
             if (abs(angle) > angleThreshold) {
-//                if (concernsTangent1) {
-//                    growTangent1 = false;
-//                } else {
-//                    growTangent2 = false;
-//                }
-//                continue;
                 break;
             }
 
+            // stop growing when point plane distance is too big
             auto eps = Util::signedPointPlaneDistance(point, cloud->points[neighbourhood[nIdx]], normal);
             if (abs(eps) > currentSplatGrowEpsilon) {
-                // stop growing this neighbourhood
-                // point nIdx does NOT belong to neighbourhood
-//                if (nIdx == 1) {
-//                    (*cloud)[pointIdx].r = 0;
-//                    (*cloud)[pointIdx].g = 255;
-//                    (*cloud)[pointIdx].b = 0;
-//                }
-
-//                if (concernsTangent1) {
-//                    growTangent1 = false;
-//                } else {
-//                    growTangent2 = false;
-//                }
-//                continue;
                 break;
             }
 
             // stop growing when neighbour has different class
             if (pointClasses[pointIdx] != pointClasses[neighbourhood[nIdx]]) {
-                // TODO neu der punkt kommt aber noch mit rein
-//                epsilonSum += eps;
-//                if (concernsTangent1) {
-//                    epsilonCount1++;
-//                    lastEpsilonNeighbourIdx1 = nIdx;
-//                } else {
-//                    epsilonCount2++;
-//                    lastEpsilonNeighbourIdx2 = nIdx;
-//                }
-//                if (concernsTangent1) {
-//                    growTangent1 = false;
-//                } else {
-//                    growTangent2 = false;
-//                }
-//                continue;
-
-//                epsilonSum += eps;
-//                epsilonCount++;
-//                lastEpsilonNeighbourIdx = nIdx;
                 break;
             }
-
-//            // skip discarded points
-//            if (discardPoint[neighbourhood[nIdx]]) {
-//                continue;
-//            }
-
 
 
             epsilonSum += eps;
             epsilonCount++;
             lastEpsilonNeighbourIdx = nIdx;
-//            if (concernsTangent1) {
-//                epsilonCount1++;
-//                lastEpsilonNeighbourIdx1 = nIdx;
-//            } else {
-//                epsilonCount2++;
-//                lastEpsilonNeighbourIdx2 = nIdx;
-//            }
         }
 
-        // no valid neighbours in at least one direction // TODO schauen ob sinn macht getrennt zu betrachten
-        // TODO PROBLEM: glaube schon dass das sinn macht, aber die ungewollten kanten sind so grade dass die hier invalid werden weil in eine richtung nichts passiert
-//        if (epsilonCount1 == 0 || epsilonCount2 == 0) {
-        // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
+
         if (epsilonCount == 0 ) {
-            // no valid neighbours
+            // no valid neighbours (all have been discarded or nearest neighbours eps dist is too big)
             if (colorInvalid) {
                 if ((*cloud)[pointIdx].g != 255) {
                     (*cloud)[pointIdx].r = 255;
@@ -676,27 +520,10 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
                     (*cloud)[pointIdx].b = 255;
                 }
             }
+            // used in shader to skip this splat
             tangent1Vec[pointIdx] = pcl::PointXYZ(0, 0, 0);
             continue;
         }
-//        else if (epsilonCount2 == 0) {
-//            // minor achse
-//            if (colorInvalid) {
-//                (*cloud)[pointIdx].r = 255;
-//                (*cloud)[pointIdx].g = 0;
-//                (*cloud)[pointIdx].b = 0;
-//            }
-//            epsilonCount2++;
-//            lastEpsilonNeighbourIdx2 = 1;
-//        } else if (epsilonCount1 == 0) {
-//            if (colorInvalid) {
-//                (*cloud)[pointIdx].r = 255;
-//                (*cloud)[pointIdx].g = 0;
-//                (*cloud)[pointIdx].b = 0;
-//            }
-//            epsilonCount1++;
-//            lastEpsilonNeighbourIdx1 = 1;
-//        }
 
         // compute avg of the epsilons
         float epsilonAvg = epsilonSum / static_cast<float>(epsilonCount);//(epsilonCount1 + epsilonCount2);
@@ -714,6 +541,7 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
         auto rightSide1 = pcl::PointXYZ(bla1 * normal.x, bla1 * normal.y, bla1 * normal.z);
         float radius1 = Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec1, rightSide1));
         // tangent 2
+        // TODO elliptical splats
 //        const auto& lastNeighbourPoint2 = cloud->points[neighbourhood[lastEpsilonNeighbourIdx]];
 //        auto pointToNeighbourVec2 = Util::vectorSubtract(lastNeighbourPoint2, point);
 //        auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
@@ -723,25 +551,15 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
         if (radius1  == 0)
             continue;
         // length of axes has to be 1/radius
-
-        // TODO test debug
-//        auto minRadius = 2.0f;//std::min(radius1, radius2);
-//        radius1 = 0.5;
-//        radius2 = 1.5;
         tangent1Vec[pointIdx] = pcl::PointXYZ(tangent1Vec[pointIdx].x / radius1, tangent1Vec[pointIdx].y / radius1, tangent1Vec[pointIdx].z / radius1);
         tangent2Vec[pointIdx] = pcl::PointXYZ(tangent2Vec[pointIdx].x / radius2, tangent2Vec[pointIdx].y / radius2, tangent2Vec[pointIdx].z / radius2);
-//        (*cloud)[pointIdx].curvature = radius;
-
-auto bla = Util::vectorLength(tangent1Vec[pointIdx]);
 
 
         // discard points
         auto neighbourhoodDistances = pointNeighbourhoodsDistance[pointIdx];
-//        int randR = rand() % (255 - 0 + 1) + 0;
-//        int randG = rand() % (255 - 0 + 1) + 0;
-//        int randB = rand() % (255 - 0 + 1) + 0;
         discardPoint[pointIdx] = true;
-        // TODO temp lösung
+
+        // TODO temp solution for elliptical splats
         float radius = max(radius1, radius2);
         for (auto nIdx = 0; nIdx < neighbourhood.size(); nIdx++) {
 
@@ -749,14 +567,6 @@ auto bla = Util::vectorLength(tangent1Vec[pointIdx]);
                 continue;
 
             auto dist = neighbourhoodDistances[nIdx];
-
-            // TODO komplexe winkel berechnung zum discarden
-            // https://math.stackexchange.com/questions/76457/check-if-a-point-is-within-an-ellipse
-            // rotate tangents and neighbour point to be parallel to xz-plane or something
-            // ellipse center is c
-            // then i can ignore y component
-            // use: if ( (n.x - c.x)² / r1²  +  (n.z - c.z)² / r2²  <= 1 ) -> isInside
-            // umformen: if ( r2² * (n.x - c.x)²  +  r1² * (n.z - c.z)² <= r1² * r2² -> isInside
 
             if (dist < alpha * radius) {
                 discardPoint[neighbourhood[nIdx]] = true;
@@ -782,9 +592,6 @@ auto bla = Util::vectorLength(tangent1Vec[pointIdx]);
             (*cloud)[pointIdx].r = randR;
             (*cloud)[pointIdx].g = randG;
             (*cloud)[pointIdx].b = randB;
-//            (*cloud)[pointIdx].r = 0;
-//            (*cloud)[pointIdx].g = 255;
-//            (*cloud)[pointIdx].b = 255;
         }
     }
 }
@@ -829,26 +636,14 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
     // resampling
     std::vector<pcl::PointXYZRGBNormal> newPoints;
     // 1 → 0°, 0.7 → 45°, 0 → 90°(pi/2). i guess: -0.7 → 135°, -1 → 180°(pi). (arccos kann nur zwischen 0° und 180° zeigen, richtung nicht beachtet)
-    float angleThreshold = 0.6; // ~30° TODO copied from splat generation
+    float angleThreshold = 0.6; // ~30°
     for (auto pointIdx = 0; pointIdx < cloud->points.size(); pointIdx++) {
         const auto& point = (*cloud)[pointIdx];
         // only for splats
         if (tangent1Vec[pointIdx].x == 0 && tangent1Vec[pointIdx].y == 0 && tangent1Vec[pointIdx].z == 0) { // for elliptical splats
             continue;
         }
-//        auto bla = tangent1Vec[pointIdx];
-//        auto blaNorm = Util::normalize(bla);
-//        blaNorm.x = blaNorm.x / avgRadiusNeighbourhoods;
-//        blaNorm.y = blaNorm.y / avgRadiusNeighbourhoods;
-//        blaNorm.z = blaNorm.z / avgRadiusNeighbourhoods;
-//        tangent1Vec[pointIdx] = blaNorm;
-//        auto bla2 = tangent2Vec[pointIdx];
-//        auto blaNorm2 = Util::normalize(bla2);
-//        blaNorm2.x = blaNorm2.x / avgRadiusNeighbourhoods;
-//        blaNorm2.y = blaNorm2.y / avgRadiusNeighbourhoods;
-//        blaNorm2.z = blaNorm2.z / avgRadiusNeighbourhoods;
-//        tangent2Vec[pointIdx] = blaNorm2;
-        // TODO vllt oben speichern für splats?
+
         pointSplatCount = 0;
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
@@ -875,10 +670,6 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
                 // resample
                 for (auto nPointIdxIt = pointIdxRadiusSearch.rbegin(); nPointIdxIt != pointIdxRadiusSearch.rend(); nPointIdxIt++) {
                     const auto& nPointIdx = *nPointIdxIt;
-//                    if (tangent1Vec[nPointIdx].x == 0 && tangent1Vec[nPointIdx].y == 0 && tangent1Vec[nPointIdx].z == 0) { // for elliptical splats
-//                        continue;
-//                    }
-                    // found the farthest splat
 
                     if (pointClasses[pointIdx] != pointClasses[nPointIdx]) {
                         continue;
@@ -971,26 +762,6 @@ DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_
 
     return tree;
 }
-
-
-// TODO später in util
-
-//Vertex DataStructure::getUTMForOpenGL(Vertex *vertexOpenGL) {
-//    // TODO offset is float, losing precision
-//    return Vertex{vertexOpenGL->x + xOffset, vertexOpenGL->y + yOffset, vertexOpenGL->z + zOffset};
-//}
-//
-//Vertex DataStructure::getWGSForOpenGL(Vertex *vertex) {
-//    // TODO offset is float, losing precision
-//
-//    // wert in utm holen, dann:
-//
-//    // zone number: 60 zones, each 6 degrees of longitude (horizontal stripes), number is consistent in horizontal stripes
-//    // zone letter: 20 zones, each 8 degrees of latitude (vertical stripes), letter is consistent in vertical stripes
-//    // x wert zwischen 100.000 und 899.999 meter in zone
-//    // y wert ist entfernugn vom äquator (zumindest auf nordhalbkugel)
-//    return Vertex();
-//}
 
 uint32_t DataStructure::getVertexCount() {
     return (uint32_t) cloud->width;
