@@ -719,6 +719,9 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
 //        auto bla2 = Util::dotProduct(normal, pointToNeighbourVec2);
 //        auto rightSide2 = pcl::PointXYZ(bla2 * normal.x, bla2 * normal.y, bla2 * normal.z);
         float radius2 = radius1;//Util::vectorLength(Util::vectorSubtract(pointToNeighbourVec2, rightSide2));
+        // happens when last valid neighbour is at the same position
+        if (radius1  == 0)
+            continue;
         // length of axes has to be 1/radius
 
         // TODO test debug
