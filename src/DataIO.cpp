@@ -71,7 +71,7 @@ bool DataIO::readData(const std::vector<std::string>& lasFiles, const std::strin
     pointClasses = std::vector<int>(cloud->points.size());
     fill(pointClasses.begin(), pointClasses.end(), 2);
     tree->setInputCloud(cloud);
-    detectWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
+    insertWalls(cloud, osmPolygons, lasWallPoints, lasGroundPoints, tree, wallOctree, texCoords, tangent1Vec, tangent2Vec,
                 wallPointsStartIndex, pointClasses);
     tree->setInputCloud(cloud);
 
@@ -116,7 +116,7 @@ void DataIO::readLas(const std::string& path) {
         }
         assert(header.headerSize == sizeof(header));
         if (header.pointDataRecordFormat != 1 && header.pointDataRecordFormat != 2) {
-            throw std::invalid_argument("Can't handle given LAS file. Only point tree record format 1 or 2 allowed.");
+            throw std::invalid_argument("Can't handle given LAS file. Only point record format 1 or 2 allowed.");
         }
 
 
@@ -154,13 +154,13 @@ void DataIO::readLas(const std::string& path) {
 
 
         // points
-        numOfPoints = 800000;
-//        numOfPoints = header.numberOfPoints;
+//        numOfPoints = 800000;
+        numOfPoints = header.numberOfPoints;
 //
         std::cout << TAG << "Num of points: " << numOfPoints << std::endl;
         inf.seekg(header.pointDataOffset); // skip to point tree
-        // skip to point tree TODO because i dont use all points for testing
-        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
+        // skip to point tree when using smaller number of points for testing
+//        inf.seekg(11300000 * (sizeof(PointDRF1) - 3 * sizeof(double) + 3 * sizeof(uint32_t)), std::ios_base::cur);
 
         if (header.pointDataRecordFormat == 1) {
             for (uint32_t i = 0; i < numOfPoints; i++) {//header.numberOfPoints; i++) {
@@ -214,24 +214,24 @@ bool polygonCheck(const pcl::PointXYZRGBNormal& point, std::vector<pcl::PointXYZ
     return false;
 }
 
-bool DataIO::buildingCheck(const pcl::PointXYZRGBNormal& point,
-                           const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
-                           const float& maxWallRadius) {
+bool DataIO::isPointInBuilding(const pcl::PointXYZRGBNormal& v,
+                               const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
+                               const float& maxWallRadius) {
 
     // create ray for this point
-    auto rayPoint = pcl::PointXYZ(point.x, point.y, point.z);
+    auto rayPoint = pcl::PointXYZ(v.x, v.y, v.z);
     auto rayDir = pcl::PointXYZ(-0.5, 0, 0.5); // TODO choose sth smart?
     for (const auto& building: buildings) {
-        if (isPointInBuildingBbox(building, point)) {
+        if (isPointInBuildingBbox(building, v)) {
 
             // check if belongs to building
             int intersectionCount = 0;
             for (auto& bWall: building.osmWalls) {
 
                 // check if near wall
-                float dist = Util::pointPlaneDistance(point, bWall.mid);
+                float dist = Util::pointPlaneDistance(v, bWall.mid);
                 if (dist <= osmWallThreshold) {
-                    if (Util::horizontalDistance(point, bWall.mid) <= bWall.length / 2) {
+                    if (Util::horizontalDistance(v, bWall.mid) <= bWall.length / 2) {
                         // belongs to wall -> belongs to building
                         return true;
                     }
@@ -343,7 +343,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
                 }
                 // bäume oberer teil, teile von wänden, ein dach?
                 // keep wall points, skip others
-                belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
+                belongsToWall = isPointInBuilding(v, wallOctree, maxWallRadius);
 
                 if (!belongsToWall) {
                     continue;
@@ -372,7 +372,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 //                        v.g = 0;
 //                        v.r = 0;
                     }
-                    belongsToWall = buildingCheck(v, wallOctree, maxWallRadius);
+                    belongsToWall = isPointInBuilding(v, wallOctree, maxWallRadius);
                     if (!belongsToWall) {
                         continue;
                     }
@@ -464,7 +464,7 @@ void DataIO::filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>:
 }
 
 
-void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons,
+void DataIO::insertWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons,
                          std::vector<bool>& lasWallPoints,
                          std::vector<bool>& lasGroundPoints,
                          const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& lasPointTree,
@@ -472,7 +472,7 @@ void DataIO::detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& clo
                          std::vector<pcl::PointXY>& texCoords,
                          std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec,
                          int& wallPointsStartIndex, std::vector<int>& pointClasses) {
-    std::string TAG = DataIO::TAG + "detectWalls\t";
+    std::string TAG = DataIO::TAG + "insertWalls\t";
 
     bool colorOsmWall = false;
     bool colorCertainLasWall = false;

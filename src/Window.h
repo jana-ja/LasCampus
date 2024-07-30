@@ -55,7 +55,7 @@ private:
     DataStructure& pointCloud;
 
     bool showInfo = false;
-    bool useSplatShader = false;
+    bool useSplatShader = true;
     bool backfaceCulling = false;
     bool enableTextures = true;
 

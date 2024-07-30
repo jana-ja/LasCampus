@@ -85,7 +85,7 @@ private:
         std::vector<GeoKeyEntry> entries;
     };
 
-// ShpPoint Data Record Format 1
+// Point Data Record Format 1
     struct PointDRF1 {
         uint16_t intensity;
         uint8_t flags; // multiple bits that are not needed and add up to eight
@@ -178,10 +178,39 @@ private:
 
     std::vector<PointDRF1> lasPoints;
     void readLas(const std::string& path);
-    bool buildingCheck(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
+    bool isPointInBuilding(const pcl::PointXYZRGBNormal& v, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree, const float& maxWallRadius);
+
+    /**
+     * remove tree/vegetation points (by removing multi return points)
+     * mark wall points
+     * assign texture coordinates to points
+     * @param cloud
+     * @param wallOctree
+     * @param maxWallRadius
+     * @param imgFile
+     * @param lasWallPoints
+     * @param lasGroundPoints
+     * @param texCoords
+     */
     void filterAndColorPoints(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& wallOctree,
                               const float& maxWallRadius, const std::string& imgFile, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints, std::vector<pcl::PointXY>& texCoords);
-    void detectWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
+    /**
+     * fit osm (shp) walls to wall points and insert new points for fitted walls
+     * insert new points for gml walls
+     * remove old wall points
+     * @param cloud
+     * @param polygons
+     * @param lasWallPoints
+     * @param lasGroundPoints
+     * @param lasPointTree
+     * @param osmWallOctree
+     * @param texCoords
+     * @param tangent1Vec
+     * @param tangent2Vec
+     * @param wallPointsStartIndex
+     * @param pointClasses
+     */
+    void insertWalls(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, std::vector<Polygon>& polygons, std::vector<bool>& lasWallPoints, std::vector<bool>& lasGroundPoints,
                      const pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& lasPointTree, const pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBNormal>& osmWallOctree, std::vector<pcl::PointXY>& texCoords,
                      std::vector<pcl::PointXYZ>& tangent1Vec, std::vector<pcl::PointXYZ>& tangent2Vec, int& wallPointsStartIndex, std::vector<int>& pointClasses);
     void complexStableWalls(Building& building);
@@ -238,7 +267,6 @@ private:
 
     bool fitPlane(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const Util::Wall& osmWall, pcl::Indices& certainWallPoints, pcl::PCA<pcl::PointXYZRGBNormal>& pca, Util::Wall& lasWall);
 
-    float getError(const pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr& cloud, const pcl::Indices certainWallPoints, const Util::Wall& osmWall, const Util::Wall lasWall);
 };
 
 

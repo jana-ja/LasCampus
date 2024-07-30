@@ -10,9 +10,13 @@ extern "C" {
 
 int main() {
 
+    // in las folder
     std::vector<std::string> lasFiles{R"(3dm_32_389_5705_1_nw.las)" };
+    // in shp folder
     std::string shpFile = R"(gis_osm_buildings_a_free_1.shp)";
+    // in gml folder
     std::string gmlFile = R"(LoD2_32_389_5705_1_NW.gml)";
+    // in img folder
     std::string imgFile = R"(dop10rgbi_32_389_5705_1_nw_2021.jpg)";
 
 

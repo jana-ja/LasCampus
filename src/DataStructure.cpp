@@ -24,7 +24,6 @@ DataStructure::DataStructure(const std::vector<std::string>& lasFiles, const std
     pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree = pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr(
             new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
     tree->setInputCloud(cloud);
-    //TODO tree ist grad doppelt
 
     if (!cachedSplats) {
 
@@ -711,56 +710,6 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
     cloud->insert(cloud->end(), newPoints.begin(), newPoints.end());
 
 
-}
-
-pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr
-DataStructure::kdTreePcaNormalEstimation(const uint32_t& startIdx, const uint32_t& endIdx) { // TODO use indices
-
-    auto start = std::chrono::high_resolution_clock::now();
-    std::cout << TAG << "start normal calculation" << std::endl;
-
-    // Create the normal estimation class, and pass the input dataset to it
-    pcl::NormalEstimation<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal> ne;
-    ne.setViewPoint(0.0f, 100000000.0f, 750000.0f);
-
-    ne.setInputCloud(cloud);
-
-    // Create an empty kdtree representation, and pass it to the normal estimation object.
-    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-    pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGBNormal>());
-    ne.setSearchMethod(tree);
-
-    ne.setKSearch(16);
-
-    // Compute the features
-    ne.compute(*cloud);
-
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "finished normal estimation in " << duration.count() << "s" << std::endl;
-
-
-    // compute radii
-    start = std::chrono::high_resolution_clock::now();
-    for (auto it = cloud->points.begin(); it != cloud->points.end(); it++) {
-        const auto& bla = *it;
-        std::vector<int> pointIdxRadiusSearch;
-        std::vector<float> pointRadiusSquaredDistance;
-        tree->radiusSearch(bla, 1.5, pointIdxRadiusSearch, pointRadiusSquaredDistance);
-        auto const count = static_cast<float>(pointRadiusSquaredDistance.size());
-
-        auto diff = std::max((count - 7.0f), 0.0f);
-
-        auto avg = std::reduce(pointRadiusSquaredDistance.begin(), pointRadiusSquaredDistance.end() - diff) /
-                   (count - diff);
-        (*it).curvature = avg;
-
-    }
-    stop = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    std::cout << TAG << "finished radius calculation in " << duration.count() << "s" << std::endl;
-
-    return tree;
 }
 
 uint32_t DataStructure::getVertexCount() {
