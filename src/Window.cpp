@@ -141,7 +141,7 @@ Window::Window(DataStructure& pointCloud) : WIDTH(1024), HEIGHT(768), TITLE("Cam
 
         // draw point cloud
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, birdsEyeTexture); //TODO nach oben schieben weil immer gleich?
+        glBindTexture(GL_TEXTURE_2D, birdsEyeTexture);
         glBindVertexArray(pcVAO);
         glDrawArrays(GL_POINTS, 0, pointCloud.getVertexCount()); // Starting from vertex 0
 
@@ -327,7 +327,7 @@ void Window::shaderSettings(Shader &shader) {
     shader.use();
     glm::mat4 projection = glm::perspective(glm::radians(camera.zoom), (float) WIDTH / (float) HEIGHT, Z_NEAR, Z_FAR);
     shader.setMat4("projection_matrix", projection);
-    shader.setFloat("point_size", POINT_SIZE); // TODO weg?
+    shader.setFloat("point_size", POINT_SIZE);
 }
 
 void Window::dataStuffPointCloud(GLuint &VBO, GLuint& t1VBO, GLuint& t2VBO, GLuint& texCoordVBO, GLuint& VAO, DataStructure& pointCloud) {

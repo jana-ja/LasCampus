@@ -77,7 +77,6 @@ DataStructure::adaKnnAndRadius(int k, pcl::search::KdTree<pcl::PointXYZRGBNormal
     float avgRadiusSumNeighbourhoods = 0;
     auto radiusCount = 0;
 
-    // TODO test if looks better, maybe cloud with all points, and only wall points separat
     // normal points
     pcl::Indices normalPoints(wallPointsStartIndex);
     std::iota (std::begin(normalPoints), std::end(normalPoints), 0);
@@ -595,7 +594,7 @@ DataStructure::adaComputeSplats(float splatGrowEpsilon, std::vector<pcl::Indices
     }
 }
 
-// TODO die machen dann vor splat generation noch denoising
+
 void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr& tree, std::vector<int>& pointClasses) {
 
     // determine avg splats density
@@ -692,7 +691,6 @@ void DataStructure::adaResampling(float avgRadiusNeighbourhoods, pcl::search::Kd
                     newPoint.b = 255;
                     newPoint.g = 0;
                     newPoint.r = 255;
-                    // TODO braucht noch normale, tangente1 und 2, radii
                     newPoint.normal_x = point.normal_x;
                     newPoint.normal_y = point.normal_y;
                     newPoint.normal_z = point.normal_z;

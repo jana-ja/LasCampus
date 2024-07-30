@@ -104,13 +104,6 @@ namespace Util {
         return result;
     }
 
-
-    inline float
-    isPointRightOfWall(pcl::PointXYZRGBNormal point, pcl::PointXYZRGBNormal wallPoint1, pcl::PointXYZRGBNormal wallPoint2) { // TODO inside/outside check
-        float d = (wallPoint2.x - wallPoint1.x) * (point.y - wallPoint1.y) - (point.x - wallPoint1.x) * (wallPoint2.y - wallPoint1.y);
-        return d;
-    }
-
     inline float vectorLengthNormal(const pcl::PointXYZRGBNormal vector) {
         return sqrt(pow(vector.normal_x, 2) + pow(vector.normal_y, 2) + pow(vector.normal_z, 2));
     }
